@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/shared/Modal';
 import EmptyState from '../../components/shared/EmptyState';
+import AutocompleteSelect from '../../components/shared/AutoCompleteSelect';
 
 const SUBJECTS = ['فقه','نحو','تجويد', "قراءات", 'عقيدة','حديث','تفسير','أصول','بلاغة','سيرة','أخرى'];
 const EMPTY = { title: '', author_id: '', subject: '', description: '' };
@@ -41,6 +42,23 @@ export default function MatnList() {
     api.get('/mutoon').then(r => setMutoon(r.data));
     api.get('/persons').then(r => setPersons(r.data));
   }, []);
+
+
+  const SL = ({ label, field, opts, opt0 = '—', onCh }) => (
+      <div className="form-group">
+        <label className="form-label">{label}</label>
+        <AutocompleteSelect
+          value={form[field] || ''}
+          opts={opts}
+          placeholder={opt0}
+          onChange={val => {
+            setForm(f => ({ ...f, [field]: val }));
+            onCh && onCh(val);
+          }}
+        />
+      </div>
+    );
+
 
   const save = async () => {
     setLoading(true);
@@ -95,11 +113,9 @@ export default function MatnList() {
           footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>إلغاء</button>
             <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? '...' : 'حفظ'}</button></>}>
           <F label="عنوان المتن *" field="title" form={form} setForm={setForm} />
-          <div className="form-group"><label className="form-label">المؤلف</label>
-            <select className="form-select" value={form.author_id || ''} onChange={e => setForm(f => ({ ...f, author_id: e.target.value }))}>
-              <option value="">— غير محدد —</option>
-              {persons.map(p => <option key={p.id} value={p.id}>{p.name_ar}</option>)}
-            </select></div>
+          <div className="form-group">
+            <SL label="المؤلف" field="author_id" opts={persons.map(p => ({ value: p.id, label: p.name_ar }))} opt0="اختر" />
+          </div>
           <div className="form-group"><label className="form-label">الموضوع</label>
             <select className="form-select" value={form.subject || ''} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}>
               <option value="">— اختر —</option>
