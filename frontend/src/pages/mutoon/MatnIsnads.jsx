@@ -176,6 +176,7 @@ export default function MatnIsnads() {
               chains={group.chains}
               stepScope={() => null}
               S={S}
+              authorId={matnInfo?.author_id}
             />
           </div>
         ))}

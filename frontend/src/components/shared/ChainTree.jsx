@@ -122,14 +122,14 @@ export function splitChains(chains) {
   return { prefix, branches, suffix };
 }
 
-export const ChainView = ({ chains, stepScope, S }) => {
+export const ChainView = ({ chains, stepScope, S, authorId }) => {
   if (!chains.length) return null;
 
   const { prefix, branches, suffix } = splitChains(chains);
 
   const renderEdges = (edges) => edges.map((edge, ei) => {
     const isLast    = ei === edges.length - 1;
-    const isSpecial = Number(edge.to_person_id) < 0;
+    const isSpecial = Number(edge.to_person_id) < 0 || (authorId && Number(edge.to_person_id) === Number(authorId));
     const scope     = stepScope(edge);
     return (
       <div key={`${edge.from_person_id}-${edge.to_person_id}`} style={S.stepRow}>
