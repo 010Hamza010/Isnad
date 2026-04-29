@@ -1,0 +1,16 @@
+const r    = require('express').Router();
+const auth = require('../middleware/auth');
+const c    = require('../controllers/quranController');
+r.get('/qiraat',        auth, c.listQiraat);
+r.post('/qiraat',       auth, c.createQiraa);
+r.put('/qiraat/:id',    auth, c.updateQiraa);
+r.delete('/qiraat/:id', auth, c.removeQiraa);
+r.get('/riwayat',        auth, c.listRiwayat);
+r.post('/riwayat',       auth, c.createRiwaya);
+r.put('/riwayat/:id',    auth, c.updateRiwaya);
+r.delete('/riwayat/:id', auth, c.removeRiwaya);
+r.get('/turuq',        auth, c.listTuruq);
+r.post('/turuq',       auth, c.createTariq);
+r.put('/turuq/:id',    auth, c.updateTariq);
+r.delete('/turuq/:id', auth, c.removeTariq);
+module.exports = r;

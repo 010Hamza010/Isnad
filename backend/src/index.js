@@ -1,0 +1,21 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api/auth',      require('./routes/auth'));
+app.use('/api/persons',   require('./routes/persons'));
+app.use('/api/tx-types',  require('./routes/txTypes'));
+app.use('/api/mutoon',    require('./routes/mutoon'));
+app.use('/api/matn-connections', require('./routes/matnConnections'));
+app.use('/api/quran',     require('./routes/quran'));
+app.use('/api/quran-connections', require('./routes/quranConnections'));
+app.use('/api/graph',     require('./routes/graph'));
+
+app.get('/api/health', (_, res) => res.json({ ok: true }));
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`Isnad API running on :${PORT}`));
