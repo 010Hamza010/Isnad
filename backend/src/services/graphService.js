@@ -53,11 +53,26 @@ function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwa
 function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap) {
   const targetSet = new Set(targetIds.map(Number));
 
+  // deduplicate edges: keep highest transmission_type_id per from→to pair
+  const edgeMap = new Map();
+  for (const edge of edges) {
+    const key = `${edge.from_person_id}-${edge.to_person_id}`;
+    if (!edgeMap.has(key)) {
+      edgeMap.set(key, edge);
+    } else {
+      const existing = edgeMap.get(key);
+      const existingTx = Number(existing.transmission_type_id) || 10;
+      const newTx      = Number(edge.transmission_type_id)     || 10;
+      if (newTx < existingTx) edgeMap.set(key, edge);
+    }
+  }
+  const dedupedEdges = [...edgeMap.values()];
+
   const allPaths = [];
   const dfs = (currentId, path, visited) => {
     if (targetSet.has(Number(currentId))) { allPaths.push([...path]); return; }
     if (visited.size > 30) return;
-    const next = edges.filter(e =>
+    const next = dedupedEdges.filter(e =>
       Number(e.from_person_id) === Number(currentId) &&
       edgeCompatible(e, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap)
     );
@@ -79,7 +94,7 @@ function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pM
     if (!path.length) continue;
     const key = `${path[0].from_person_id}-${path[0].to_person_id}`;
     if (!groups.has(key)) groups.set(key, { firstEdge: path[0], chains: [] });
-    groups.get(key).chains.push(path.slice(1)); // everything after first hop
+    groups.get(key).chains.push(path.slice(1));
   }
 
   return [...groups.values()];
