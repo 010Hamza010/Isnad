@@ -77,11 +77,9 @@ export function commonSuffix(chains) {
   if (!chains.length) return [];
   if (chains.length === 1) return chains[0];
 
-  const keys = chains.map(c =>
-    c.map(e => `${e.from_person_id}-${e.to_person_id}`)
-  );
+  // match only on to_person_id — from differs across branches
+  const keys = chains.map(c => c.map(e => `${e.to_person_id}`));
 
-  // find how many edges from the END are identical across all chains
   let suffixLen = 0;
   const minLen = Math.min(...chains.map(c => c.length));
 
