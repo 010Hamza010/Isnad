@@ -1,0 +1,870 @@
+{
+  "info": {
+    "name": "Isnad System API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"admin\", \"password\": \"123456\"}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const r = pm.response.json();",
+                  "if(r.token) pm.collectionVariables.set('token', r.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"admin\", \"password\": \"123456\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Persons",
+      "item": [
+        {
+          "name": "List Persons",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/persons",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Search Persons",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/persons?q=نافع",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "persons"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "نافع"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Person",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/persons",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0646\\u0627\\u0641\\u0639 \\u0627\\u0644\\u0645\\u062f\\u0646\\u064a\", \"name_latin\": \"Nafi al-Madani\", \"century\": 2, \"death_year\": 169, \"region\": \"\\u0627\\u0644\\u0645\\u062f\\u064a\\u0646\\u0629\", \"primary_qiraa_id\": 1}"
+            }
+          }
+        },
+        {
+          "name": "Update Person",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/persons/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0646\\u0627\\u0641\\u0639 \\u0627\\u0644\\u0645\\u062f\\u0646\\u064a\", \"name_latin\": \"Nafi al-Madani\", \"century\": 2, \"death_year\": 169, \"region\": \"\\u0627\\u0644\\u0645\\u062f\\u064a\\u0646\\u0629\", \"primary_qiraa_id\": 1}"
+            }
+          }
+        },
+        {
+          "name": "Delete Person",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/persons/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mutoon",
+      "item": [
+        {
+          "name": "List Mutoon",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/mutoon",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Matn",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/mutoon",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"title\": \"\\u0627\\u0644\\u0622\\u062c\\u0631\\u0648\\u0645\\u064a\\u0629\", \"author_id\": 1, \"subject\": \"\\u0646\\u062d\\u0648\", \"description\": \"\\u0645\\u062a\\u0646 \\u0641\\u064a \\u0627\\u0644\\u0646\\u062d\\u0648\"}"
+            }
+          }
+        },
+        {
+          "name": "Update Matn",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/mutoon/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"title\": \"\\u0627\\u0644\\u0622\\u062c\\u0631\\u0648\\u0645\\u064a\\u0629\", \"author_id\": 1, \"subject\": \"\\u0646\\u062d\\u0648\", \"description\": \"\\u0645\\u062a\\u0646 \\u0641\\u064a \\u0627\\u0644\\u0646\\u062d\\u0648\"}"
+            }
+          }
+        },
+        {
+          "name": "Delete Matn",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/mutoon/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transmission Types",
+      "item": [
+        {
+          "name": "List All",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/transmission-types",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "List (quran only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/transmission-types?applies_to=quran",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "transmission-types"
+              ],
+              "query": [
+                {
+                  "key": "applies_to",
+                  "value": "quran"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "List (mutoon only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/transmission-types?applies_to=mutoon",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "transmission-types"
+              ],
+              "query": [
+                {
+                  "key": "applies_to",
+                  "value": "mutoon"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quran — Qiraat",
+      "item": [
+        {
+          "name": "List Qiraat",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/quran/qiraat",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Qiraa",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/quran/qiraat",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0642\\u0631\\u0627\\u0621\\u0629 \\u0646\\u0627\\u0641\\u0639\", \"imam_id\": 1, \"description\": \"\\u0642\\u0631\\u0627\\u0621\\u0629 \\u0627\\u0644\\u0625\\u0645\\u0627\\u0645 \\u0646\\u0627\\u0641\\u0639 \\u0627\\u0644\\u0645\\u062f\\u0646\\u064a\"}"
+            }
+          }
+        },
+        {
+          "name": "Update Qiraa",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/quran/qiraat/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0642\\u0631\\u0627\\u0621\\u0629 \\u0646\\u0627\\u0641\\u0639\", \"imam_id\": 1, \"description\": \"\\u0642\\u0631\\u0627\\u0621\\u0629 \\u0627\\u0644\\u0625\\u0645\\u0627\\u0645 \\u0646\\u0627\\u0641\\u0639 \\u0627\\u0644\\u0645\\u062f\\u0646\\u064a\"}"
+            }
+          }
+        },
+        {
+          "name": "Delete Qiraa",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/quran/qiraat/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quran — Riwayat",
+      "item": [
+        {
+          "name": "List Riwayat",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/quran/riwayat",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Riwaya",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/quran/riwayat",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0631\\u0648\\u0627\\u064a\\u0629 \\u0648\\u0631\\u0634\", \"qiraa_id\": 1, \"rawi_id\": 2, \"description\": \"\\u0631\\u0648\\u0627\\u064a\\u0629 \\u0648\\u0631\\u0634 \\u0639\\u0646 \\u0646\\u0627\\u0641\\u0639\"}"
+            }
+          }
+        },
+        {
+          "name": "Update Riwaya",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/quran/riwayat/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0631\\u0648\\u0627\\u064a\\u0629 \\u0648\\u0631\\u0634\", \"qiraa_id\": 1, \"rawi_id\": 2, \"description\": \"\\u0631\\u0648\\u0627\\u064a\\u0629 \\u0648\\u0631\\u0634 \\u0639\\u0646 \\u0646\\u0627\\u0641\\u0639\"}"
+            }
+          }
+        },
+        {
+          "name": "Delete Riwaya",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/quran/riwayat/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quran — Turuq",
+      "item": [
+        {
+          "name": "List Turuq",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/quran/turuq",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Tariq",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/quran/turuq",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0637\\u0631\\u064a\\u0642 \\u0627\\u0644\\u0623\\u0632\\u0631\\u0642\", \"riwaya_id\": 1, \"parent_id\": null, \"description\": \"\"}"
+            }
+          }
+        },
+        {
+          "name": "Update Tariq",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/quran/turuq/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name_ar\": \"\\u0637\\u0631\\u064a\\u0642 \\u0627\\u0644\\u0623\\u0632\\u0631\\u0642\", \"riwaya_id\": 1, \"parent_id\": null, \"description\": \"\"}"
+            }
+          }
+        },
+        {
+          "name": "Delete Tariq",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/quran/turuq/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quran Connections",
+      "item": [
+        {
+          "name": "List My Connections",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/quran-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Connection (with items)",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/quran-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 5, \"transmission_type_id\": 1, \"meeting_mode\": \"\\u062d\\u0636\\u0648\\u0631\\u0627\\u064b\", \"khatmat_count\": 1, \"ijaza_date\": \"2023-06-15\", \"notes\": \"\\u0642\\u0631\\u0623\\u062a \\u0639\\u0644\\u064a\\u0647 \\u0641\\u064a \\u0627\\u0644\\u0645\\u062f\\u064a\\u0646\\u0629\", \"items\": [{\"qiraa_id\": 1, \"riwaya_id\": 1, \"tariq_id\": null}, {\"qiraa_id\": 1, \"riwaya_id\": 2, \"tariq_id\": null}]}"
+            }
+          }
+        },
+        {
+          "name": "Create Connection (مطلق — no items)",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/quran-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 5, \"transmission_type_id\": 1, \"meeting_mode\": \"\\u062d\\u0636\\u0648\\u0631\\u0627\\u064b\", \"khatmat_count\": 1, \"items\": []}"
+            }
+          }
+        },
+        {
+          "name": "Update Connection",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/quran-connections/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 5, \"transmission_type_id\": 1, \"meeting_mode\": \"\\u062d\\u0636\\u0648\\u0631\\u0627\\u064b\", \"khatmat_count\": 2, \"items\": [{\"qiraa_id\": 1, \"riwaya_id\": 1, \"tariq_id\": null}]}"
+            }
+          }
+        },
+        {
+          "name": "Delete Connection",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/quran-connections/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matn Connections",
+      "item": [
+        {
+          "name": "List All",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/matn-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Create Connection",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/matn-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 3, \"matn_id\": 1, \"transmission_type_id\": 2, \"is_general_ijaza\": false, \"description\": \"\\u0642\\u0631\\u0623\\u062a \\u0639\\u0644\\u064a\\u0647 \\u0627\\u0644\\u0622\\u062c\\u0631\\u0648\\u0645\\u064a\\u0629\"}"
+            }
+          }
+        },
+        {
+          "name": "Create Connection (مطلق — all mutoon)",
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/matn-connections",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 3, \"matn_id\": null, \"transmission_type_id\": 3, \"is_general_ijaza\": true, \"description\": \"\\u0625\\u062c\\u0627\\u0632\\u0629 \\u0639\\u0627\\u0645\\u0629\"}"
+            }
+          }
+        },
+        {
+          "name": "Update Connection",
+          "request": {
+            "method": "PUT",
+            "url": "{{base}}/matn-connections/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from_person_id\": 0, \"to_person_id\": 3, \"matn_id\": 1, \"transmission_type_id\": 2, \"is_general_ijaza\": false, \"description\": \"updated\"}"
+            }
+          }
+        },
+        {
+          "name": "Delete Connection",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base}}/matn-connections/1",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Graph",
+      "item": [
+        {
+          "name": "Quran Paths — by Riwaya",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/graph/quran/paths?riwaya_id=1",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "graph",
+                "quran",
+                "paths"
+              ],
+              "query": [
+                {
+                  "key": "riwaya_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Quran Paths — by Riwaya + Tariq",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/graph/quran/paths?riwaya_id=1&tariq_id=2",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "graph",
+                "quran",
+                "paths"
+              ],
+              "query": [
+                {
+                  "key": "riwaya_id",
+                  "value": "1"
+                },
+                {
+                  "key": "tariq_id",
+                  "value": "2"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Matn Paths",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/graph/matn/1/paths",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Full Graph (both)",
+          "request": {
+            "method": "GET",
+            "url": "{{base}}/graph/full",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Full Graph (quran only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/graph/full?module=quran",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "graph",
+                "full"
+              ],
+              "query": [
+                {
+                  "key": "module",
+                  "value": "quran"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Full Graph (mutoon only)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base}}/graph/full?module=mutoon",
+              "host": [
+                "{{base}}"
+              ],
+              "path": [
+                "graph",
+                "full"
+              ],
+              "query": [
+                {
+                  "key": "module",
+                  "value": "mutoon"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
