@@ -2,7 +2,7 @@
 const Ijaza = require('../models/IjazaModel');
 const { HttpError } = require('../utils/httpError');
 const { normalizeShortCode } = require('../utils/codes');
-const { parsePayload, signatureOk, fieldsOf, FIELDS, LABELS } = require('../utils/qrPayload');
+const { parsePayload, signatureOk, fieldsForFormat, FIELDS, LABELS } = require('../utils/qrPayload');
 
 /**
  * body: { payload } (the QR text) or { code } (typed short code).
@@ -20,7 +20,7 @@ exports.verify = async (req, res) => {
   if (!row) return res.json({ status: 'unknown', code: shortCode, message: 'لا توجد في سجلك إجازة بهذا الرمز' });
 
   // compare every field of the QR with the stored ijaza
-  const stored = fieldsOf(row);
+  const stored = fieldsForFormat(row, scanned?.format);
   const checks = scanned ? [
     ...FIELDS.map(k => ({ field: LABELS[k], ok: scanned[k] === stored[k], scanned: scanned[k] ?? '', stored: stored[k] })),
     { field: LABELS.sig, ok: signatureOk(scanned), scanned: scanned.sig, stored: '' },
