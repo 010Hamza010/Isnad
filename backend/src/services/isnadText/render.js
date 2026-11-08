@@ -129,25 +129,32 @@ const joinWord = (count, allF) => (count === 2 ? (allF ? 'كلتاهما' : 'ك�
  *    written the same way, then «كلاهما / كلهم عن X» and the shared rest.
  * scope: { opening: chains start at me (first-person link), restart: name to restart from after ح }
  */
+const MAX_DEPTH = 40; // safety net: never recurse without end, whatever the data
+
 function renderSet(chains, s, ctx, scope) {
   const sep = s.style.separator;
+  const depth = (scope.depth || 0) + 1;
+  const linear = c => renderLinks(c, s, ctx, { opening: scope.opening }).join(sep);
   const seen = new Set();
   const list = chains.filter(c => { const k = chainKey(c); if (seen.has(k)) return false; seen.add(k); return true; });
   const live = list.filter(c => c.length);
   if (!live.length) return '';
-  if (list.length === 1) return renderLinks(list[0], s, ctx, { opening: scope.opening }).join(sep);
+  if (list.length === 1) return linear(list[0]);
+  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${scope.restart}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
+  const joinBranches = texts => texts.map((t, i) => (i === 0 ? t : restartText(t))).join(' ');
+  if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
 
   // 1. shared beginning
   const n = sharedHead(list);
   if (n > 0) {
     const head = renderLinks(list[0].slice(0, n), s, ctx, { opening: scope.opening }).join(sep);
-    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: list[0][n - 1].to_name });
+    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: list[0][n - 1].to_name, depth });
     return [head, rest].filter(Boolean).join(sep);
   }
 
   // a chain that already ended here: its last person (the restart) narrates straight on
   const ended = list.length !== live.length;
-  const branches = live.length === 1 ? [renderLinks(live[0], s, ctx, { opening: scope.opening }).join(sep)] : null;
+  const branches = live.length === 1 ? [linear(live[0])] : null;
 
   // 2. shared ending: group the heads by the narrator who reaches the meeting point
   const k = branches || ended ? 0 : sharedTail(live);
@@ -156,15 +163,25 @@ function renderSet(chains, s, ctx, scope) {
   if (!texts) {
     const groups = new Map();
     heads.forEach(h => { const key = pid(h[h.length - 1]); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(h); });
-    texts = [...groups.values()].map(g => renderSet(g, s, ctx, scope));
+    if (groups.size === 1 && !k) {
+      // Every route reaches the same shaykh and one of them is a single direct link
+      // («قرأتُ على ابن قدامة» and «قرأتُ على ابن آجروم، وهو قرأ على ابن قدامة»): nothing more to
+      // factor here, so write the direct routes, then let the longer ones factor among themselves.
+      const direct = heads.filter(h => h.length === 1);
+      const longer = heads.filter(h => h.length > 1);
+      texts = [...direct.map(linear), ...(longer.length ? [renderSet(longer, s, ctx, { ...scope, depth })] : [])];
+    } else {
+      texts = [...groups.values()].map(g => renderSet(g, s, ctx, { ...scope, depth }));
+    }
   }
-  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${scope.restart}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
-  let text = texts.map((t, i) => (i === 0 ? t : restartText(t))).join(' ');
+  let text = joinBranches(texts);
   if (ended && scope.restart) text += ` ${restartText('')}`;
   if (!k) return text;
 
   const tail = live[0].slice(live[0].length - k);
   const narrators = new Map(live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]));
+  // all routes reach the same narrator first: no «كلاهما», just carry on from him
+  if (narrators.size === 1) return [text, ...renderLinks(tail, s, ctx, { opening: false })].join(sep);
   const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');
   const x = tail[0];
   const who = personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx);

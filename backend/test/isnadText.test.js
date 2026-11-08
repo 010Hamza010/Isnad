@@ -375,3 +375,44 @@ describe('meeting point states how they took, عنعنة stays plain «عن»', 
     assert.equal(s.phrases.first.null, 'عن {الاسم}');
   });
 });
+
+describe('تحويل when one route passes through a shaykh I also read on directly', () => {
+  let n = 100;
+  const ids = {};
+  const id = name => (ids[name] ??= n++);
+  const chain = names => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, to_person_id: id(nm), to_name: nm, tx_kind: 'qiraa' }; prev = e.to_person_id; return e; });
+  };
+  const st = { style: { clear: true, firstTitle: '' } };
+  const rest = ['ابن الجزري', 'النبي ﷺ'];
+
+  test('me → ابن قدامة and me → ابن آجروم → ابن قدامة: no infinite recursion, no «كلهم» for one person', () => {
+    const t = T.renderChains([chain(['ابن قدامة', ...rest]), chain(['ابن آجروم', 'ابن قدامة', ...rest])], st);
+    assert.equal(t,
+      'قرأتُ على ابن قدامة ح وقرأتُ على ابن آجروم، وهو قرأ على ابن قدامة، وهو قرأ على ابن الجزري، وهو قرأ على النبي ﷺ');
+  });
+
+  test('three routes reaching the same shaykh at different depths', () => {
+    const t = T.renderChains([
+      chain(['ابن قدامة', ...rest]),
+      chain(['ابن آجروم', 'ابن قدامة', ...rest]),
+      chain(['زيد', 'عمرو', 'ابن قدامة', ...rest]),
+    ], st);
+    assert.equal((t.match(/ابن الجزري/g) || []).length, 1, t);
+    assert.equal((t.match(/ ح /g) || []).length, 2, t);
+    // ابن آجروم and عمرو both read on ابن قدامة: «كلاهما» is right; the direct route stands alone
+    assert.match(t, /^قرأتُ على ابن قدامة ح /, t);
+    assert.match(t, /كلاهما قرأ على ابن قدامة، وهو قرأ على ابن الجزري/, t);
+  });
+
+  test('mixed: two different narrators meet at X while another route reaches one of them directly', () => {
+    const t = T.renderChains([
+      chain(['ب', 'X', ...rest]),
+      chain(['أ', 'ب', 'X', ...rest]),
+      chain(['ج', 'X', ...rest]),
+    ], st);
+    assert.match(t, /كلاهما (?:قرأ على|عن) X/, t);
+    assert.equal((t.match(/ابن الجزري/g) || []).length, 1, t);
+  });
+});
