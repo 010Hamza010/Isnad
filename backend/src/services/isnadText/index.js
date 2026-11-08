@@ -16,7 +16,8 @@ function toEdges(chain) {
   let from = { id: chain.start ? null : 0, name: chain.start, death: chain.start_death_year };
   chain.links.forEach(l => {
     edges.push({ from_person_id: from.id, from_name: from.name, from_death_year: from.death,
-      to_person_id: l.person_id ?? null, to_name: l.name, to_death_year: l.death_year, transmission_type_id: l.tx_type_id });
+      to_person_id: l.person_id ?? null, to_name: l.name, to_death_year: l.death_year, transmission_type_id: l.tx_type_id,
+      reading_mode: l.reading_mode });
     from = { id: l.person_id ?? null, name: l.name, death: l.death_year };
   });
   return edges;

@@ -1,10 +1,12 @@
 const { mergeSettings } = require('./settings');
+const { LINK_FORMS, MANNERS } = require('./vocabulary');
 const { normalizeArabic, tokenize } = require('./normalize');
 
 const JOINERS = new Set(['كلاهما', 'كلهما', 'كلهم', 'جميعا', 'كلاهم'].map(normalizeArabic));
 const CONJ = /^[وف]/; // وأخبرنا، فحدثنا
 
 const phrase = s => tokenize(s).map(t => t.norm);
+const keys = s => tokenize(s).map(t => t.key);       // strict form for keywords / manners
 
 // split «قُرئ على {الاسم} وأنا أسمع» into its prefix and suffix
 const NAME_SLOT = '{الاسم}';
@@ -18,10 +20,16 @@ const phraseParts = s => [s.phrases.first, s.phrases.others].flatMap(map => Obje
 function buildMatcher(s) {
   const forms = [];
   s.keywords.forEach(k => [k.word, k.abbr, ...(k.variants || [])].filter(Boolean)
-    .forEach(f => forms.push({ seq: phrase(f), keyword: k })));
+    .forEach(f => forms.push({ seq: keys(f), keyword: k })));
   // clear sentences act as keywords too: «وهو قرأ على» → قراءة
   phraseParts(s).forEach(({ prefix, tx }) => {
-    if (prefix) forms.push({ seq: phrase(prefix), keyword: { word: prefix, tx_type_id: tx } });
+    if (prefix) forms.push({ seq: keys(prefix), keyword: { word: prefix, tx_type_id: tx } });
+  });
+  // built-in forms («بسماعه من»…) unless the user's keywords already cover them
+  const known = new Set(forms.map(f => f.seq.join(' ')));
+  LINK_FORMS.forEach(([f, tx]) => {
+    const seq = keys(f);
+    if (!known.has(seq.join(' '))) forms.push({ seq, keyword: { word: f, tx_type_id: tx } });
   });
   forms.sort((a, b) => b.seq.length - a.seq.length); // longest match first («قرأت على» before «قرأت»)
 
@@ -30,7 +38,7 @@ function buildMatcher(s) {
     for (const { seq, keyword } of forms) {
       if (i + seq.length > tokens.length) continue;
       const ok = seq.every((w, j) => {
-        const t = tokens[i + j].norm;
+        const t = tokens[i + j].key;
         return t === w || (j === 0 && CONJ.test(t) && t.slice(1) === w);
       });
       if (ok) return { keyword, length: seq.length };
@@ -74,9 +82,11 @@ function parseSegment(tokens, s, match, warnings, ctx) {
       i++; continue;
     }
     // sentence endings first: «وأنا أسمع» must not be read as the keyword «أنا»
-    const suffix = ctx.suffixAt(tokens, i);
+    // only after a name: «سماعاً عليه» before any name is ordinary text
+    const suffix = cur && cur.words.length ? ctx.suffixAt(tokens, i) : null;
     if (suffix) {
-      if (cur) cur.tx_type_id = suffix.tx; // «أجازني فلان إجازةً عامة» → إجازة عامة
+      if (suffix.tx !== undefined) cur.tx_type_id = suffix.tx; // «عن فلان سماعاً عليه» → سماع
+      if (suffix.mode) cur.reading_mode = suffix.mode;        // «… حفظاً»
       i += suffix.seq.length; continue;
     }
     const m = match(tokens, i);
@@ -93,7 +103,7 @@ function parseSegment(tokens, s, match, warnings, ctx) {
   if (cur) links.push(cur);
 
   const named = links
-    .map(l => ({ keyword: l.keyword, tx_type_id: l.tx_type_id, name: cleanName(l.words, s.titles), death_year: l.death_year || null }))
+    .map(l => ({ keyword: l.keyword, tx_type_id: l.tx_type_id, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null }))
     .filter(l => {
       if (l.name) return true;
       warnings.push(`صيغة «${l.keyword}» بلا اسم بعدها — تم تجاهلها`);
@@ -126,11 +136,15 @@ function prepare(text) {
   return { text: out, deaths };
 }
 
-// sentence endings («وأنا أسمع»، «إجازةً عامة») are dropped; they pin the link's type
+// Phrases after a name — sentence endings («وأنا أسمع») and manners («سماعاً عليه»، «حفظاً») —
+// are dropped from the name; they set the link's type and/or reading mode.
 function buildSuffixMatcher(s) {
-  const seqs = phraseParts(s).filter(p => p.suffix).map(p => ({ seq: phrase(p.suffix), tx: p.tx }));
+  const seqs = [
+    ...phraseParts(s).filter(p => p.suffix).map(p => ({ seq: keys(p.suffix), tx: p.tx })),
+    ...MANNERS.map(([text, m]) => ({ seq: keys(text), ...m })),
+  ];
   seqs.sort((a, b) => b.seq.length - a.seq.length);
-  return (tokens, i) => seqs.find(({ seq }) => seq.length && seq.every((w, j) => tokens[i + j]?.norm === w)) || null;
+  return (tokens, i) => seqs.find(({ seq }) => seq.length && seq.every((w, j) => tokens[i + j]?.key === w)) || null;
 }
 
 function parseIsnad(text, settings) {

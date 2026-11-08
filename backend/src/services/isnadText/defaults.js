@@ -29,6 +29,8 @@ module.exports = {
     clear: false,        // write each link as a clear sentence (see `phrases`) instead of a keyword
     deathYears: false,   // «فلان (ت 852هـ)»
     noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for footnotes
+    heartWord: 'حفظاً',     // written after the shaykh when I read from memory (clear mode)
+    lookingWord: 'نظراً',   // … when I read from the text
   },
   /*
    * Clear sentences per transmission type id ('null' = untyped / عنعنة); {الاسم} is the shaykh.
