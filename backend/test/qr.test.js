@@ -8,10 +8,21 @@ const ROW = { id: 5, user_id: 7, short_code: 'ISN-7K3Q-9P2M', student_name: 'أ�
   created_at: '2026-11-08T10:32:41Z', issued_at: '2026-11-08', revoked_at: null };
 
 describe('QR payload', () => {
-  test('readable lines with code, student, subject, date-time and a signature — no URL', () => {
+  test('five short lines: code, student, subject (without «إجازة في»), date-time, signature — no URL', () => {
     const p = Q.buildPayload(ROW);
-    assert.match(p, /^إجازة — إسناد\nالرمز: ISN-7K3Q-9P2M\nالمجاز: أحمد بن علي\nالموضوع: إجازة في متن «الآجرومية»\nالتاريخ: 2026-11-08 10:32\nالتوقيع: [\w-]{22}$/);
-    assert.doesNotMatch(p, /https?:|\/v\//);
+    assert.match(p, /^ISN-7K3Q-9P2M\nأحمد بن علي\nمتن «الآجرومية»\n2026-11-08 10:32\n[\w-]{16}$/);
+    assert.doesNotMatch(p, /https?:/);
+    assert.ok(Buffer.byteLength(p) < 140, `${Buffer.byteLength(p)} bytes`);
+  });
+  test('QR codes printed with the first (labelled) format are still verified', () => {
+    const crypto = require('crypto');
+    const f = { code: ROW.short_code, student: ROW.student_name, subject: ROW.title, issued: '2026-11-08 10:32' };
+    const sig = crypto.createHmac('sha256', 'test-secret').update([f.code, f.student, f.subject, f.issued].join('\n')).digest('base64url').slice(0, 22);
+    const old = `إجازة — إسناد\nالرمز: ${f.code}\nالمجاز: ${f.student}\nالموضوع: ${f.subject}\nالتاريخ: ${f.issued}\nالتوقيع: ${sig}`;
+    const parsed = Q.parsePayload(old);
+    assert.equal(parsed.format, 1);
+    assert.ok(Q.signatureOk(parsed));
+    assert.deepEqual(Q.fieldsForFormat(ROW, 1).subject, ROW.title);
   });
   test('parse → fields, and the signature checks out; any edited field breaks it', () => {
     const f = Q.parsePayload(Q.buildPayload(ROW));
