@@ -74,3 +74,20 @@ test('settings keep a valid default design', () => {
   assert.equal(s.default_design, 'mine');
   assert.equal(IS.mergeSettings(null).default_design, 'classic');
 });
+
+test('teachers paragraph: defaults contain it, old saved templates are upgraded once', () => {
+  assert.match(IS.DEFAULTS.templates.mutoon, /\{شيوخ_القراءة\}\n\nوإسنادي/);
+  const old = { templates: { mutoon: 'أما بعد…\n\nوإسنادي فيه: {الإسناد}.', quran: 'نص بلا إسناد', general: 'عامة' } };
+  const up = IS.mergeSettings(old);
+  assert.equal(up.templates.mutoon, 'أما بعد…\n\n{شيوخ_القراءة}\n\nوإسنادي فيه: {الإسناد}.');
+  assert.equal(up.templates.quran, 'نص بلا إسناد'); // nothing to anchor on: unchanged
+  // saved after the upgrade (version 2): a removed placeholder stays removed
+  const saved = IS.validateSettings(up);
+  saved.templates.mutoon = 'أما بعد…\n\nوإسنادي فيه: {الإسناد}.';
+  assert.doesNotMatch(IS.mergeSettings(saved).templates.mutoon, /شيوخ_القراءة/);
+});
+
+test('teachers sentence must contain {الشيوخ}', () => {
+  assert.throws(() => IS.validateSettings({ teachers_sentence: { mutoon: 'قرأت على جماعة' } }), e => e.status === 400);
+  assert.doesNotThrow(() => IS.validateSettings({ teachers_sentence: { mutoon: '' } }));
+});
