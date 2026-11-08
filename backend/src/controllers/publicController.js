@@ -13,6 +13,7 @@ async function publicView(row) {
     revoked_at: row.revoked_at || null,
     revoke_reason: row.revoked_at ? row.revoke_reason || null : null,
     short_code: row.short_code,
+    token: row.public_token, // the same code the QR link carries; lets a short-code lookup load the original
     student_name: row.student_name,
     shaykh_name: shaykh,
     title: row.title,
