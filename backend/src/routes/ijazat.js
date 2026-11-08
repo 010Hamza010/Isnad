@@ -9,4 +9,6 @@ r.get('/',            auth, w(c.list));
 r.get('/:id',         auth, w(c.get));
 r.post('/',           auth, w(c.create));
 r.delete('/:id',      auth, w(c.remove));
+r.post('/:id/revoke',   auth, w(c.revoke));
+r.delete('/:id/revoke', auth, w(c.unrevoke));
 module.exports = r;

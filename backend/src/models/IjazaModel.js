@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const { newToken, newShortCode } = require('../utils/codes');
 
 const SELECT = `
   SELECT i.*, m.title AS matn_title, q.name_ar AS qiraa_name, r.name_ar AS riwaya_name,
@@ -15,14 +16,55 @@ const parseDetails = row => {
   try { return { ...row, details: JSON.parse(row.details) }; } catch { return { ...row, details: null }; }
 };
 
+// Give a row its public token and short code (new rows, and rows issued before verification existed).
+// A collision on the unique keys is astronomically unlikely, but is retried.
+async function ensureCodes(row) {
+  if (!row || (row.public_token && row.short_code)) return row;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const token = row.public_token || newToken();
+    const code = row.short_code || newShortCode();
+    try {
+      await db.query('UPDATE ijazat SET public_token = ?, short_code = ? WHERE id = ?', [token, code, row.id]);
+      return { ...row, public_token: token, short_code: code };
+    } catch (e) {
+      if (e.code !== 'ER_DUP_ENTRY') throw e;
+    }
+  }
+  throw new Error('could not allocate a unique verification code');
+}
+exports.ensureCodes = ensureCodes;
+
 exports.findAllForUser = async (userId) => {
   const [rows] = await db.query(`${SELECT} WHERE i.user_id = ? ORDER BY i.issued_at DESC, i.id DESC`, [userId]);
-  return rows.map(parseDetails);
+  const out = [];
+  for (const r of rows) out.push(parseDetails(await ensureCodes(r)));
+  return out;
 };
 
 exports.findById = async (id, userId) => {
   const [[row]] = await db.query(`${SELECT} WHERE i.id = ? AND i.user_id = ?`, [id, userId]);
+  return parseDetails(await ensureCodes(row));
+};
+
+/** Public lookups (no user scope): by link token or by the printed short code. */
+exports.findByToken = async (token) => {
+  const [[row]] = await db.query(`${SELECT} WHERE i.public_token = ?`, [token]);
   return parseDetails(row);
+};
+exports.findByShortCode = async (code) => {
+  const [[row]] = await db.query(`${SELECT} WHERE i.short_code = ?`, [code]);
+  return parseDetails(row);
+};
+
+exports.recordScan = async (id) => {
+  await db.query('UPDATE ijazat SET scan_count = scan_count + 1, last_scanned_at = NOW() WHERE id = ?', [id]);
+};
+
+exports.setRevoked = async (id, userId, reason) => {
+  await db.query(
+    'UPDATE ijazat SET revoked_at = ?, revoke_reason = ? WHERE id = ? AND user_id = ?',
+    reason === null ? [null, null, id, userId] : [new Date(), reason || null, id, userId]
+  );
 };
 
 exports.create = async (userId, f) => {
