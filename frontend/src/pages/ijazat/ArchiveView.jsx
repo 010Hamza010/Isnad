@@ -18,6 +18,7 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged, au
   const [loading, setLoading] = useState(true);
   const [freezing, setFreezing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [making, setMaking] = useState(false);       // generating the PDF from the frozen original
   const frame = useRef(null);
   const file = useRef(null);
 
@@ -49,19 +50,37 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged, au
     } finally { setFreezing(false); }
   };
 
+  const sendPdf = async (blob, name) => {
+    const { data } = await api.post(`/ijazat/${row.id}/pdf`, blob, {
+      headers: { 'Content-Type': 'application/pdf', 'X-Filename': encodeURIComponent(name) },
+    });
+    onChanged?.({ ...row, ...data });
+    return data;
+  };
+
   const uploadPdf = async e => {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
     setUploading(true);
-    try {
-      const { data } = await api.post(`/ijazat/${row.id}/pdf`, f, {
-        headers: { 'Content-Type': 'application/pdf', 'X-Filename': encodeURIComponent(f.name) },
-      });
-      onChanged?.({ ...row, ...data });
-      toast('أُرفق ملف PDF — لا يمكن استبداله بعد الآن');
-    } catch (err) { notifyError(err); } finally { setUploading(false); }
+    try { await sendPdf(f, f.name); toast('أُرفق ملف PDF — لا يمكن استبداله بعد الآن'); }
+    catch (err) { notifyError(err); } finally { setUploading(false); }
   };
+
+  // The PDF original is made automatically from the frozen document, once.
+  const makePdf = async () => {
+    if (making || row.pdf_sha256) return;
+    setMaking(true);
+    try {
+      const blob = await frame.current.toPdf();
+      await sendPdf(blob, `إجازة ${row.student_name} ${row.short_code}.pdf`);
+      toast('حُفظت نسخة PDF الأصلية');
+    } catch (err) {
+      if (err.response?.status === 409) return;     // made meanwhile (another tab)
+      if (err.response) notifyError(err); else toast('تعذّر إنشاء PDF — يمكنك إعادة المحاولة', 'error');
+    } finally { setMaking(false); }
+  };
+  const autoPdf = useRef(false);
 
   // the PDF needs the login token, so it is fetched and handed to the browser as a blob
   const openPdf = async download => {
@@ -77,6 +96,7 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged, au
   // «طباعة» from the register: print as soon as the archived document is shown
   const printed = useRef(false);
   const onFrameReady = () => {
+    if (!row.pdf_sha256 && !autoPdf.current) { autoPdf.current = true; setTimeout(makePdf, 500); }
     if (autoPrint && !printed.current) { printed.current = true; setTimeout(() => frame.current?.print(), 300); }
   };
 
@@ -102,7 +122,7 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged, au
         <Icon name="save" size={16} />
         {row.pdf_sha256 ? (
           <>
-            <span>ملف PDF المسلَّم: <strong>{row.pdf_filename}</strong> ({kb(row.pdf_size)})</span>
+            <span>نسخة PDF الأصلية: <strong>{row.pdf_filename}</strong> ({kb(row.pdf_size)})</span>
             <span>البصمة <code title={row.pdf_sha256}>{shortHash(row.pdf_sha256)}</code></span>
             <span className="spacer" />
             <button className="btn btn-secondary btn-sm" onClick={() => openPdf(false)} title="فتح ملف PDF في نافذة جديدة"><Icon name="eye" size={14} /> عرض</button>
@@ -110,11 +130,17 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged, au
           </>
         ) : (
           <>
-            <span className="muted">أرفق ملف PDF الذي سلّمته للمجاز — يُحفظ مرة واحدة ولا يُستبدل.</span>
+            {making
+              ? <span className="muted"><span className="spinner" style={{ display: 'inline-block', verticalAlign: 'middle' }} /> جارٍ إنشاء نسخة PDF الأصلية…</span>
+              : <span className="muted">نسخة PDF الأصلية تُنشأ تلقائياً من النسخة المحفوظة، مرة واحدة ولا تُستبدل.</span>}
             <span className="spacer" />
+            {doc && !making && (
+              <button className="btn btn-secondary btn-sm" onClick={makePdf} title="إنشاء PDF من النسخة الأصلية">إنشاء PDF</button>
+            )}
             <input ref={file} type="file" accept="application/pdf" hidden onChange={uploadPdf} />
-            <button className="btn btn-secondary btn-sm" disabled={uploading} onClick={() => file.current?.click()}>
-              {uploading ? <span className="spinner" /> : 'إرفاق PDF'}
+            <button className="btn btn-ghost btn-sm" disabled={uploading || making} onClick={() => file.current?.click()}
+              title="أو أرفق ملف PDF الذي سلّمته بنفسك">
+              {uploading ? <span className="spinner" /> : 'إرفاق ملف'}
             </button>
           </>
         )}
