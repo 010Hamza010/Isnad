@@ -110,6 +110,8 @@ function formatPath(group, pMap) {
     to_person_id: edge.to_person_id,
     to_name: pMap.get(Number(edge.to_person_id))?.name_ar || `#${edge.to_person_id}`,
     from_death_year: pMap.get(Number(edge.from_person_id))?.death_year || null,
+    from_gender:     pMap.get(Number(edge.from_person_id))?.gender || null,
+    to_gender:       pMap.get(Number(edge.to_person_id))?.gender || null,
     to_death_year:   pMap.get(Number(edge.to_person_id))?.death_year || null,
     to_description:  pMap.get(Number(edge.to_person_id))?.description || null,
     tx_name:     edge.tx_name     || null,

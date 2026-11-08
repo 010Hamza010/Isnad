@@ -97,3 +97,25 @@ test('teachers title defaults to «الشيخ» and is validated', () => {
   assert.equal(IS.validateSettings({ teachers_title: '  شيخنا ' }).teachers_title, 'شيخنا');
   assert.throws(() => IS.validateSettings({ teachers_title: 'x'.repeat(31) }), e => e.status === 400);
 });
+
+test('templates saved before gender support are upgraded once to gendered wording', () => {
+  const old = {
+    templates_version: 2,
+    templates: { mutoon: 'فأجزته به.\n\nوأوصيه بتقوى الله.\n\nوكتبه: {المجيز}', quran: 'فأجزته', general: 'نص خاص' },
+  };
+  const up = IS.mergeSettings(old);
+  assert.equal(up.templates.mutoon, '{المجاز:فأجزته|فأجزتها} به.\n\n{المجاز:وأوصيه|وأوصيها} بتقوى الله.\n\n{المجيز:وكتبه|وكتبته}: {المجيز}');
+  assert.equal(up.templates.general, 'نص خاص');
+  // already upgraded (version 3): untouched, even if the user wrote «فأجزته» on purpose
+  const v3 = { ...IS.validateSettings(up), templates: { ...up.templates, general: 'فأجزته' } };
+  assert.equal(IS.mergeSettings(v3).templates.general, 'فأجزته');
+});
+
+test('shaykh gender and feminine teacher title default and validate', () => {
+  const s = IS.mergeSettings(null);
+  assert.equal(s.shaykh_gender, 'M');
+  assert.equal(s.teachers_title_f, 'الشيخة');
+  assert.equal(IS.validateSettings({ shaykh_gender: 'F' }).shaykh_gender, 'F');
+  assert.equal(IS.validateSettings({ shaykh_gender: 'x' }).shaykh_gender, 'M');
+  assert.equal(s.GENDERED, undefined); // internal table not exposed
+});

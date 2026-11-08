@@ -2,7 +2,7 @@ const db = require('../../config/db');
 
 exports.findAllForUser = async (userId) => {
   const [conns] = await db.query(`
-    SELECT qc.*, pf.name_ar as from_name, pt.name_ar as to_name, tt.name_ar as tx_name
+    SELECT qc.*, pf.name_ar as from_name, pt.name_ar as to_name, pf.gender as from_gender, pt.gender as to_gender, tt.name_ar as tx_name
     FROM quran_connections qc
     LEFT JOIN persons pf ON qc.from_person_id = pf.id
     LEFT JOIN persons pt ON qc.to_person_id   = pt.id

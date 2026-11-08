@@ -257,3 +257,52 @@ test('a stored heart word equal to the old default «حفظاً» follows the ne
   assert.equal(T.mergeSettings({ style: { heartWord: 'حفظاً' } }).style.heartWord, 'غيباً من حفظي');
   assert.equal(T.mergeSettings({ style: { heartWord: 'عن ظهر قلب' } }).style.heartWord, 'عن ظهر قلب');
 });
+
+describe('gender: pronouns, verbs, titles and joiners follow each person', () => {
+  const e = (f, fg, to, n, tg, tx) => ({ from_person_id: f, from_gender: fg, to_person_id: to, to_name: n, to_gender: tg, transmission_type_id: tx });
+  const clear = { style: { clear: true } };
+
+  test('narrator and shaykh agree separately («وهي أجازها»، «وهو أجازته»)', () => {
+    const chain = [e(0, null, 1, 'نزهة الكتانية', 'F', 2), e(1, 'F', 2, 'عبد الحي', 'M', 3), e(2, 'M', 3, 'فاطمة', 'F', 3), e(3, 'F', 4, 'زيد', 'M', null)];
+    assert.equal(T.renderChain(chain, clear),
+      'قرأتُ على شيختنا نزهة الكتانية، وهي أجازها عبد الحي، وهو أجازته فاطمة، وهي تروي عن زيد');
+  });
+
+  test('my own sentences agree with the shaykh («أجازتني شيختنا»), and «قُرئ … وهي تسمع»', () => {
+    assert.equal(T.renderChain([e(0, null, 1, 'خديجة', 'F', 3)], clear), 'أجازتني شيختنا خديجة');
+    assert.equal(T.renderChain([e(0, null, 1, 'أ', 'M', 2), e(1, 'F', 2, 'ب', 'M', 10)], { style: { clear: true, firstTitle: '' } }),
+      'قرأتُ على أ، وهي قُرئ على ب وهي تسمع');
+  });
+
+  test('keyword mode: «قالت:» for a woman narrator', () => {
+    const t = T.renderChain([e(0, null, 1, 'نزهة', 'F', 2), e(1, 'F', 2, 'زيد', 'M', 1)], { style: { qala: true, firstTitle: '', firstTitleF: '' } });
+    assert.equal(t, 'أخبرنا نزهة، قالت: حدثنا زيد');
+  });
+
+  test('joiners: كلتاهما / كلهن when every narrator meeting is a woman, else كلاهما / كلهم', () => {
+    const w = (id, n) => [e(0, null, id, n, 'F', 2), e(id, 'F', 9, 'المؤلف', 'M', 1)];
+    const m = (id, n) => [e(0, null, id, n, 'M', 2), e(id, 'M', 9, 'المؤلف', 'M', 1)];
+    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب')], clear), /كلتاهما عن المؤلف$/);
+    assert.match(T.renderChains([w(1, 'أ'), m(2, 'ب')], clear), /كلاهما عن المؤلف$/);
+    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب'), w(3, 'ج')], clear), /كلهن عن المؤلف$/);
+  });
+
+  test('the parser reads feminine sentences, titles and joiners back', () => {
+    const r = T.parseIsnad('قرأتُ على شيختنا نزهة الكتانية رحمها الله، وهي قرأت على فلان ح وأجازتني الشيخة خديجة، كلتاهما عن زيد');
+    assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, l.tx_type_id])), [
+      [['نزهة الكتانية', 2], ['فلان', 2], ['زيد', null]],
+      [['خديجة', 3], ['زيد', null]],
+    ]);
+  });
+
+  test('stored copies of the old masculine-only sentences follow the gendered defaults; custom ones stay', () => {
+    const s = T.mergeSettings({ phrases: { others: { 2: 'وهو قرأ على {الاسم}', 1: 'وهو سمع {الاسم} يقول' } } });
+    assert.equal(s.phrases.others['2'], '{الراوي:وهو قرأ|وهي قرأت} على {الاسم}');
+    assert.equal(s.phrases.others['1'], 'وهو سمع {الاسم} يقول');
+  });
+
+  test('sentences only accept {الاسم} and {الراوي/الشيخ:m|f}', () => {
+    assert.doesNotThrow(() => T.validateSettings({ phrases: { others: { 2: '{الراوي:وهو|وهي} على {الاسم}' } } }));
+    assert.throws(() => T.validateSettings({ phrases: { others: { 2: '{الطالب} على {الاسم}' } } }), /use \{الراوي/);
+  });
+});

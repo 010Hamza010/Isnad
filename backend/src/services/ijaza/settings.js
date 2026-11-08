@@ -5,17 +5,22 @@ const { mergeDesign, validateDesigns, FONTS, FRAMES, FONT_SIZES } = require('./d
 const MODULES = ['mutoon', 'quran', 'general'];
 const MAX_TEMPLATE = 20000;
 
-// v1 → v2: put the teachers paragraph before «وإسنادي» in templates saved before it existed
-function upgradeTemplates(templates) {
-  ['mutoon', 'quran'].forEach(m => {
+// Upgrade templates saved by an older version (each step runs once):
+//  v2: teachers paragraph before «وإسنادي»;  v3: gendered wording of the default fragments
+function upgradeTemplates(templates, fromVersion) {
+  if (fromVersion < 2) ['mutoon', 'quran'].forEach(m => {
     const t = templates[m];
-    if (t.includes('{شيوخ_القراءة}')) return;
-    templates[m] = t.replace(/(^|\n\n)(\s*وإسنادي)/, '$1{شيوخ_القراءة}\n\n$2');
+    if (!t.includes('{شيوخ_القراءة}')) templates[m] = t.replace(/(^|\n\n)(\s*وإسنادي)/, '$1{شيوخ_القراءة}\n\n$2');
+  });
+  if (fromVersion < 3) MODULES.forEach(m => {
+    if (templates[m].includes('{المجاز:')) return;
+    templates[m] = DEFAULTS.GENDERED.reduce((t, [masc, gen]) => t.split(masc).join(gen), templates[m]);
   });
 }
 
 function mergeSettings(stored) {
   const s = JSON.parse(JSON.stringify(DEFAULTS));
+  delete s.GENDERED;
   if (!stored || typeof stored !== 'object') return s;
   if (typeof stored.shaykh_name === 'string') s.shaykh_name = stored.shaykh_name;
   if (typeof stored.place === 'string') s.place = stored.place;
@@ -24,7 +29,9 @@ function mergeSettings(stored) {
   ['mutoon', 'quran'].forEach(m => {
     if (typeof stored.teachers_sentence?.[m] === 'string') s.teachers_sentence[m] = stored.teachers_sentence[m];
   });
-  if (stored.templates_version !== DEFAULTS.templates_version) upgradeTemplates(s.templates);
+  if ((stored.templates_version || 1) < DEFAULTS.templates_version) upgradeTemplates(s.templates, stored.templates_version || 1);
+  if (stored.shaykh_gender === 'F' || stored.shaykh_gender === 'M') s.shaykh_gender = stored.shaykh_gender;
+  if (typeof stored.teachers_title_f === 'string') s.teachers_title_f = stored.teachers_title_f;
   if (Array.isArray(stored.designs) && stored.designs.length) s.designs = stored.designs.map(mergeDesign);
   if (typeof stored.default_design === 'string') s.default_design = stored.default_design;
   if (!s.designs.some(d => d.id === s.default_design)) s.default_design = s.designs[0].id;
@@ -36,7 +43,7 @@ function validateSettings(input) {
   const s = mergeSettings(input);
   if (s.shaykh_name.length > 200) throw new HttpError(400, 'اسم المجيز طويل جداً');
   if (s.place.length > 150) throw new HttpError(400, 'المكان طويل جداً');
-  if (s.teachers_title.length > 30) throw new HttpError(400, 'لقب الشيوخ طويل جداً');
+  if (s.teachers_title.length > 30 || s.teachers_title_f.length > 30) throw new HttpError(400, 'لقب الشيوخ طويل جداً');
   MODULES.forEach(m => {
     if (!s.templates[m].trim()) throw new HttpError(400, `قالب «${m}» فارغ`);
     if (s.templates[m].length > MAX_TEMPLATE) throw new HttpError(400, `قالب «${m}» طويل جداً`);
@@ -51,7 +58,7 @@ function validateSettings(input) {
   const default_design = designs.some(d => d.id === s.default_design) ? s.default_design : designs[0].id;
   return {
     templates_version: DEFAULTS.templates_version, shaykh_name: s.shaykh_name.trim(), place: s.place.trim(),
-    teachers_title: s.teachers_title.trim(),
+    teachers_title: s.teachers_title.trim(), teachers_title_f: s.teachers_title_f.trim(), shaykh_gender: s.shaykh_gender,
     templates: s.templates, teachers_sentence: s.teachers_sentence, designs, default_design,
   };
 }

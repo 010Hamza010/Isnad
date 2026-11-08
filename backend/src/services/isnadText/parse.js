@@ -1,8 +1,9 @@
 const { mergeSettings } = require('./settings');
 const { LINK_FORMS, MANNERS } = require('./vocabulary');
+const { expandGender } = require('./gender');
 const { normalizeArabic, tokenize } = require('./normalize');
 
-const JOINERS = new Set(['كلاهما', 'كلهما', 'كلهم', 'جميعا', 'كلاهم'].map(normalizeArabic));
+const JOINERS = new Set(['كلاهما', 'كلهما', 'كلهم', 'جميعا', 'كلاهم', 'كلتاهما', 'كلتيهما', 'كلهن'].map(normalizeArabic));
 const CONJ = /^[وف]/; // وأخبرنا، فحدثنا
 
 const phrase = s => tokenize(s).map(t => t.norm);
@@ -10,12 +11,13 @@ const keys = s => tokenize(s).map(t => t.key);       // strict form for keywords
 
 // split «قُرئ على {الاسم} وأنا أسمع» into its prefix and suffix
 const NAME_SLOT = '{الاسم}';
+// every gendered variant is recognised («وهو قرأ على» and «وهي قرأت على»)
 const phraseParts = s => [s.phrases.first, s.phrases.others].flatMap(map => Object.entries(map)
   .filter(([, p]) => p && p.includes(NAME_SLOT))
-  .map(([tx, p]) => {
-    const [before, after] = p.split(NAME_SLOT);
+  .flatMap(([tx, p]) => expandGender(p).map(v => {
+    const [before, after] = v.split(NAME_SLOT);
     return { tx: tx === 'null' ? null : Number(tx), prefix: before.trim(), suffix: after.trim() };
-  }));
+  })));
 
 function buildMatcher(s) {
   const forms = [];
