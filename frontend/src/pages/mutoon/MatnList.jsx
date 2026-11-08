@@ -89,8 +89,8 @@ export default function MatnList() {
                   {m.description && <div className="small muted clamp-2" style={{ marginTop: 4 }}>{m.description}</div>}
                 </div>
                 <div className="actions">
-                  <button className="icon-btn sm" onClick={() => setForm({ ...EMPTY, ...m, author_id: m.author_id ?? '', subject: m.subject ?? '', description: m.description ?? '' })} aria-label="تعديل"><Icon name="edit" size={15} /></button>
-                  <button className="icon-btn sm danger" onClick={() => del(m)} aria-label="حذف"><Icon name="trash" size={15} /></button>
+                  <button className="icon-btn sm" onClick={() => setForm({ ...EMPTY, ...m, author_id: m.author_id ?? '', subject: m.subject ?? '', description: m.description ?? '' })} aria-label="تعديل" title="تعديل"><Icon name="edit" size={15} /></button>
+                  <button className="icon-btn sm danger" onClick={() => del(m)} aria-label="حذف" title="حذف"><Icon name="trash" size={15} /></button>
                 </div>
               </div>
             ))}

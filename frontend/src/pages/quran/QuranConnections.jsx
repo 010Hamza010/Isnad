@@ -137,8 +137,8 @@ export default function QuranConnections() {
                 </div>
               </div>
               <div className="actions">
-                <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
-                <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
               </div>
             </div>
           ))}
@@ -178,7 +178,7 @@ export default function QuranConnections() {
                   {turuq.filter(t => String(t.riwaya_id) === item.riwaya_id).map(t => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
                 </select>
               </Field>
-              <button type="button" className="icon-btn danger" onClick={() => removeItem(i)} aria-label="إزالة"><Icon name="x" size={16} /></button>
+              <button type="button" className="icon-btn danger" onClick={() => removeItem(i)} aria-label="إزالة" title="إزالة"><Icon name="x" size={16} /></button>
             </div>
           ))}
           <button type="button" className="btn btn-ghost btn-sm" onClick={addItem} style={{ marginBottom: 14 }}>

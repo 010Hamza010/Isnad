@@ -6,7 +6,7 @@ const PAGE_PX = 794 + 36; // A4 width at 96 dpi + the desk margin
  * The archived ijaza, shown exactly as issued. Rendered in a sandboxed frame: scripts can never
  * run in it (sandbox without allow-scripts); same-origin only so we can fit and print it.
  */
-const FrozenDocument = forwardRef(function FrozenDocument({ html }, ref) {
+const FrozenDocument = forwardRef(function FrozenDocument({ html, onReady }, ref) {
   const frame = useRef(null);
 
   const fit = useCallback(() => {
@@ -38,7 +38,7 @@ const FrozenDocument = forwardRef(function FrozenDocument({ html }, ref) {
 
   return (
     <iframe ref={frame} title="الإجازة كما صدرت" className="frozen-doc" sandbox="allow-same-origin allow-modals"
-      srcDoc={html} onLoad={() => { fit(); setTimeout(fit, 400); }} />
+      srcDoc={html} onLoad={() => { fit(); setTimeout(fit, 400); onReady?.(); }} />
   );
 });
 

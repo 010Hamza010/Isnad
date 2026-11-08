@@ -22,10 +22,10 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
   useEffect(() => {
     if (!openId || !rows.length) return;
     const r = rows.find(x => x.id === openId);
-    if (r) { setView(r); onOpened?.(); }
+    if (r) { setView({ row: r }); onOpened?.(); }
   }, [openId, rows]);
 
-  const replace = row => { setData(list => list.map(x => (x.id === row.id ? row : x))); setView(v => (v?.id === row.id ? row : v)); };
+  const replace = row => { setData(list => list.map(x => (x.id === row.id ? row : x))); setView(v => (v?.row.id === row.id ? { ...v, row } : v)); };
 
   const copy = async r => {
     try { await navigator.clipboard.writeText(r.qr_payload); toast('نُسخت بيانات رمز الإجازة'); }
@@ -80,8 +80,8 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
                   </div>
                 </div>
                 <div className="actions">
-                  <button className="icon-btn" onClick={() => setView(r)} aria-label="عرض وطباعة"><Icon name="print" size={16} /></button>
-                  <button className="icon-btn" onClick={() => copy(r)} aria-label="نسخ بيانات الرمز" title="نسخ بيانات رمز QR"><Icon name="copy" size={16} /></button>
+                  <button className="icon-btn" onClick={() => setView({ row: r })} aria-label="عرض" title="عرض"><Icon name="eye" size={16} /></button>
+                  <button className="icon-btn" onClick={() => setView({ row: r, print: true })} aria-label="طباعة" title="طباعة / PDF"><Icon name="print" size={16} /></button>
                   {r.revoked_at
                     ? <button className="icon-btn" onClick={() => restore(r)} aria-label="إعادة التفعيل" title="إعادة التفعيل"><Icon name="reset" size={16} /></button>
                     : <button className="icon-btn danger" onClick={() => setRevoking({ row: r, reason: '' })} aria-label="إلغاء الإجازة" title="إلغاء الإجازة"><Icon name="x" size={16} /></button>}
@@ -98,8 +98,8 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
       )}
 
       {view && (
-        <Modal title={`${view.student_name} — ${view.short_code}`} size="lg" onClose={() => setView(null)}>
-          <ArchiveView row={view} settings={settings} profile={profile} onChanged={replace} />
+        <Modal title={`${view.row.student_name} — ${view.row.short_code}`} size="lg" onClose={() => setView(null)}>
+          <ArchiveView row={view.row} settings={settings} profile={profile} onChanged={replace} autoPrint={view.print} />
         </Modal>
       )}
 

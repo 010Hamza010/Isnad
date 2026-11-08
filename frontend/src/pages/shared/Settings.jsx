@@ -150,7 +150,7 @@ export default function Settings() {
               aria-pressed={k.preferred}>
               <Icon name="star" size={16} fill={k.preferred ? 'currentColor' : 'none'} />
             </button>
-            <button type="button" className="icon-btn danger" aria-label="حذف" onClick={() => setDraft(d => ({ ...d, keywords: d.keywords.filter((_, j) => j !== i) }))}>
+            <button type="button" className="icon-btn danger" aria-label="حذف" title="حذف" onClick={() => setDraft(d => ({ ...d, keywords: d.keywords.filter((_, j) => j !== i) }))}>
               <Icon name="trash" size={16} />
             </button>
           </div>

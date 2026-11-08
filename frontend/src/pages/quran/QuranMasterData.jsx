@@ -100,8 +100,8 @@ export default function QuranMasterData() {
                   )}
                 </div>
                 <div className="actions">
-                  <button className="icon-btn" onClick={() => openEdit(row)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
-                  <button className="icon-btn danger" onClick={() => del(row)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                  <button className="icon-btn" onClick={() => openEdit(row)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                  <button className="icon-btn danger" onClick={() => del(row)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
                 </div>
               </div>
             ))}

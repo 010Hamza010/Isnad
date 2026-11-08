@@ -18,7 +18,7 @@ export default function Modal({ title, onClose, children, footer, size = '' }) {
       <div className={`modal ${size}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="modal-head">
           <div className="modal-title">{title}</div>
-          <button className="icon-btn" onClick={onClose} aria-label="إغلاق"><Icon name="x" /></button>
+          <button className="icon-btn" onClick={onClose} aria-label="إغلاق" title="إغلاق"><Icon name="x" /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
