@@ -306,3 +306,39 @@ describe('gender: pronouns, verbs, titles and joiners follow each person', () =>
     assert.throws(() => T.validateSettings({ phrases: { others: { 2: '{الطالب} على {الاسم}' } } }), /use \{الراوي/);
   });
 });
+
+describe('تحويل with three or more chains is factored recursively (eg.txt)', () => {
+  let ids = {}, next = 1;
+  const id = name => (ids[name] ??= next++);
+  const chain = names => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, to_person_id: id(nm), to_name: nm, transmission_type_id: i === 0 ? 2 : null }; prev = e.to_person_id; return e; });
+  };
+  const mid = ['وهب', 'سهل', 'عبد الكريم'], top = ['ابن قاسم', 'ابن سالم'];
+  const A = chain(['عمار', ...mid, ...top]);
+  const B = chain(['زياد', ...mid, ...top]);
+  const C = chain(['هند', 'عبد الملك', 'ابن الوليد', 'الأنصاري', 'البصري', 'ابن عطية', ...top]);
+  const D = chain(['هند', 'عبد الملك', 'ابن الوليد', 'الخزرجي', 'البصري', 'ابن عطية', ...top]);
+  const st = { style: { firstTitle: '' } };
+
+  test('two chains meeting early', () => {
+    assert.equal(T.renderChains([A, B], st), 'أخبرنا عمار ح وأخبرنا زياد، كلاهما عن وهب، عن سهل، عن عبد الكريم، عن ابن قاسم، عن ابن سالم');
+  });
+
+  test('a third chain: the first two stay grouped, all meet at ابن قاسم', () => {
+    assert.equal(T.renderChains([A, B, C], st),
+      'أخبرنا عمار ح وأخبرنا زياد، كلاهما عن وهب، عن سهل، عن عبد الكريم'
+      + ' ح وأخبرنا هند، عن عبد الملك، عن ابن الوليد، عن الأنصاري، عن البصري، عن ابن عطية'
+      + '، كلاهما عن ابن قاسم، عن ابن سالم');
+  });
+
+  test('four chains: shared beginning written once, nested meeting points, every name once', () => {
+    const t = T.renderChains([A, B, C, D], st);
+    assert.equal(t,
+      'أخبرنا عمار ح وأخبرنا زياد، كلاهما عن وهب، عن سهل، عن عبد الكريم'
+      + ' ح وأخبرنا هند، عن عبد الملك، عن ابن الوليد، عن الأنصاري ح وعن ابن الوليد، عن الخزرجي، كلاهما عن البصري، عن ابن عطية'
+      + '، كلاهما عن ابن قاسم، عن ابن سالم');
+    for (const name of ['وهب', 'سهل', 'عبد الملك', 'البصري', 'ابن قاسم']) assert.equal(t.split(name).length - 1, 1, name);
+  });
+
+});

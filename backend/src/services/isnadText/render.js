@@ -94,41 +94,88 @@ function renderChain(edges, settings) {
   return renderChainWith(edges, mergeSettings(settings), newContext());
 }
 
-// longest shared tail, compared on the person each step reaches
-function sharedTail(chains) {
-  const minLen = Math.min(...chains.map(c => c.length));
-  let k = 0;
-  for (let i = 1; i <= minLen; i++) {
-    const id = String(chains[0][chains[0].length - i].to_person_id);
-    if (chains.every(c => String(c[c.length - i].to_person_id) === id)) k = i; else break;
-  }
-  return Math.min(k, minLen - 1); // every branch keeps at least one link of its own
+const pid = e => String(e.to_person_id);
+const chainKey = c => c.map(pid).join('>');
+
+// number of leading links shared by every chain
+function sharedHead(chains) {
+  const min = Math.min(...chains.map(c => c.length));
+  let n = 0;
+  while (n < min && chains.every(c => pid(c[n]) === pid(chains[0][n]))) n++;
+  return n;
 }
 
+// number of trailing links shared by every chain (each chain keeps at least one link of its own)
+function sharedTail(chains) {
+  const min = Math.min(...chains.map(c => c.length));
+  let k = 0;
+  while (k < min && chains.every(c => pid(c[c.length - 1 - k]) === pid(chains[0][chains[0].length - 1 - k]))) k++;
+  return Math.min(k, min - 1);
+}
+
+const joinWord = (count, allF) => (count === 2 ? (allF ? 'كلتاهما' : 'كلاهما') : (allF ? 'كلهن' : 'كلهم'));
+
 /**
- * Several alternative chains → one text using تحويل:
- * «أخبرنا شيخنا أ، عن ب ح وأخبرنا شيخنا ج، عن د، كلاهما عن هـ، عن و»
+ * Alternative chains → one isnad text with تحويل, factoring shared parts recursively:
+ *  - a shared beginning is written once, then the branches restart from its last person («ح وعن فلان»);
+ *  - chains that meet again are grouped by the narrator who reaches the meeting point, each group
+ *    written the same way, then «كلاهما / كلهم عن X» and the shared rest.
+ * scope: { opening: chains start at me (first-person link), restart: name to restart from after ح }
  */
+function renderSet(chains, s, ctx, scope) {
+  const sep = s.style.separator;
+  const seen = new Set();
+  const list = chains.filter(c => { const k = chainKey(c); if (seen.has(k)) return false; seen.add(k); return true; });
+  const live = list.filter(c => c.length);
+  if (!live.length) return '';
+  if (list.length === 1) return renderLinks(list[0], s, ctx, { opening: scope.opening }).join(sep);
+
+  // 1. shared beginning
+  const n = sharedHead(list);
+  if (n > 0) {
+    const head = renderLinks(list[0].slice(0, n), s, ctx, { opening: scope.opening }).join(sep);
+    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: list[0][n - 1].to_name });
+    return [head, rest].filter(Boolean).join(sep);
+  }
+
+  // a chain that already ended here: its last person (the restart) narrates straight on
+  const ended = list.length !== live.length;
+  const branches = live.length === 1 ? [renderLinks(live[0], s, ctx, { opening: scope.opening }).join(sep)] : null;
+
+  // 2. shared ending: group the heads by the narrator who reaches the meeting point
+  const k = branches || ended ? 0 : sharedTail(live);
+  const heads = k ? live.map(c => c.slice(0, c.length - k)) : live;
+  let texts = branches;
+  if (!texts) {
+    const groups = new Map();
+    heads.forEach(h => { const key = pid(h[h.length - 1]); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(h); });
+    texts = [...groups.values()].map(g => renderSet(g, s, ctx, scope));
+  }
+  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${scope.restart}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
+  let text = texts.map((t, i) => (i === 0 ? t : restartText(t))).join(' ');
+  if (ended && scope.restart) text += ` ${restartText('')}`;
+  if (!k) return text;
+
+  const tail = live[0].slice(live[0].length - k);
+  const narrators = new Map(live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]));
+  const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');
+  const x = tail[0];
+  const meet = `${joinWord(narrators.size, allF)} عن ${personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx)}`;
+  const after = renderLinks(tail.slice(1), s, ctx, { opening: false });
+  return [text, meet, ...after].join(sep);
+}
+
+/** Several alternative chains → one text using تحويل (see renderSet). */
 function renderChains(chains, settings) {
   const s = mergeSettings(settings);
   const ctx = newContext();
   const list = (chains || []).filter(c => c?.length);
-  if (list.length <= 1) return renderChainWith(list[0] || [], s, ctx);
-
-  const k = sharedTail(list);
-  const heads = list.map(c => renderChainWith(c.slice(0, c.length - k), s, ctx));
-  let text = heads.map((h, i) => (i === 0 ? h : `${s.style.tahwil} و${h}`)).join(' ');
-  if (k) {
-    // the first shared link is replaced by «كلاهما عن X»
-    const tail = list[0].slice(list[0].length - k);
-    const joinPoint = personLabel(tail[0].to_person_id, tail[0].to_name, tail[0].to_death_year, tail[0].to_description, s, ctx);
-    const [, ...rest] = renderLinks(tail, s, ctx, { opening: false });
-    // the narrators who meet at the join point: all women → كلتاهما / كلهن
-    const allF = list.every(c => fromGender(c[c.length - k], s) === 'F');
-    const all = list.length === 2 ? (allF ? 'كلتاهما' : 'كلاهما') : (allF ? 'كلهن' : 'كلهم');
-    text += s.style.separator + [`${all} عن ${joinPoint}`, ...rest].join(s.style.separator);
-  }
-  return text;
+  if (!list.length) return '';
+  const first = list[0][0];
+  if (isMe(first.from_person_id)) return renderSet(list, s, ctx, { opening: true, restart: null });
+  // chains starting at a named narrator: name them once, restart from them after ح
+  const start = personLabel(first.from_person_id, first.from_name, first.from_death_year, null, s, ctx);
+  return `${start} ${renderSet(list, s, ctx, { opening: true, restart: first.from_name })}`;
 }
 
 /** A path group as returned by /api/graph/*\/paths → text. */
