@@ -149,8 +149,8 @@ export default function MatnConnections() {
                       {c.description && <div className="small muted" style={{ marginTop: 2 }}>{c.description}</div>}
                     </div>
                     <div className="actions">
-                      <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
-                      <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                      <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                      <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
                     </div>
                   </div>
                 ))}

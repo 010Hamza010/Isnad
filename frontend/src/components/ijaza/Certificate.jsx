@@ -208,7 +208,8 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
     setQrSvg(null);
     if (!showQr || !verification.payload) return;
     let alive = true;
-    QRCode.toString(verification.payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
+    // level L: the payload is small and printed on paper (not scratched outdoors), so prefer larger modules
+    QRCode.toString(verification.payload, { type: 'svg', errorCorrectionLevel: 'L', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
       .then(svg => alive && setQrSvg(svg))
       .catch(() => {});
     return () => { alive = false; };

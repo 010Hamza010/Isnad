@@ -50,7 +50,7 @@ function Layout() {
       <div className={`sidebar-backdrop${navOpen ? ' open' : ''}`} onClick={() => setNavOpen(false)} />
       <div className="main">
         <header className="topbar">
-          <button className="icon-btn menu-btn" onClick={() => setNavOpen(true)} aria-label="القائمة">
+          <button className="icon-btn menu-btn" onClick={() => setNavOpen(true)} aria-label="القائمة" title="القائمة">
             <Icon name="menu" />
           </button>
           <div>

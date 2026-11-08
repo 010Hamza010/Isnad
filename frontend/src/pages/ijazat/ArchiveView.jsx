@@ -12,7 +12,7 @@ const kb = n => `${Math.round((n || 0) / 1024)} ك.ب`;
  * One issued ijaza, as archived. The first time it is opened its pages are laid out once and
  * frozen (exact document + SHA-256); afterwards the frozen document is shown and printed as-is.
  */
-export default function ArchiveView({ row, settings, profile = {}, onChanged }) {
+export default function ArchiveView({ row, settings, profile = {}, onChanged, autoPrint = false }) {
   const { toast, notifyError } = useUI();
   const [doc, setDoc] = useState(null);         // { html, hash, frozen_at } | null
   const [loading, setLoading] = useState(true);
@@ -63,14 +63,21 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged }) 
     } catch (err) { notifyError(err); } finally { setUploading(false); }
   };
 
-  const downloadPdf = async () => {
+  // the PDF needs the login token, so it is fetched and handed to the browser as a blob
+  const openPdf = async download => {
     try {
       const { data } = await api.get(`/ijazat/${row.id}/pdf`, { responseType: 'blob' });
-      const url = URL.createObjectURL(data);
-      const a = Object.assign(document.createElement('a'), { href: url, download: row.pdf_filename || 'ijaza.pdf' });
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+      if (download) Object.assign(document.createElement('a'), { href: url, download: row.pdf_filename || 'ijaza.pdf' }).click();
+      else window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) { notifyError(e); }
+  };
+
+  // «طباعة» from the register: print as soon as the archived document is shown
+  const printed = useRef(false);
+  const onFrameReady = () => {
+    if (autoPrint && !printed.current) { printed.current = true; setTimeout(() => frame.current?.print(), 300); }
   };
 
   const design = row.details?.design || settings.designs.find(x => x.id === settings.default_design) || settings.designs[0];
@@ -98,7 +105,8 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged }) 
             <span>ملف PDF المسلَّم: <strong>{row.pdf_filename}</strong> ({kb(row.pdf_size)})</span>
             <span>البصمة <code title={row.pdf_sha256}>{shortHash(row.pdf_sha256)}</code></span>
             <span className="spacer" />
-            <button className="btn btn-secondary btn-sm" onClick={downloadPdf}>تنزيل</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => openPdf(false)} title="فتح ملف PDF في نافذة جديدة"><Icon name="eye" size={14} /> عرض</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => openPdf(true)} title="تنزيل ملف PDF">تنزيل</button>
           </>
         ) : (
           <>
@@ -112,7 +120,7 @@ export default function ArchiveView({ row, settings, profile = {}, onChanged }) 
         )}
       </div>
 
-      {doc ? <FrozenDocument ref={frame} html={doc.html} /> : !loading && (
+      {doc ? <FrozenDocument ref={frame} html={doc.html} onReady={onFrameReady} /> : !loading && (
         <Certificate title={row.title} body={row.body} variant={row.style}
           notes={row.details?.notes || {}} chains={row.details?.chains || []} design={design}
           people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name }}

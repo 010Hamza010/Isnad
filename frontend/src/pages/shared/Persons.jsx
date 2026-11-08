@@ -89,8 +89,8 @@ export default function Persons() {
                 {p.description && <div className="small muted clamp-2" style={{ marginTop: 2 }}>{p.description}</div>}
               </div>
               <div className="actions">
-                <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
-                <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
               </div>
             </div>
           ))}

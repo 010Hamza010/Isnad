@@ -51,7 +51,7 @@ export default function Combobox({ value, opts, onChange, placeholder = 'ابح�
         onKeyDown={onKey}
       />
       {allowClear && value !== '' && value != null
-        ? <button type="button" className="icon-btn sm combo-btn" aria-label="مسح"
+        ? <button type="button" className="icon-btn sm combo-btn" aria-label="مسح" title="مسح"
             onClick={() => { onChange(''); setQuery(''); }}><Icon name="x" size={14} /></button>
         : <span className="combo-btn muted" style={{ pointerEvents: 'none', display: 'inline-flex' }}><Icon name="chevDown" size={14} /></span>}
       {open && (
