@@ -30,6 +30,7 @@ const CLASSIC = {
   },
   frame: { style: 'double', ornament: '❁ ❁ ❁', marginMm: 9, paddingMm: 18 },
   boldNames: true,
+  qr: { show: true, sizeMm: 22 }, // verification QR after the signature
 };
 
 const SIMPLE = {
@@ -70,6 +71,7 @@ function mergeDesign(d) {
     fonts: Object.fromEntries(Object.keys(base.fonts).map(k => [k, { ...base.fonts[k], ...(d.fonts?.[k] || {}) }])),
     frame: { ...base.frame, ...(d.frame || {}) },
     boldNames: d.boldNames ?? base.boldNames,
+    qr: { ...base.qr, ...(d.qr || {}) },
   };
 }
 
@@ -96,6 +98,9 @@ function validateDesign(input, i) {
   if (!(margin >= 0 && margin <= 30) || !(padding >= 6 && padding <= 40)) throw new HttpError(400, `${f}: هوامش الصفحة خارج الحدود`);
   d.frame.marginMm = margin; d.frame.paddingMm = padding;
   d.boldNames = !!d.boldNames;
+  const qrSize = Number(d.qr.sizeMm);
+  if (!(qrSize >= 14 && qrSize <= 40)) throw new HttpError(400, `${f}: حجم رمز QR بين 14 و40 مم`);
+  d.qr = { show: d.qr.show !== false, sizeMm: qrSize };
   return d;
 }
 
