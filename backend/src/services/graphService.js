@@ -60,13 +60,15 @@ const txRank = tx => {
 };
 
 /**
- * Lower is stronger. A connection marked «إجازة عامة» ranks as a general ijaza at best;
- * on a tie, a connection for this specific matn beats a general one.
+ * Lower is stronger. The chosen transmission type decides («سماع» stays سماع even if the
+ * «إجازة عامة» box is also ticked); the box only types an untyped connection, and on a tie
+ * an unticked connection, then one for this specific matn, wins.
  */
 function edgeRank(edge) {
-  let r = txRank(edge.transmission_type_id);
-  if (Number(edge.is_general_ijaza)) r = Math.max(r, txRank(GENERAL_IJAZA));
-  return r * 2 + (edge.matn_id ? 0 : 1);
+  const general = Number(edge.is_general_ijaza) ? 1 : 0;
+  const typed = edge.transmission_type_id != null && edge.transmission_type_id !== '';
+  const r = typed ? txRank(edge.transmission_type_id) : general ? txRank(GENERAL_IJAZA) : txRank(null);
+  return r * 4 + general * 2 + (edge.matn_id ? 0 : 1);
 }
 
 function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap) {

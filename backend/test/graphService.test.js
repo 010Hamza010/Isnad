@@ -92,8 +92,13 @@ describe('which connection wins between the same two people', () => {
     assert.equal(pick(e(0, 1, { transmission_type_id: 3, tag: 'ij' }), e(0, 1, { transmission_type_id: 10, tag: 'listen' })).tag, 'listen');
     assert.equal(pick(e(0, 1, { transmission_type_id: 10, tag: 'listen' }), e(0, 1, { transmission_type_id: 4, tag: 'gen' })).tag, 'listen');
   });
-  test('a connection ticked «إجازة عامة» ranks as general even if typed إجازة', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'flagged' }), e(0, 1, { transmission_type_id: 6, tag: 'kitaba' })).tag, 'kitaba');
+  test('the chosen type decides even when «إجازة عامة» is also ticked', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { transmission_type_id: 1, is_general_ijaza: 1, tag: 'sama' })).tag, 'sama');
+    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { transmission_type_id: 6, tag: 'kitaba' })).tag, 'ij');
+  });
+  test('the box types an untyped connection as إجازة عامة, and breaks ties', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: null, is_general_ijaza: 1, tag: 'gen' }), e(0, 1, { transmission_type_id: 7, tag: 'wijada' })).tag, 'gen');
+    assert.equal(pick(e(0, 1, { transmission_type_id: 1, is_general_ijaza: 1, tag: 'ticked' }), e(0, 1, { transmission_type_id: 1, tag: 'plain' })).tag, 'plain');
   });
   test('same type: the connection for this matn beats a general one; untyped is last', () => {
     assert.equal(pick(e(0, 1, { transmission_type_id: 2, matn_id: null, tag: 'any' }), e(0, 1, { transmission_type_id: 2, matn_id: 7, tag: 'this' })).tag, 'this');
