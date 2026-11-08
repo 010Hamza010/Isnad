@@ -1,0 +1,10 @@
+const r    = require('express').Router();
+const auth = require('../middleware/auth');
+const w    = require('../utils/asyncHandler');
+const c    = require('../controllers/isnadTextController');
+r.get('/settings',    auth, w(c.getSettings));
+r.put('/settings',    auth, w(c.saveSettings));
+r.delete('/settings', auth, w(c.resetSettings));
+r.post('/render',     auth, w(c.render));
+r.post('/parse',      auth, w(c.parse));
+module.exports = r;
