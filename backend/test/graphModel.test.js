@@ -7,7 +7,10 @@ const calls = [];
 const dbPath = require.resolve(path.join(__dirname, '../config/db'));
 require.cache[dbPath] = {
   id: dbPath, filename: dbPath, loaded: true,
-  exports: { query: async (sql, params) => { calls.push({ sql, params }); return [[{ id: 5, imam_id: 105 }], []]; } },
+  exports: {
+    query: async (sql, params) => { calls.push({ sql, params }); return [[{ id: 5, imam_id: 105 }], []]; },
+    execute: async () => [[{ id: 1, name_ar: 'سماع', kind: null }]], // transmission_types, for tx_kind
+  },
 };
 const GM = require('../src/models/GraphModel');
 

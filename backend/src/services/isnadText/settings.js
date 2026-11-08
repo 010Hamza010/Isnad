@@ -1,18 +1,59 @@
 const DEFAULTS = require('./defaults');
 const { normalizeArabic } = require('./normalize');
 const { stripAlternations } = require('./gender');
+const { KEYS: KINDS, SEED_KINDS } = require('../txKinds');
+const LEGACY = require('./legacy.json'); // defaults of versions that keyed everything by seed type id
 
 class SettingsError extends Error {}
 
 const LIST_KEYS = ['titles', 'honorifics', 'fillers'];
 const clone = o => JSON.parse(JSON.stringify(o));
 
-/** Stored (partial) settings on top of defaults. Arrays replace, style merges. */
-function mergeSettings(stored) {
+const kindKey = k => (k == null || k === 'null' || k === '' ? 'null' : String(k));
+const sig = k => JSON.stringify([k.word, k.abbr || '', k.variants || [], k.tx_type_id ?? null]);
+const LEGACY_SIGS = new Set(LEGACY.keywords.map(sig));
+
+/*
+ * Settings saved before transmission kinds referenced type ids:
+ *  - entries identical to an old default were written with the *seed* numbering → replaced by
+ *    the current default for the same word;
+ *  - entries the user edited were picked from *their* database's types → converted with
+ *    `idKinds` (id → kind from the transmission_types table), falling back to the seed numbering.
+ */
+const idToKind = (id, idKinds) => (id == null ? null : idKinds?.[id] ?? SEED_KINDS[id] ?? null);
+
+function upgradeKeywords(list, idKinds) {
+  if (!list.some(k => k && 'tx_type_id' in k && !('kind' in k))) return list;
+  return list.map(k => {
+    if (!k || 'kind' in k) return k;
+    if (LEGACY_SIGS.has(sig(k))) {
+      const now = DEFAULTS.keywords.find(d => d.word === k.word);
+      if (now) return clone(now);
+    }
+    const { tx_type_id, ...rest } = k;
+    return { ...rest, kind: LEGACY_SIGS.has(sig(k)) ? SEED_KINDS[tx_type_id] ?? null : idToKind(tx_type_id, idKinds) };
+  });
+}
+
+function upgradePhrases(which, map, idKinds) {
+  const out = {};
+  Object.entries(map).forEach(([key, v]) => {
+    if ((LEGACY.phrases[which]?.[key] || []).includes(v)) return; // an old default: the new default applies
+    if (!/^\d+$/.test(key)) { out[key] = v; return; }           // already a kind key (or 'null')
+    const kind = idToKind(key, idKinds);
+    if (kind) out[kind] = v;
+  });
+  return out;
+}
+
+/**
+ * Stored (partial) settings on top of defaults. Arrays replace, style merges.
+ * idKinds: { [transmission type id]: kind } of this database, to convert settings saved by older versions.
+ */
+function mergeSettings(stored, idKinds) {
   const s = clone(DEFAULTS);
-  delete s.legacyPhrases;
   if (!stored || typeof stored !== 'object') return s;
-  if (Array.isArray(stored.keywords)) s.keywords = stored.keywords;
+  if (Array.isArray(stored.keywords)) s.keywords = upgradeKeywords(stored.keywords, idKinds);
   if (stored.style && typeof stored.style === 'object') {
     s.style = { ...s.style, ...stored.style };
     // the first default was «حفظاً»; follow the new default unless the user chose something else
@@ -21,11 +62,7 @@ function mergeSettings(stored) {
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
   ['first', 'others', 'joined'].forEach(k => {
     if (!stored.phrases?.[k] || typeof stored.phrases[k] !== 'object') return;
-    Object.entries(stored.phrases[k]).forEach(([tx, v]) => {
-      // a stored copy of an older default follows the current default
-      if ([].concat(DEFAULTS.legacyPhrases[k]?.[tx] ?? []).includes(v)) return;
-      s.phrases[k][tx] = v;
-    });
+    Object.assign(s.phrases[k], upgradePhrases(k, stored.phrases[k], idKinds));
   });
   return s;
 }
@@ -33,7 +70,7 @@ function mergeSettings(stored) {
 const phraseMap = (m, field) => {
   if (!m || typeof m !== 'object' || Array.isArray(m)) throw new SettingsError(`${field}: invalid`);
   return Object.fromEntries(Object.entries(m).map(([k, v]) => {
-    if (!/^(\d+|null)$/.test(k)) throw new SettingsError(`${field}: invalid key ${k}`);
+    if (k !== 'null' && !KINDS.has(k)) throw new SettingsError(`${field}: invalid key ${k}`);
     const v2 = str(v, 160, `${field}.${k}`);
     const plain = stripAlternations(v2);
     if (v2 && (plain.match(/\{الاسم\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الاسم} once`);
@@ -58,21 +95,21 @@ const strList = (v, field, maxItems = 200) => {
 };
 
 /** Validate and normalise a full settings object; throws SettingsError with a field path. */
-function validateSettings(input) {
+function validateSettings(input, idKinds) {
   if (!input || typeof input !== 'object') throw new SettingsError('settings: must be an object');
-  const merged = mergeSettings(input);
+  const merged = mergeSettings(input, idKinds);
 
   if (!merged.keywords.length || merged.keywords.length > 100) throw new SettingsError('keywords: 1–100 items');
   const keywords = merged.keywords.map((k, i) => {
     const f = `keywords[${i}]`;
     if (!k || typeof k !== 'object') throw new SettingsError(`${f}: invalid`);
-    const tx = k.tx_type_id === '' || k.tx_type_id == null ? null : Number(k.tx_type_id);
-    if (tx !== null && !Number.isInteger(tx)) throw new SettingsError(`${f}.tx_type_id: invalid`);
+    const kind = k.kind === '' || k.kind == null ? null : String(k.kind);
+    if (kind !== null && !KINDS.has(kind)) throw new SettingsError(`${f}.kind: invalid`);
     return {
       word: str(k.word, 40, `${f}.word`, { required: true }),
       abbr: str(k.abbr, 20, `${f}.abbr`),
       variants: strList(k.variants || [], `${f}.variants`, 20),
-      tx_type_id: tx,
+      kind,
       preferred: !!k.preferred,
     };
   });
@@ -85,11 +122,11 @@ function validateSettings(input) {
     seen.set(n, i);
   }));
 
-  // at most one preferred form per transmission type
+  // at most one preferred form per transmission kind
   const pref = new Set();
   keywords.forEach(k => {
     if (!k.preferred) return;
-    const key = String(k.tx_type_id);
+    const key = kindKey(k.kind);
     if (pref.has(key)) k.preferred = false; else pref.add(key);
   });
 
@@ -116,4 +153,4 @@ function validateSettings(input) {
   return out;
 }
 
-module.exports = { mergeSettings, validateSettings, SettingsError, DEFAULTS };
+module.exports = { mergeSettings, validateSettings, SettingsError, DEFAULTS, kindKey };

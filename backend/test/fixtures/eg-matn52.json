@@ -1,0 +1,686 @@
+{
+ "source": "eg.sql (user data): transmission_types, matn 52 and its connections, persons involved",
+ "transmission_types": [
+  {
+   "id": 1,
+   "name_ar": "بلفظ الشيخ",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 2,
+   "name_ar": "قراءة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "both"
+  },
+  {
+   "id": 3,
+   "name_ar": "سماع",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 4,
+   "name_ar": "إجازة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 5,
+   "name_ar": "مناولة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 6,
+   "name_ar": "كتابة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 7,
+   "name_ar": "إعلام",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 8,
+   "name_ar": "الوجادة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 9,
+   "name_ar": "الوصية",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  },
+  {
+   "id": 10,
+   "name_ar": "الإجازة العامة",
+   "name_en": null,
+   "description": null,
+   "applies_to": "mutoon"
+  }
+ ],
+ "mutoon": [
+  {
+   "id": 52,
+   "title": "الدرر اللوامع في اصل مقرئ الإمام نافع",
+   "author_id": 267
+  }
+ ],
+ "matn_connections": [
+  {
+   "id": 16,
+   "from_person_id": 223,
+   "to_person_id": 210,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 17,
+   "from_person_id": 0,
+   "to_person_id": 265,
+   "matn_id": 52,
+   "transmission_type_id": 2,
+   "is_general_ijaza": 0,
+   "reading_mode": "heart"
+  },
+  {
+   "id": 18,
+   "from_person_id": 265,
+   "to_person_id": 266,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 20,
+   "from_person_id": 0,
+   "to_person_id": 268,
+   "matn_id": 52,
+   "transmission_type_id": 2,
+   "is_general_ijaza": 0,
+   "reading_mode": "heart"
+  },
+  {
+   "id": 21,
+   "from_person_id": 268,
+   "to_person_id": 266,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 22,
+   "from_person_id": 266,
+   "to_person_id": 269,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 23,
+   "from_person_id": 269,
+   "to_person_id": 270,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 24,
+   "from_person_id": 270,
+   "to_person_id": 271,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 25,
+   "from_person_id": 271,
+   "to_person_id": 272,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 26,
+   "from_person_id": 272,
+   "to_person_id": 273,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 27,
+   "from_person_id": 273,
+   "to_person_id": 274,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 28,
+   "from_person_id": 274,
+   "to_person_id": 275,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 29,
+   "from_person_id": 275,
+   "to_person_id": 276,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 30,
+   "from_person_id": 276,
+   "to_person_id": 277,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 31,
+   "from_person_id": 277,
+   "to_person_id": 278,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 32,
+   "from_person_id": 278,
+   "to_person_id": 279,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 33,
+   "from_person_id": 279,
+   "to_person_id": 224,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 34,
+   "from_person_id": 224,
+   "to_person_id": 281,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 35,
+   "from_person_id": 281,
+   "to_person_id": 282,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 36,
+   "from_person_id": 282,
+   "to_person_id": 283,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 37,
+   "from_person_id": 283,
+   "to_person_id": 284,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 38,
+   "from_person_id": 284,
+   "to_person_id": 285,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 39,
+   "from_person_id": 285,
+   "to_person_id": 286,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 40,
+   "from_person_id": 286,
+   "to_person_id": 287,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 41,
+   "from_person_id": 287,
+   "to_person_id": 267,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 47,
+   "from_person_id": 268,
+   "to_person_id": 266,
+   "matn_id": 52,
+   "transmission_type_id": 3,
+   "is_general_ijaza": 0,
+   "reading_mode": null
+  },
+  {
+   "id": 51,
+   "from_person_id": 0,
+   "to_person_id": 288,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 52,
+   "from_person_id": 288,
+   "to_person_id": 289,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 53,
+   "from_person_id": 289,
+   "to_person_id": 290,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 54,
+   "from_person_id": 290,
+   "to_person_id": 291,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 55,
+   "from_person_id": 291,
+   "to_person_id": 292,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 56,
+   "from_person_id": 292,
+   "to_person_id": 293,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 57,
+   "from_person_id": 292,
+   "to_person_id": 294,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 58,
+   "from_person_id": 293,
+   "to_person_id": 295,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 59,
+   "from_person_id": 294,
+   "to_person_id": 295,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 60,
+   "from_person_id": 295,
+   "to_person_id": 296,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 61,
+   "from_person_id": 296,
+   "to_person_id": 297,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 62,
+   "from_person_id": 297,
+   "to_person_id": 298,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 63,
+   "from_person_id": 298,
+   "to_person_id": 283,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 69,
+   "from_person_id": 0,
+   "to_person_id": 300,
+   "matn_id": null,
+   "transmission_type_id": null,
+   "is_general_ijaza": 1,
+   "reading_mode": null
+  },
+  {
+   "id": 73,
+   "from_person_id": 268,
+   "to_person_id": 300,
+   "matn_id": 52,
+   "transmission_type_id": 2,
+   "is_general_ijaza": 0,
+   "reading_mode": null
+  },
+  {
+   "id": 74,
+   "from_person_id": 265,
+   "to_person_id": 266,
+   "matn_id": 52,
+   "transmission_type_id": 3,
+   "is_general_ijaza": 0,
+   "reading_mode": null
+  }
+ ],
+ "persons": [
+  {
+   "id": 210,
+   "name_ar": "الإمام النووي",
+   "gender": "M",
+   "death_year": "676هـ"
+  },
+  {
+   "id": 223,
+   "name_ar": "ابن قدامة المقدسي",
+   "gender": "M",
+   "death_year": "620هـ"
+  },
+  {
+   "id": 224,
+   "name_ar": "الإمام ابن عاشر",
+   "gender": "M",
+   "death_year": "1040هـ"
+  },
+  {
+   "id": 265,
+   "name_ar": "حسين وعليلي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 266,
+   "name_ar": "طاهر ايت علجت",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 267,
+   "name_ar": "أبي الحسن علي بن محمد بن الحسن بن بري",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 268,
+   "name_ar": "خالد بن علي درباني",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 269,
+   "name_ar": "السعيد بن علي اليجْري",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 270,
+   "name_ar": "الشريف أوثَمْليلن",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 271,
+   "name_ar": "ابو القاسم البوجليلي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 272,
+   "name_ar": "محمد بن علي بن مالك",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 273,
+   "name_ar": "أحمد بن إيذير الفمْلاوي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 274,
+   "name_ar": "ابن تريغت",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 275,
+   "name_ar": "الحسين بن قرِي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 276,
+   "name_ar": "محمد بن عنتر",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 277,
+   "name_ar": "عبد الرحمان اليلولي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 278,
+   "name_ar": "أمحمَاذ السعدي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 279,
+   "name_ar": "الرحمان بن القاضي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 281,
+   "name_ar": "أبي عبدالله محمد الشريف",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 282,
+   "name_ar": "عبد الرحمان بن محمد بن ابراهيم",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 283,
+   "name_ar": "بن أبي العباس (ابن غازي)",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 284,
+   "name_ar": "ابي عبدالله محمد بن الحسين",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 285,
+   "name_ar": "ابي الحسن علي بن أحمد",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 286,
+   "name_ar": "أبي وكيل ميمون",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 287,
+   "name_ar": "ابي عبد الله محمد",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 288,
+   "name_ar": "نزهة الكتانية",
+   "gender": "F",
+   "death_year": null
+  },
+  {
+   "id": 289,
+   "name_ar": "عبد الحي الكتاني",
+   "gender": "M",
+   "death_year": "1382"
+  },
+  {
+   "id": 290,
+   "name_ar": "القاضي أحمد بن طالب بن سودة",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 291,
+   "name_ar": "مصطفى بن الكبابطي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 292,
+   "name_ar": "علي بن الأمين",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 293,
+   "name_ar": "التاودي بن سودة",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 294,
+   "name_ar": "علي بن العربي السقاط",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 295,
+   "name_ar": "ابن عبد السلام بناني",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 296,
+   "name_ar": "أبي السعود الفاسي",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 297,
+   "name_ar": "ابن أبي النعيم",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 298,
+   "name_ar": "ابن مجبر",
+   "gender": "M",
+   "death_year": null
+  },
+  {
+   "id": 300,
+   "name_ar": "محمد حاج عابدين الكنتي",
+   "gender": "M",
+   "death_year": null
+  }
+ ]
+}

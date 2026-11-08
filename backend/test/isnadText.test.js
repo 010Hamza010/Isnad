@@ -1,9 +1,13 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const T = require('../src/services/isnadText');
+const { SEED_KINDS: K } = require('../src/services/txKinds');
+// tests below name transmissions with the seed numbering (1 سماع، 2 قراءة، 3 إجازة…) for brevity
+const ID = Object.fromEntries(Object.entries(K).map(([id, kind]) => [kind, Number(id)]));
+const idOf = kind => (kind == null ? null : ID[kind] ?? kind);
 
 const e = (from, fromName, to, toName, tx = null) =>
-  ({ from_person_id: from, from_name: fromName, to_person_id: to, to_name: toName, transmission_type_id: tx });
+  ({ from_person_id: from, from_name: fromName, to_person_id: to, to_name: toName, tx_kind: K[tx] ?? null });
 
 // أنا ← الكتاني (قراءة) ← جعفر (عنعنة) ← إدريس (إجازة)
 const CHAIN = [e(0, 'أنا', 1, 'محمد عبد الحي الكتاني', 2), e(1, '', 2, 'جعفر الكتاني'), e(2, '', 3, 'إدريس العراقي', 3)];
@@ -57,7 +61,7 @@ describe('parse', () => {
     const r = T.parseIsnad('حدثنا شيخنا العلامة فلان رحمه الله، قال: ثنا علي بن محمد، عن أبيه، أنا مالك رضي الله عنه');
     assert.deepEqual(names(r), [['حدثنا:فلان', 'حدثنا:علي بن محمد', 'عن:أبيه', 'أخبرنا:مالك']]);
     assert.equal(r.chains[0].start, null);
-    assert.deepEqual(r.chains[0].links.map(l => l.tx_type_id), [1, 1, null, 2]);
+    assert.deepEqual(r.chains[0].links.map(l => l.tx_kind), ['lafz', 'lafz', null, 'qiraa']); // حدثنا = من لفظ الشيخ
   });
 
   test('tashkeel, و/ف prefixes and multi-word keywords', () => {
@@ -84,7 +88,7 @@ describe('parse', () => {
   });
 
   test('custom keywords from settings are honoured', () => {
-    const settings = { keywords: [{ word: 'روى لنا', abbr: '', variants: [], tx_type_id: 1, preferred: true }, { word: 'عن', tx_type_id: null }] };
+    const settings = { keywords: [{ word: 'روى لنا', abbr: '', variants: [], kind: 'sama', preferred: true }, { word: 'عن', kind: null }] };
     assert.deepEqual(names(T.parseIsnad('روى لنا زيد عن عمرو', settings)), [['روى لنا:زيد', 'عن:عمرو']]);
   });
 });
@@ -107,7 +111,7 @@ describe('round trip', () => {
 
   test('render → parse keeps transmission types (except the joined link, which becomes عن)', () => {
     const parsed = T.parseIsnad(T.renderChain(CHAIN));
-    assert.deepEqual(parsed.chains[0].links.map(l => l.tx_type_id), [2, null, 3]);
+    assert.deepEqual(parsed.chains[0].links.map(l => idOf(l.tx_kind)), [2, null, 3]);
   });
 });
 
@@ -145,22 +149,22 @@ describe('settings', () => {
     assert.ok(s.keywords.length > 5);
   });
   test('rejects a form used by two keywords (ambiguous parse)', () => {
-    const bad = { keywords: [{ word: 'حدثنا', abbr: 'نا', tx_type_id: 1 }, { word: 'أخبرنا', abbr: 'نا', tx_type_id: 2 }] };
+    const bad = { keywords: [{ word: 'حدثنا', abbr: 'نا', kind: 'lafz' }, { word: 'أخبرنا', abbr: 'نا', kind: 'qiraa' }] };
     assert.throws(() => T.validateSettings(bad), T.SettingsError);
   });
   test('rejects empty keyword and non-integer type; keeps one preferred form per type', () => {
     assert.throws(() => T.validateSettings({ keywords: [{ word: ' ' }] }), /word: required/);
-    assert.throws(() => T.validateSettings({ keywords: [{ word: 'x', tx_type_id: 'abc' }] }), /tx_type_id/);
+    assert.throws(() => T.validateSettings({ keywords: [{ word: 'x', kind: 'abc' }] }), /kind: invalid/);
     const s = T.validateSettings({ keywords: [
-      { word: 'حدثنا', tx_type_id: 1, preferred: true }, { word: 'سمعت', tx_type_id: '1', preferred: true },
+      { word: 'حدثنا', kind: 'sama', preferred: true }, { word: 'سمعت', kind: 'sama', preferred: true },
     ] });
-    assert.deepEqual(s.keywords.map(k => [k.tx_type_id, k.preferred]), [[1, true], [1, false]]);
+    assert.deepEqual(s.keywords.map(k => [k.kind, k.preferred]), [['sama', true], ['sama', false]]);
   });
 });
 
 describe('ijaza styles: clear sentences, death years, note markers', () => {
   const d = (from, to, name, tx, death, desc) =>
-    ({ from_person_id: from, to_person_id: to, to_name: name, transmission_type_id: tx, to_death_year: death, to_description: desc });
+    ({ from_person_id: from, to_person_id: to, to_name: name, tx_kind: K[tx] ?? null, to_death_year: death, to_description: desc });
   const A = [d(0, 1, 'الكتاني', 2, '1382', 'محدث'), d(1, 2, 'جعفر', 1, '1323هـ', 'فقيه'), d(2, 3, 'إدريس', null, '1183', null)];
   const B = [d(0, 5, 'ابن عبد الكبير', 10, null, 'عالم'), d(5, 3, 'إدريس', null, '1183', null)];
   const ALL = { style: { clear: true, deathYears: true, noteMarkers: true } };
@@ -175,7 +179,7 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
   });
 
   test('an empty sentence falls back to the keyword form for that type', () => {
-    const s = { style: { clear: true, firstTitle: '' }, phrases: { first: { 2: '' } } };
+    const s = { style: { clear: true, firstTitle: '' }, phrases: { first: { qiraa: '' } } };
     assert.equal(T.renderChain([A[0]], s), 'أخبرنا الكتاني');
   });
 
@@ -194,7 +198,7 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
   test('parse reads clear sentences back with their types, death years, and drops markers', () => {
     const text = T.renderChains([A, B], ALL) + ' (وهو ثقة)';
     const r = T.parseIsnad(text);
-    assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, l.death_year, l.tx_type_id])), [
+    assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, l.death_year, idOf(l.tx_kind)])), [
       [['الكتاني', '1382هـ', 2], ['جعفر', '1323هـ', 1], ['إدريس', '1183هـ', null]],
       [['ابن عبد الكبير', null, 10], ['إدريس', '1183هـ', null]],
     ]);
@@ -202,7 +206,7 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
 
   test('a sentence ending pins the type when the opening is shared («أجازني … إجازةً عامة»)', () => {
     const r = T.parseIsnad('أجازني شيخنا فلان إجازةً عامة، وهو أجازه علان');
-    assert.deepEqual(r.chains[0].links.map(l => [l.name, l.tx_type_id]), [['فلان', 4], ['علان', 3]]);
+    assert.deepEqual(r.chains[0].links.map(l => [l.name, idOf(l.tx_kind)]), [['فلان', 4], ['علان', 3]]);
   });
 
   test('collectPersons lists persons once in first-mention order, skipping me and sacred nodes', () => {
@@ -211,19 +215,19 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
   });
 
   test('sentences are validated (one {الاسم}) and merged per key', () => {
-    assert.equal(T.mergeSettings({ phrases: { first: { 2: 'قرأتُ بحمد الله على {الاسم}' } } }).phrases.first['1'], 'سمعتُ من {الاسم}');
+    assert.equal(T.mergeSettings({ phrases: { first: { qiraa: 'قرأتُ بحمد الله على {الاسم}' } } }).phrases.first.sama, 'سمعتُ من {الاسم}');
     assert.throws(() => T.validateSettings({ phrases: { first: { abc: 'x {الاسم}' } } }), /invalid key/);
-    assert.throws(() => T.validateSettings({ phrases: { first: { 2: 'قرأتُ عليه' } } }), /\{الاسم\} once/);
+    assert.throws(() => T.validateSettings({ phrases: { first: { qiraa: 'قرأتُ عليه' } } }), /\{الاسم\} once/);
   });
 });
 
 describe('vocabulary: sama\' and other manners are recognised however they are written', () => {
-  const one = text => { const l = T.parseIsnad(text).chains[0]?.links[0]; return l && [l.name, l.tx_type_id, l.reading_mode]; };
+  const one = text => { const l = T.parseIsnad(text).chains[0]?.links[0]; return l && [l.name, idOf(l.tx_kind), l.reading_mode]; };
   const cases = [
     ['سمعت من فلان', ['فلان', 1, null]],
     ['سمعتُ على فلان', ['فلان', 1, null]],
     ['عن فلان سماعاً عليه', ['فلان', 1, null]],
-    ['عن فلان سماعاً من لفظه', ['فلان', 1, null]],
+    ['عن فلان سماعاً من لفظه', ['فلان', 'lafz', null]],
     ['وهو سمع على فلان', ['فلان', 1, null]],
     ['وهو سمعه من فلان', ['فلان', 1, null]],
     ['بسماعه من فلان', ['فلان', 1, null]],
@@ -241,8 +245,8 @@ describe('vocabulary: sama\' and other manners are recognised however they are w
   });
 
   test('reading mode is written in clear mode and read back', () => {
-    const e = [{ from_person_id: 0, to_person_id: 1, to_name: 'فلان', transmission_type_id: 2, reading_mode: 'heart' },
-               { from_person_id: 1, to_person_id: 2, to_name: 'علان', transmission_type_id: 2, reading_mode: 'looking' }];
+    const e = [{ from_person_id: 0, to_person_id: 1, to_name: 'فلان', tx_kind: 'qiraa', reading_mode: 'heart' },
+               { from_person_id: 1, to_person_id: 2, to_name: 'علان', tx_kind: 'qiraa', reading_mode: 'looking' }];
     const text = T.renderChain(e, { style: { clear: true, firstTitle: '' } });
     assert.equal(text, 'قرأتُ على فلان غيباً من حفظي، وهو قرأ على علان نظراً');
     assert.deepEqual(T.parseIsnad(text).chains[0].links.map(l => l.reading_mode), ['heart', 'looking']);
@@ -259,7 +263,7 @@ test('a stored heart word equal to the old default «حفظاً» follows the ne
 });
 
 describe('gender: pronouns, verbs, titles and joiners follow each person', () => {
-  const e = (f, fg, to, n, tg, tx) => ({ from_person_id: f, from_gender: fg, to_person_id: to, to_name: n, to_gender: tg, transmission_type_id: tx });
+  const e = (f, fg, to, n, tg, tx) => ({ from_person_id: f, from_gender: fg, to_person_id: to, to_name: n, to_gender: tg, tx_kind: K[tx] ?? null });
   const clear = { style: { clear: true } };
 
   test('narrator and shaykh agree separately («وهي أجازها»، «وهو أجازته»)', () => {
@@ -289,21 +293,23 @@ describe('gender: pronouns, verbs, titles and joiners follow each person', () =>
 
   test('the parser reads feminine sentences, titles and joiners back', () => {
     const r = T.parseIsnad('قرأتُ على شيختنا نزهة الكتانية رحمها الله، وهي قرأت على فلان ح وأجازتني الشيخة خديجة، كلتاهما عن زيد');
-    assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, l.tx_type_id])), [
+    assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, idOf(l.tx_kind)])), [
       [['نزهة الكتانية', 2], ['فلان', 2], ['زيد', null]],
       [['خديجة', 3], ['زيد', null]],
     ]);
   });
 
   test('stored copies of the old masculine-only sentences follow the gendered defaults; custom ones stay', () => {
-    const s = T.mergeSettings({ phrases: { others: { 2: 'وهو قرأ على {الاسم}', 1: 'وهو سمع {الاسم} يقول' } } });
-    assert.equal(s.phrases.others['2'], '{الراوي:وهو قرأ|وهي قرأت} على {الاسم}');
-    assert.equal(s.phrases.others['1'], 'وهو سمع {الاسم} يقول');
+    // saved by an older version: keyed by type id; a custom one is converted through this database's kinds
+    const s = T.mergeSettings({ phrases: { others: { 2: 'وهو قرأ على {الاسم}', 3: 'وهو سمع {الاسم} يقول' } } }, { 2: 'qiraa', 3: 'sama' });
+    assert.equal(s.phrases.others.qiraa, '{الراوي:وهو قرأ|وهي قرأت} على {الاسم}');
+    assert.equal(s.phrases.others.sama, 'وهو سمع {الاسم} يقول');
+    assert.equal(s.phrases.others['2'], undefined);
   });
 
   test('sentences only accept {الاسم} and {الراوي/الشيخ:m|f}', () => {
-    assert.doesNotThrow(() => T.validateSettings({ phrases: { others: { 2: '{الراوي:وهو|وهي} على {الاسم}' } } }));
-    assert.throws(() => T.validateSettings({ phrases: { others: { 2: '{الطالب} على {الاسم}' } } }), /use \{الراوي/);
+    assert.doesNotThrow(() => T.validateSettings({ phrases: { others: { qiraa: '{الراوي:وهو|وهي} على {الاسم}' } } }));
+    assert.throws(() => T.validateSettings({ phrases: { others: { qiraa: '{الطالب} على {الاسم}' } } }), /use \{الراوي/);
   });
 });
 
@@ -312,7 +318,7 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
   const id = name => (ids[name] ??= next++);
   const chain = names => {
     let prev = 0;
-    return names.map((nm, i) => { const e = { from_person_id: prev, to_person_id: id(nm), to_name: nm, transmission_type_id: i === 0 ? 2 : null }; prev = e.to_person_id; return e; });
+    return names.map((nm, i) => { const e = { from_person_id: prev, to_person_id: id(nm), to_name: nm, tx_kind: i === 0 ? 'qiraa' : null }; prev = e.to_person_id; return e; });
   };
   const mid = ['طاهر', 'السعيد', 'عبد الرحمان'], top = ['ابن غازي', 'ابن بري'];
   const A = chain(['حسين', ...mid, ...top]);
@@ -345,8 +351,8 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
 
 describe('meeting point states how they took, عنعنة stays plain «عن»', () => {
   const mk = (id, n, tx2) => [
-    { from_person_id: 0, to_person_id: id, to_name: n, transmission_type_id: 2 },
-    { from_person_id: id, to_person_id: 9, to_name: 'ابن غازي', transmission_type_id: tx2 },
+    { from_person_id: 0, to_person_id: id, to_name: n, tx_kind: 'qiraa' },
+    { from_person_id: id, to_person_id: 9, to_name: 'ابن غازي', tx_kind: K[tx2] ?? null },
   ];
   const st = { style: { clear: true, firstTitle: '' } };
 
@@ -361,7 +367,7 @@ describe('meeting point states how they took, عنعنة stays plain «عن»', 
   });
   test('the type after «كلاهما سمع من» is read back', () => {
     const r = T.parseIsnad(T.renderChains([mk(1, 'أ', 1), mk(2, 'ب', 1)], st));
-    assert.deepEqual(r.chains.map(c => c.links.map(l => l.tx_type_id)), [[2, 1], [2, 1]]);
+    assert.deepEqual(r.chains.map(c => c.links.map(l => idOf(l.tx_kind))), [[2, 1], [2, 1]]);
   });
   test('stored «يروي عن» defaults follow the plain «عن»', () => {
     const s = T.mergeSettings({ phrases: { others: { null: '{الراوي:وهو يروي|وهي تروي} عن {الاسم}' }, first: { null: 'رويتُ عن {الاسم}' } } });

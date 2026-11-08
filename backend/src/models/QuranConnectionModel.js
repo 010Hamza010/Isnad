@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const TxType = require('./TxTypeModel');
 
 exports.findAllForUser = async (userId) => {
   const [conns] = await db.query(`
@@ -24,7 +25,7 @@ exports.findAllForUser = async (userId) => {
   } else {
     conns.forEach(c => { c.items = []; });
   }
-  return conns;
+  return TxType.annotate(conns);
 };
 
 exports.create = async (userId, fields, items) => {

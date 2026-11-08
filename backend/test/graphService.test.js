@@ -26,9 +26,9 @@ test('does not loop on cycles', () => {
 
 test('keeps the strongest transmission per pair (lowest type id, untyped last)', () => {
   const edges = [
-    e(0, 1, { transmission_type_id: 3, tx_name: 'إجازة' }),
-    e(0, 1, { transmission_type_id: 1, tx_name: 'سماع' }),
-    e(0, 1, { transmission_type_id: null, tx_name: null }),
+    e(0, 1, { tx_kind: 'ijaza', tx_name: 'إجازة' }),
+    e(0, 1, { tx_kind: 'sama', tx_name: 'سماع' }),
+    e(0, 1, { tx_kind: null, tx_name: null }),
     e(1, 9),
   ];
   const [group] = buildPaths(edges, 0, [9], null, null, null, new Map(), null, null);
@@ -38,8 +38,8 @@ test('keeps the strongest transmission per pair (lowest type id, untyped last)',
 test('scope filter runs before dedup: a second edge to the same shaykh with another riwaya is kept', () => {
   // two connections me → shaykh 1: one for riwaya 10 (sama'), one for riwaya 20 (ijaza)
   const edges = [
-    e(0, 1, { transmission_type_id: 1, items: [{ riwaya_id: 10 }] }),
-    e(0, 1, { transmission_type_id: 3, items: [{ riwaya_id: 20 }] }),
+    e(0, 1, { tx_kind: 'sama', items: [{ riwaya_id: 10 }] }),
+    e(0, 1, { tx_kind: 'ijaza', items: [{ riwaya_id: 20 }] }),
     e(1, 5),
   ];
   const groups = buildPaths(edges, 0, [5], 20, null, null, new Map(), null, null);
@@ -76,7 +76,7 @@ test('formatPath labels me as أنا and resolves names', () => {
 
 test('formatPath carries reading mode and death years for the text renderer', () => {
   const pMap = new Map([[1, { name_ar: 'أ', death_year: '1382' }]]);
-  const [g] = buildPaths([e(0, 1, { reading_mode: 'heart', transmission_type_id: 2 })], 0, [1], null, null, null, pMap, null, null);
+  const [g] = buildPaths([e(0, 1, { reading_mode: 'heart', tx_kind: 'qiraa' })], 0, [1], null, null, null, pMap, null, null);
   const out = formatPath(g, pMap);
   assert.equal(out.firstEdge.reading_mode, 'heart');
   assert.equal(out.firstEdge.to_death_year, '1382');
@@ -86,22 +86,22 @@ describe('which connection wins between the same two people', () => {
   const pick = (...candidates) => buildPaths([...candidates, e(1, 9)], 0, [9], null, null, null, new Map(), null, null)[0].firstEdge;
 
   test('قراءة beats إجازة عامة, whatever the type numbers are', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: 4, tag: 'general' }), e(0, 1, { transmission_type_id: 2, tag: 'qiraa' })).tag, 'qiraa');
+    assert.equal(pick(e(0, 1, { tx_kind: 'ijaza_general', tag: 'general' }), e(0, 1, { tx_kind: 'qiraa', tag: 'qiraa' })).tag, 'qiraa');
   });
   test('«قراءة عليه وأنا أسمع» (id 10) beats إجازة (3) and إجازة عامة (4)', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: 3, tag: 'ij' }), e(0, 1, { transmission_type_id: 10, tag: 'listen' })).tag, 'listen');
-    assert.equal(pick(e(0, 1, { transmission_type_id: 10, tag: 'listen' }), e(0, 1, { transmission_type_id: 4, tag: 'gen' })).tag, 'listen');
+    assert.equal(pick(e(0, 1, { tx_kind: 'ijaza', tag: 'ij' }), e(0, 1, { tx_kind: 'sama_reading', tag: 'listen' })).tag, 'listen');
+    assert.equal(pick(e(0, 1, { tx_kind: 'sama_reading', tag: 'listen' }), e(0, 1, { tx_kind: 'ijaza_general', tag: 'gen' })).tag, 'listen');
   });
   test('the chosen type decides even when «إجازة عامة» is also ticked', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { transmission_type_id: 1, is_general_ijaza: 1, tag: 'sama' })).tag, 'sama');
-    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { transmission_type_id: 6, tag: 'kitaba' })).tag, 'ij');
+    assert.equal(pick(e(0, 1, { tx_kind: 'ijaza', is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { tx_kind: 'sama', is_general_ijaza: 1, tag: 'sama' })).tag, 'sama');
+    assert.equal(pick(e(0, 1, { tx_kind: 'ijaza', is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { tx_kind: 'kitaba', tag: 'kitaba' })).tag, 'ij');
   });
   test('the box types an untyped connection as إجازة عامة, and breaks ties', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: null, is_general_ijaza: 1, tag: 'gen' }), e(0, 1, { transmission_type_id: 7, tag: 'wijada' })).tag, 'gen');
-    assert.equal(pick(e(0, 1, { transmission_type_id: 1, is_general_ijaza: 1, tag: 'ticked' }), e(0, 1, { transmission_type_id: 1, tag: 'plain' })).tag, 'plain');
+    assert.equal(pick(e(0, 1, { tx_kind: null, is_general_ijaza: 1, tag: 'gen' }), e(0, 1, { tx_kind: 'wijada', tag: 'wijada' })).tag, 'gen');
+    assert.equal(pick(e(0, 1, { tx_kind: 'sama', is_general_ijaza: 1, tag: 'ticked' }), e(0, 1, { tx_kind: 'sama', tag: 'plain' })).tag, 'plain');
   });
   test('same type: the connection for this matn beats a general one; untyped is last', () => {
-    assert.equal(pick(e(0, 1, { transmission_type_id: 2, matn_id: null, tag: 'any' }), e(0, 1, { transmission_type_id: 2, matn_id: 7, tag: 'this' })).tag, 'this');
-    assert.equal(pick(e(0, 1, { transmission_type_id: null, tag: 'none' }), e(0, 1, { transmission_type_id: 7, tag: 'wijada' })).tag, 'wijada');
+    assert.equal(pick(e(0, 1, { tx_kind: 'qiraa', matn_id: null, tag: 'any' }), e(0, 1, { tx_kind: 'qiraa', matn_id: 7, tag: 'this' })).tag, 'this');
+    assert.equal(pick(e(0, 1, { tx_kind: null, tag: 'none' }), e(0, 1, { tx_kind: 'wijada', tag: 'wijada' })).tag, 'wijada');
   });
 });

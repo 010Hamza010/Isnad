@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const TxType = require('./TxTypeModel');
 
 exports.getMatnWithEdges = async (matnId) => {
   const [[matn]] = await db.query(
@@ -10,7 +11,7 @@ exports.getMatnWithEdges = async (matnId) => {
      LEFT JOIN transmission_types tt ON mc.transmission_type_id = tt.id
      WHERE mc.matn_id = ? OR mc.matn_id IS NULL`, [matnId]
   );
-  return { matn, edges };
+  return { matn, edges: await TxType.annotate(edges) };
 };
 
 exports.getQuranEdgesForUser = async (userId) => {
@@ -28,7 +29,7 @@ exports.getQuranEdgesForUser = async (userId) => {
     items.forEach(it => { (iMap[it.connection_id] ??= []).push(it); });
     edges.forEach(e => { e.items = iMap[e.id] || []; });
   }
-  return edges;
+  return TxType.annotate(edges);
 };
 
 exports.getRiwayaById = async (riwaya_id) => {
@@ -67,22 +68,22 @@ exports.getFullGraphData = async (userId, module) => {
   let matnEdges = [], quranEdges = [];
   if (module !== 'quran') {
     const [r] = await db.query(
-      `SELECT mc.from_person_id, mc.to_person_id, mc.is_general_ijaza, tt.name_ar as tx_name, m.title as matn_title
+      `SELECT mc.from_person_id, mc.to_person_id, mc.is_general_ijaza, mc.transmission_type_id, tt.name_ar as tx_name, m.title as matn_title
        FROM matn_connections mc
        LEFT JOIN transmission_types tt ON mc.transmission_type_id = tt.id
        LEFT JOIN mutoon m ON mc.matn_id = m.id
        `
     );
-    matnEdges = r;
+    matnEdges = await TxType.annotate(r);
   }
   if (module !== 'mutoon') {
     const [r] = await db.query(
-      `SELECT qc.from_person_id, qc.to_person_id, tt.name_ar as tx_name
+      `SELECT qc.from_person_id, qc.to_person_id, qc.transmission_type_id, tt.name_ar as tx_name
        FROM quran_connections qc
        LEFT JOIN transmission_types tt ON qc.transmission_type_id = tt.id
        WHERE qc.user_id = ?`, [userId]
     );
-    quranEdges = r;
+    quranEdges = await TxType.annotate(r);
   }
   return { persons, matnEdges, quranEdges };
 };
