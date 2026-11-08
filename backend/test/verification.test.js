@@ -48,7 +48,8 @@ describe('public endpoint', () => {
     assert.equal(b.body, 'نص');
     assert.equal(b.shaykh_name, 'الشيخ');
     assert.equal(b.revoke_reason, null);                       // reason only shown once revoked
-    for (const k of ['id', 'user_id', 'public_token', 'scan_count']) assert.ok(!(k in b), k);
+    for (const k of ['id', 'user_id', 'scan_count', 'frozen_html']) assert.ok(!(k in b), k);
+    assert.equal(b.token, ROW.public_token);
     assert.equal(scans, 1);
   });
   test('the owner\'s preview does not count as a scan', async () => {
