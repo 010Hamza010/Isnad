@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, ijazaTitle } from '../src/utils/ijaza.js';
+import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph } from '../src/utils/ijaza.js';
 import { quranOptions, quranPathParams, groupsToChains } from '../src/utils/quranOptions.js';
 
 test('fillTemplate replaces known keys and reports missing ones', () => {
@@ -61,4 +61,46 @@ test('groupsToChains prepends the first edge and keeps direct links', () => {
   const f = { to_person_id: 1 };
   assert.deepEqual(groupsToChains([{ firstEdge: f, chains: [[{ to_person_id: 2 }]] }, { firstEdge: f, chains: [] }]),
     [[f, { to_person_id: 2 }], [f]]);
+});
+
+test('optional placeholders vanish with their paragraph instead of being reported', () => {
+  const r = fillTemplate('أ\n\n{شيوخ_القراءة}\n\nوإسنادي: {الإسناد}', { 'الإسناد': 'س' }, { optional: ['شيوخ_القراءة'] });
+  assert.equal(r.text, 'أ\n\nوإسنادي: س');
+  assert.deepEqual(r.missing, []);
+});
+
+test('joinArabic attaches و to every item after the first', () => {
+  assert.equal(joinArabic(['أ', 'ب', 'ج']), 'أ، وب، وج');
+  assert.equal(joinArabic(['أ']), 'أ');
+});
+
+const conn = (to, name, tx, extra = {}) => ({ from_person_id: 0, to_person_id: to, to_name: name, transmission_type_id: tx, ...extra });
+
+test('readingTeachers (matn): only my قراءة/عرض connections for that matn, one per shaykh', () => {
+  const conns = [
+    conn(1, 'أ', 2, { matn_id: 7 }), conn(1, 'أ', 2, { matn_id: 7, reading_mode: 'heart' }),
+    conn(2, 'ب', 2, { matn_id: 7 }), conn(3, 'ج', 1, { matn_id: 7 }),        // سماع: not «read on»
+    conn(4, 'د', 2, { matn_id: 8 }), { ...conn(5, 'هـ', 2, { matn_id: 7 }), from_person_id: 9 },
+  ];
+  assert.deepEqual(readingTeachers(conns, 'mutoon', { matnId: 7 }),
+    [{ id: 1, name: 'أ', reading_mode: 'heart' }, { id: 2, name: 'ب', reading_mode: null }]);
+});
+
+test('readingTeachers (quran): riwaya match, qiraa-level and unscoped connections count', () => {
+  const conns = [
+    conn(1, 'أ', 2, { items: [{ riwaya_id: 2 }] }),       // same riwaya
+    conn(2, 'ب', 9, { items: [] }),                       // مطلق
+    conn(3, 'ج', 2, { items: [{ qiraa_id: 1 }] }),        // whole qiraa
+    conn(4, 'د', 2, { items: [{ riwaya_id: 5 }] }),       // other riwaya
+  ];
+  const r = readingTeachers(conns, 'quran', { option: { qiraa_id: 1, riwaya_id: 2 }, riwayaQiraa: () => 1 });
+  assert.deepEqual(r.map(t => t.name), ['أ', 'ب', 'ج']);
+});
+
+test('teachersParagraph needs two or more shuyukh and adds the reading mode word', () => {
+  const sentence = 'قرأتُه على جماعة، منهم: {الشيوخ}.';
+  const words = { heart: 'حفظاً', looking: 'نظراً' };
+  assert.equal(teachersParagraph([{ name: 'أ' }], sentence, words), '');
+  assert.equal(teachersParagraph([{ name: 'أ', reading_mode: 'heart' }, { name: 'ب' }], sentence, words),
+    'قرأتُه على جماعة، منهم: أ حفظاً، وب.');
 });

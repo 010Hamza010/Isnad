@@ -152,6 +152,14 @@ export default function Settings() {
             </label>
             <p className="field-hint" style={{ marginBottom: 12 }}>هذه لنص الإسناد في صفحات الأسانيد؛ الإجازات لها خياراتها الخاصة.</p>
             <div className="form-grid">
+              <Field label="القراءة عن ظهر قلب" hint="بعد اسم الشيخ في العبارات الصريحة">
+                <input className="input" value={draft.style.heartWord} onChange={e => setStyle('heartWord', e.target.value)} />
+              </Field>
+              <Field label="القراءة من الكتاب">
+                <input className="input" value={draft.style.lookingWord} onChange={e => setStyle('lookingWord', e.target.value)} />
+              </Field>
+            </div>
+            <div className="form-grid">
               <Field label="لقب الشيخ المباشر" hint="مثل: شيخنا، شيخي — اتركه فارغاً لحذفه">
                 <input className="input" value={draft.style.firstTitle} onChange={e => setStyle('firstTitle', e.target.value)} />
               </Field>
