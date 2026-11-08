@@ -8,19 +8,30 @@ const { HttpError, requireFields } = require('../utils/httpError');
 const KEY = 'ijaza';
 const MAX_BODY = 50000;
 
+const { profileOf } = require('./profileController');
+
+// the shaykh's name, gender and default place come from the profile
+const withProfile = (settings, profile) => ({
+  ...settings, shaykh_name: profile.full_name, shaykh_gender: profile.gender, place: profile.place,
+});
+
 exports.getSettings = async (req, res) => {
-  res.json({ settings: IS.mergeSettings(await Settings.get(req.user.id, KEY)), defaults: IS.DEFAULTS, designOptions: IS.designOptions() });
+  const profile = await profileOf(req.user.id);
+  res.json({
+    settings: withProfile(IS.mergeSettings(await Settings.get(req.user.id, KEY)), profile), profile,
+    defaults: IS.DEFAULTS, designOptions: IS.designOptions(),
+  });
 };
 
 exports.saveSettings = async (req, res) => {
   const settings = IS.validateSettings(req.body);
   await Settings.set(req.user.id, KEY, settings);
-  res.json({ settings });
+  res.json({ settings: withProfile(settings, await profileOf(req.user.id)) });
 };
 
 exports.resetSettings = async (req, res) => {
   await Settings.remove(req.user.id, KEY);
-  res.json({ settings: IS.mergeSettings(null) });
+  res.json({ settings: withProfile(IS.mergeSettings(null), await profileOf(req.user.id)) });
 };
 
 // every row carries the exact text of its QR code
