@@ -11,7 +11,7 @@ import { matches } from '../../utils/text';
 
 const MODULE_BADGE = { mutoon: ['متن', 'badge-info'], quran: ['قرآن', 'badge-accent'], general: ['عامة', 'badge-purple'] };
 
-export default function IjazaRegister() {
+export default function IjazaRegister({ settings }) {
   const { toast, notifyError, confirm } = useUI();
   const { data: rows, loading, reload } = useLoad(() => api.get('/ijazat').then(r => r.data), [], []);
   const [search, setSearch] = useState('');
@@ -63,7 +63,9 @@ export default function IjazaRegister() {
         <Modal title={view.student_name} size="lg" onClose={() => setView(null)}
           footer={<button className="btn btn-primary" onClick={() => window.print()}><Icon name="print" size={16} /> طباعة / PDF</button>}>
           <Certificate title={view.title} body={view.body} variant={view.style}
-            notes={view.details?.notes || {}} chains={view.details?.chains || []} />
+            notes={view.details?.notes || {}} chains={view.details?.chains || []}
+            design={view.details?.design || settings.designs.find(x => x.id === settings.default_design) || settings.designs[0]}
+            people={view.details?.people || { student: view.student_name, shaykh: settings.shaykh_name }} />
         </Modal>
       )}
     </>

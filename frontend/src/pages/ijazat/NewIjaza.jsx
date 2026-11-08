@@ -45,6 +45,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const [clearWords, setClearWords] = useState(true);
   const [deathYears, setDeathYears] = useState(true);
   const [notes, setNotes]     = useState({});
+  const [designId, setDesignId] = useState(settings.default_design);
+  const design = settings.designs.find(x => x.id === designId) || settings.designs[0];
   const [student, setStudent] = useState('');
   const [matnId, setMatnId]   = useState('');
   const [quranKey, setQuranKey] = useState('');
@@ -135,7 +137,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         transmission_type_id: module === 'general' ? null : txId,
         issued_at: date, issued_hijri: hijri, place,
         style: detailed ? 'detailed' : 'normal',
-        details: detailed ? { notes, chains: chains.map(slimChain) } : null,
+        // snapshot: reprints look the same even if the design or biographies change later
+        details: { notes: detailed ? notes : {}, chains: chains.map(slimChain), design, people },
       });
       toast('حُفظت الإجازة في السجل');
       reset(); onSaved();
@@ -143,6 +146,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   };
 
   const detailed = style === 'detailed' && module !== 'general';
+  const people = { student: student.trim(), shaykh: settings.shaykh_name };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (
@@ -225,6 +229,12 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
           </div>
         )}
 
+        <Field label="التصميم" hint="عدّل التصاميم أو أنشئ تصميمك من تبويب «التصميم»">
+          <select className="select" value={design.id} onChange={e => setDesignId(e.target.value)}>
+            {settings.designs.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </Field>
+
         <div className="form-grid">
           <Field label="التاريخ"><input className="input" type="date" value={date} onChange={e => changeDate(e.target.value)} /></Field>
           <Field label="الهجري"><input className="input" value={hijri} onChange={e => setHijri(e.target.value)} /></Field>
@@ -260,13 +270,14 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         {manualBody != null && (
           <>
             <textarea className="textarea cert-editor" value={manualBody} onChange={e => setManualBody(e.target.value)} />
-            {detailed && <p className="small muted">العلامات مثل [[12]] تربط الاسم بحاشيته — احذفها لإخفاء الحاشية.</p>}
+            {detailed && <p className="small muted">العلامات مثل [[12]] تربط الاسم بحاشيته أسفل الصفحة — احذفها لإخفاء الحاشية.</p>}
           </>
         )}
         {detailed && chains.length > 0 && Object.keys(notes).length === 0 && (
           <div className="callout">لا توجد تراجم للأعلام في هذا الإسناد — أضفها في صفحة <Link to="/persons">الأعلام</Link> لتظهر في الهامش.</div>
         )}
-        <Certificate title={title} body={body} variant={detailed ? 'detailed' : 'normal'} notes={notes} chains={chains} />
+        <Certificate title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
+          notes={notes} chains={chains} design={design} people={people} />
         <p className="small muted">
           الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». للحفظ كملف PDF اختر «حفظ كـ PDF» في نافذة الطباعة.
         </p>
