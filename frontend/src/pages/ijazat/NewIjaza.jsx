@@ -11,7 +11,7 @@ import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
 import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, ijazaTitle, PLACEHOLDERS, readingTeachers, teachersParagraph } from '../../utils/ijaza';
 import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
-import { rowOptions } from '../../utils/options';
+import { rowOptions, kindOfType } from '../../utils/options';
 
 const STYLES = [
   { value: 'normal', label: 'عادية' },
@@ -21,7 +21,7 @@ const STYLES = [
 // keep only what the certificate needs (tree + notes) in the saved snapshot
 const slimChain = c => c.map(e => ({
   from_person_id: e.from_person_id, from_name: e.from_name, from_death_year: e.from_death_year || null,
-  to_person_id: e.to_person_id, to_name: e.to_name, to_death_year: e.to_death_year || null, tx_name: e.tx_name || null,
+  to_person_id: e.to_person_id, to_name: e.to_name, to_death_year: e.to_death_year || null, tx_name: e.tx_name || null, tx_kind: e.tx_kind || null,
 }));
 
 const MODULES = [
@@ -52,7 +52,11 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const [studentGender, setStudentGender] = useState('M');
   const [matnId, setMatnId]   = useState('');
   const [quranKey, setQuranKey] = useState('');
-  const [txId, setTxId]       = useState(2);
+  const [txId, setTxId]       = useState(null);
+  // default «كيف أخذ عنك»: this database's قراءة type (ids differ between databases)
+  useEffect(() => {
+    if (txId == null && refs.txTypes.length) setTxId((refs.txTypes.find(t => t.kind === 'qiraa') || refs.txTypes[0]).id);
+  }, [refs.txTypes]);
   const [date, setDate]       = useState(todayISO());
   const [hijri, setHijri]     = useState(formatDates(todayISO()).hijri);
   const [place, setPlace]     = useState(settings.place);
@@ -121,7 +125,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
 
   const values = {
     'الطالب': student.trim(),
-    'كيفية_الأخذ': takhammulPhrase(txId, studentGender),
+    'كيفية_الأخذ': takhammulPhrase(kindOfType(refs.txTypes, txId), studentGender),
     'المتن': matn?.title, 'المؤلف': matn?.author_name,
     // an unrestricted (مطلق) Quran connection has no riwaya to name
     'ما_قرئ': reading || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
@@ -211,8 +215,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         )}
         {module !== 'general' && (
           <Field label="كيف أخذ عنك">
-            <select className="select" value={txId} onChange={e => setTxId(Number(e.target.value))}>
-              {txOpts.map(o => <option key={o.value} value={o.value}>{o.label} — «{takhammulPhrase(o.value, studentGender)}»</option>)}
+            <select className="select" value={txId ?? ''} onChange={e => setTxId(Number(e.target.value))}>
+              {txOpts.map(o => <option key={o.value} value={o.value}>{o.label} — «{takhammulPhrase(kindOfType(refs.txTypes, o.value), studentGender)}»</option>)}
             </select>
           </Field>
         )}

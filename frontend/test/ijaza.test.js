@@ -21,8 +21,8 @@ test('readingPhrase adds رواية/قراءة/طريق only when missing', () =
 });
 
 test('takhammulPhrase maps transmission types with a sensible default', () => {
-  assert.equal(takhammulPhrase(1), 'سمع مني');
-  assert.equal(takhammulPhrase('2'), 'قرأ عليّ');
+  assert.equal(takhammulPhrase('sama'), 'سمع مني');
+  assert.equal(takhammulPhrase('qiraa'), 'قرأ عليّ');
   assert.equal(takhammulPhrase(null), 'قرأ عليّ');
 });
 
@@ -74,7 +74,9 @@ test('joinArabic attaches و to every item after the first', () => {
   assert.equal(joinArabic(['أ']), 'أ');
 });
 
-const conn = (to, name, tx, extra = {}) => ({ from_person_id: 0, to_person_id: to, to_name: name, transmission_type_id: tx, ...extra });
+// seed numbering for brevity → transmission kinds (what the API sends as tx_kind)
+const KIND = { 1: 'sama', 2: 'qiraa', 9: 'ard' };
+const conn = (to, name, tx, extra = {}) => ({ from_person_id: 0, to_person_id: to, to_name: name, tx_kind: KIND[tx] ?? null, ...extra });
 
 test('readingTeachers (matn): only my قراءة/عرض connections for that matn, one per shaykh', () => {
   const conns = [
@@ -114,9 +116,9 @@ test('gender alternations follow the student (المجاز) and me (المجيز
 });
 
 test('takhammulPhrase agrees with the student', () => {
-  assert.equal(takhammulPhrase(2, 'F'), 'قرأت عليّ');
-  assert.equal(takhammulPhrase(1, 'F'), 'سمعت مني');
-  assert.equal(takhammulPhrase(99, 'F'), 'قرأت عليّ');
+  assert.equal(takhammulPhrase('qiraa', 'F'), 'قرأت عليّ');
+  assert.equal(takhammulPhrase('sama', 'F'), 'سمعت مني');
+  assert.equal(takhammulPhrase('unknown', 'F'), 'قرأت عليّ');
 });
 
 test('teachers paragraph uses «الشيخة» for women', () => {

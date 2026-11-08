@@ -42,7 +42,10 @@ test('wrapText wraps on words and never cuts a long word', () => {
   assert.deepEqual(wrapText('', 5, measure), ['']);
 });
 
-test('txCategory groups transmission names (قراءة عليه وأنا أسمع counts as قراءة)', () => {
+test('txCategory: by kind first, by name for older snapshots', () => {
+  assert.equal(txCategory('lafz'), 'sama');
+  assert.equal(txCategory('sama_reading'), 'qiraa');
+  assert.equal(txCategory('ijaza_general'), 'ijaza');
   assert.equal(txCategory('سماع'), 'sama');
   assert.equal(txCategory('قراءة على الشيخ'), 'qiraa');
   assert.equal(txCategory('قراءة عليه وأنا أسمع'), 'qiraa');

@@ -8,9 +8,9 @@ import Combobox from '../../components/ui/Combobox';
 import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Icon from '../../components/ui/Icon';
-import ReadingModeField, { isReadingTx, READING_LABELS } from '../../components/isnad/ReadingMode';
+import ReadingModeField, { isReadingKind, READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
-import { personOptions, rowOptions } from '../../utils/options';
+import { personOptions, rowOptions, kindOfType } from '../../utils/options';
 
 const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 const EMPTY = {
@@ -81,7 +81,7 @@ export default function QuranConnections() {
         khatmat_count:        parseInt(form.khatmat_count) || 1,
         ijaza_date:           form.ijaza_date || null,
         meeting_mode:         form.meeting_mode || 'حضوراً',
-        reading_mode:         isReadingTx(form.transmission_type_id) ? form.reading_mode || null : null,
+        reading_mode:         isReadingKind(kindOfType(txTypes, form.transmission_type_id)) ? form.reading_mode || null : null,
         notes:                form.notes || null,
         description:          form.description || null,
         items: form.items
@@ -200,7 +200,7 @@ export default function QuranConnections() {
             <Field label="عدد الختمات"><TextInput form={form} set={set} name="khatmat_count" type="number" min="1" /></Field>
             <Field label="تاريخ الإجازة (هجري)"><TextInput form={form} set={set} name="ijaza_date" placeholder="1444هـ" /></Field>
           </div>
-          <ReadingModeField tx={form.transmission_type_id} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
+          <ReadingModeField kind={kindOfType(txTypes, form.transmission_type_id)} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
           <Field label="ملاحظات التلاوة"><TextArea form={form} set={set} name="notes" rows={2} placeholder="أجازني بالغنة والتحقيق…" /></Field>
           <Field label="وصف عام"><TextArea form={form} set={set} name="description" rows={2} placeholder="ختمت عليه في رمضان 1444هـ بمنزله…" /></Field>
         </FormModal>

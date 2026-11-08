@@ -11,18 +11,18 @@ import IsnadProse from '../../components/isnad/IsnadProse';
 
 const SAMPLE_TEXT = 'أخبرنا شيخنا العلامة محمد عبد الحي الكتاني رحمه الله، قال: ثنا أبو المواهب جعفر الكتاني، عن أبيه، أنا إدريس العراقي ح وحدثنا محمد بن عبد الكبير، كلاهما عن المؤلف';
 
-// a fixed chain to preview rendering (ids are placeholders)
+// a fixed chain to preview rendering (person ids are placeholders; transmissions are kinds)
 const SAMPLE_CHAINS = [
   [
-    { from_person_id: 0, to_person_id: 1, to_name: 'محمد عبد الحي الكتاني', to_death_year: '1382', transmission_type_id: 2 },
-    { from_person_id: 1, to_person_id: 2, to_name: 'جعفر الكتاني', to_death_year: '1323', transmission_type_id: 1 },
-    { from_person_id: 2, to_person_id: 3, to_name: 'إدريس العراقي', transmission_type_id: 3 },
-    { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', transmission_type_id: null },
+    { from_person_id: 0, to_person_id: 1, to_name: 'محمد عبد الحي الكتاني', to_death_year: '1382', tx_kind: 'qiraa' },
+    { from_person_id: 1, to_person_id: 2, to_name: 'جعفر الكتاني', to_death_year: '1323', tx_kind: 'sama' },
+    { from_person_id: 2, to_person_id: 3, to_name: 'إدريس العراقي', tx_kind: 'ijaza' },
+    { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', tx_kind: null },
   ],
   [
-    { from_person_id: 0, to_person_id: 5, to_name: 'محمد بن عبد الكبير', transmission_type_id: 10 },
-    { from_person_id: 5, to_person_id: 3, to_name: 'إدريس العراقي', transmission_type_id: null },
-    { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', transmission_type_id: null },
+    { from_person_id: 0, to_person_id: 5, to_name: 'محمد بن عبد الكبير', tx_kind: 'sama_reading' },
+    { from_person_id: 5, to_person_id: 3, to_name: 'إدريس العراقي', tx_kind: null },
+    { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', tx_kind: null },
   ],
 ];
 
@@ -33,13 +33,13 @@ const STATUS = {
   relative:  { color: 'var(--purple)',  label: 'قرابة — حدّده يدوياً' },
 };
 
-const EMPTY_KW = { word: '', abbr: '', variants: [], tx_type_id: null, preferred: false };
+const EMPTY_KW = { word: '', abbr: '', variants: [], kind: null, preferred: false };
 
 export default function Settings() {
   const { toast, notifyError, confirm } = useUI();
   const { data, loading, setData } = useLoad(async () => {
     const [s, t] = await Promise.all([api.get('/isnad-text/settings'), api.get('/tx-types')]);
-    return { saved: s.data.settings, txTypes: t.data };
+    return { saved: s.data.settings, kinds: s.data.kinds, txTypes: t.data };
   }, [], null);
 
   const [draft, setDraft] = useState(null);
@@ -63,9 +63,9 @@ export default function Settings() {
   const setPhrase = (which, tx, v) => setDraft(d => ({ ...d, phrases: { ...d.phrases, [which]: { ...(d.phrases[which] || {}), [tx]: v } } }));
   const setKw = (i, patch) => setDraft(d => {
     const keywords = d.keywords.map((k, j) => (j === i ? { ...k, ...patch } : k));
-    // one preferred form per transmission type
+    // one preferred form per transmission kind
     if (patch.preferred) keywords.forEach((k, j) => {
-      if (j !== i && String(k.tx_type_id) === String(keywords[i].tx_type_id)) keywords[j] = { ...k, preferred: false };
+      if (j !== i && (k.kind ?? null) === (keywords[i].kind ?? null)) keywords[j] = { ...k, preferred: false };
     });
     return { ...d, keywords };
   });
@@ -89,10 +89,42 @@ export default function Settings() {
     } catch (e) { notifyError(e); }
   };
 
-  const txName = id => data.txTypes.find(t => String(t.id) === String(id))?.name_ar;
+  const kindLabel = kind => data.kinds.find(k => k.key === kind)?.label;
+  const KIND_ROWS = [{ key: 'null', label: 'عنعنة / غير محدد' }, ...data.kinds];
+
+  // which transmission kind each of this database's types means (guessed from its name unless set)
+  const setTypeKind = async (t, kind) => {
+    try {
+      await api.put(`/tx-types/${t.id}/kind`, { kind: kind || null });
+      const { data: types } = await api.get('/tx-types');
+      setData(d => ({ ...d, txTypes: types }));
+      toast(kind ? `«${t.name_ar}» = ${kindLabel(kind)}` : `«${t.name_ar}»: يُستنتج من الاسم`);
+    } catch (e) { notifyError(e); }
+  };
 
   return (
     <>
+      <section className="card settings-section">
+        <div className="card-head">
+          <Icon name="layers" />
+          <div className="card-title">طرق التحمل في قاعدتك</div>
+          <span className="muted">يُستنتج معنى كل طريقة من اسمها؛ صحّحه إن لزم — عليه يقوم الترتيب والعبارات والألوان</span>
+        </div>
+        <div className="kw-head tx-grid"><span>الاسم</span><span>المعنى</span><span /></div>
+        {data.txTypes.map(t => (
+          <div key={t.id} className="kw-row tx-grid">
+            <span className="strong">{t.name_ar}</span>
+            <select className="select" value={t.kind_auto ? '' : t.kind ?? ''} onChange={e => setTypeKind(t, e.target.value)}
+              aria-label={`معنى ${t.name_ar}`}>
+              <option value="">{t.kind ? `تلقائي: ${kindLabel(t.kind)}` : 'تلقائي: غير معروف'}</option>
+              {data.kinds.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
+            </select>
+            <span className="small muted">{t.kind ? '' : '⚠ لم يُعرف — اختر المعنى'}</span>
+          </div>
+        ))}
+        <div style={{ height: 10 }} />
+      </section>
+
       <section className="card settings-section">
         <div className="card-head">
           <Icon name="text" />
@@ -108,13 +140,13 @@ export default function Settings() {
             <input className="input" value={k.word} placeholder="حدثنا" onChange={e => setKw(i, { word: e.target.value })} aria-label="الصيغة" />
             <input className="input" value={k.abbr || ''} placeholder="ثنا" onChange={e => setKw(i, { abbr: e.target.value })} aria-label="المختصرة" />
             <TagInput value={k.variants || []} onChange={v => setKw(i, { variants: v })} placeholder="حدثني، نا…" />
-            <select className="select" value={k.tx_type_id ?? ''} aria-label="طريقة التحمل"
-              onChange={e => setKw(i, { tx_type_id: e.target.value === '' ? null : Number(e.target.value), preferred: false })}>
+            <select className="select" value={k.kind ?? ''} aria-label="طريقة التحمل"
+              onChange={e => setKw(i, { kind: e.target.value || null, preferred: false })}>
               <option value="">عنعنة / غير محدد</option>
-              {data.txTypes.map(t => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
+              {data.kinds.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
             </select>
             <button type="button" className={`icon-btn star${k.preferred ? ' on' : ''}`} onClick={() => setKw(i, { preferred: true })}
-              title={k.preferred ? `الصيغة المعتمدة لـ«${txName(k.tx_type_id) || 'العنعنة'}»` : 'اعتمدها عند الكتابة'}
+              title={k.preferred ? `الصيغة المعتمدة لـ«${kindLabel(k.kind) || 'العنعنة'}»` : 'اعتمدها عند الكتابة'}
               aria-pressed={k.preferred}>
               <Icon name="star" size={16} fill={k.preferred ? 'currentColor' : 'none'} />
             </button>
@@ -202,15 +234,15 @@ export default function Settings() {
         <div className="kw-head phrase-grid">
           <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span>
         </div>
-        {[{ id: 'null', name_ar: 'عنعنة / غير محدد' }, ...data.txTypes].map(t => (
-          <div key={t.id} className="kw-row phrase-grid">
-            <span className="small strong">{t.name_ar}</span>
-            <input className="input" value={draft.phrases.first[t.id] ?? ''} placeholder="قرأتُ على {الاسم}" aria-label={`${t.name_ar} — اتصالي`}
-              onChange={e => setPhrase('first', t.id, e.target.value)} />
-            <input className="input" value={draft.phrases.others[t.id] ?? ''} placeholder="وهو قرأ على {الاسم}" aria-label={`${t.name_ar} — من فوقي`}
-              onChange={e => setPhrase('others', t.id, e.target.value)} />
-            <input className="input" value={draft.phrases.joined?.[t.id] ?? ''} placeholder="عن {الاسم}" aria-label={`${t.name_ar} — بعد كلاهما`}
-              onChange={e => setPhrase('joined', t.id, e.target.value)} />
+        {KIND_ROWS.map(t => (
+          <div key={t.key} className="kw-row phrase-grid">
+            <span className="small strong">{t.label}</span>
+            <input className="input" value={draft.phrases.first[t.key] ?? ''} placeholder="قرأتُ على {الاسم}" aria-label={`${t.label} — اتصالي`}
+              onChange={e => setPhrase('first', t.key, e.target.value)} />
+            <input className="input" value={draft.phrases.others[t.key] ?? ''} placeholder="وهو قرأ على {الاسم}" aria-label={`${t.label} — من فوقي`}
+              onChange={e => setPhrase('others', t.key, e.target.value)} />
+            <input className="input" value={draft.phrases.joined?.[t.key] ?? ''} placeholder="عن {الاسم}" aria-label={`${t.label} — بعد كلاهما`}
+              onChange={e => setPhrase('joined', t.key, e.target.value)} />
           </div>
         ))}
         <div style={{ height: 10 }} />

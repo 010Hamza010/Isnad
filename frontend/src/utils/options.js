@@ -8,6 +8,9 @@ export const personOptions = (persons, { includeMe = false } = {}) => [
   })),
 ];
 
+/** Kind of the transmission type with this id (the API adds `kind` to each type). */
+export const kindOfType = (txTypes, id) => txTypes.find(t => String(t.id) === String(id))?.kind ?? null;
+
 export const rowOptions = (rows, label = 'name_ar') => rows.map(r => ({ value: r.id, label: r[label] }));
 
 export const SUBJECTS = ['فقه', 'نحو', 'تجويد', 'قراءات', 'عقيدة', 'حديث', 'تفسير', 'أصول', 'بلاغة', 'سيرة', 'أخرى'];
