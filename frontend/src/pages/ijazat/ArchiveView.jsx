@@ -5,7 +5,6 @@ import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
 import FrozenDocument from '../../components/ijaza/FrozenDocument';
 import { buildFrozenDocument, shortHash } from '../../utils/frozenDoc';
-import { verifyUrl } from '../../utils/verify';
 
 const kb = n => `${Math.round((n || 0) / 1024)} ك.ب`;
 
@@ -37,13 +36,15 @@ export default function ArchiveView({ row, settings, onChanged }) {
     if (doc || freezing) return;
     setFreezing(true);
     try {
-      const html = buildFrozenDocument(sheetsEl);
+      const html = await buildFrozenDocument(sheetsEl, design); // embeds the fonts (downloads them once)
       const { data } = await api.post(`/ijazat/${row.id}/freeze`, { html });
       setDoc({ html, hash: data.content_hash, frozen_at: new Date().toISOString() });
       onChanged?.({ ...row, content_hash: data.content_hash });
     } catch (e) {
       if (e.response?.status === 409) {           // archived meanwhile (another tab): load it
         const r = await api.get(`/ijazat/${row.id}/document`); setDoc(r.data);
+      } else if (!e.response) {
+        toast('تعذّر تنزيل الخطوط لتضمينها — تحقق من الاتصال ثم أعد فتح الإجازة', 'error');
       } else notifyError(e);
     } finally { setFreezing(false); }
   };
@@ -115,7 +116,7 @@ export default function ArchiveView({ row, settings, onChanged }) {
         <Certificate title={row.title} body={row.body} variant={row.style}
           notes={row.details?.notes || {}} chains={row.details?.chains || []} design={design}
           people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name }}
-          verification={{ url: verifyUrl(row.public_token, settings.public_base_url), code: row.short_code }}
+          verification={{ payload: row.qr_payload, code: row.short_code }}
           onRendered={freeze} />
       )}
     </div>

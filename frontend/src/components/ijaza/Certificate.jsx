@@ -73,7 +73,7 @@ function verifyNode(v) {
   else qr.appendChild(el('span', null, 'QR'));
   box.appendChild(qr);
   const txt = el('div', 'cert-verify-text');
-  txt.appendChild(el('div', 'cert-verify-title', v.placeholder ? 'رمز التحقق' : 'للتحقق من هذه الإجازة'));
+  txt.appendChild(el('div', 'cert-verify-title', 'رمز الإجازة'));
   txt.appendChild(el('div', 'cert-verify-code', v.placeholder ? 'يُضاف بعد الحفظ' : v.code));
   box.appendChild(txt);
   return box;
@@ -181,7 +181,8 @@ function useZoom(ref) {
  * people: { student, shaykh } names to colour.
  */
 /**
- * verification: { url, code } of a saved ijaza (QR + short code), or { placeholder: true } before saving.
+ * verification: { payload, code } of a saved ijaza — the QR encodes the signed payload text (student,
+ * subject, date-time, code), verified in the dashboard — or { placeholder: true } before saving.
  */
 export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered }) {
   const detailed = variant === 'detailed';
@@ -205,13 +206,13 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
   const [qrSvg, setQrSvg] = useState(null);
   useEffect(() => {
     setQrSvg(null);
-    if (!showQr || !verification.url) return;
+    if (!showQr || !verification.payload) return;
     let alive = true;
-    QRCode.toString(verification.url, { type: 'svg', errorCorrectionLevel: 'M', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
+    QRCode.toString(verification.payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
       .then(svg => alive && setQrSvg(svg))
       .catch(() => {});
     return () => { alive = false; };
-  }, [showQr, verification?.url, d.colors.text]);
+  }, [showQr, verification?.payload, d.colors.text]);
   const verify = useMemo(() => {
     if (!showQr) return null;
     if (verification.placeholder) return { placeholder: true };

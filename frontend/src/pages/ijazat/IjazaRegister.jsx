@@ -8,7 +8,6 @@ import SearchInput from '../../components/ui/SearchInput';
 import Icon from '../../components/ui/Icon';
 import ArchiveView from './ArchiveView';
 import { matches } from '../../utils/text';
-import { verifyUrl } from '../../utils/verify';
 
 const MODULE_BADGE = { mutoon: ['متن', 'badge-info'], quran: ['قرآن', 'badge-accent'], general: ['عامة', 'badge-purple'] };
 
@@ -26,12 +25,11 @@ export default function IjazaRegister({ settings, openId, onOpened, onCorrect })
     if (r) { setView(r); onOpened?.(); }
   }, [openId, rows]);
 
-  const link = r => verifyUrl(r.public_token, settings.public_base_url);
   const replace = row => { setData(list => list.map(x => (x.id === row.id ? row : x))); setView(v => (v?.id === row.id ? row : v)); };
 
   const copy = async r => {
-    try { await navigator.clipboard.writeText(link(r)); toast('نُسخ رابط التحقق'); }
-    catch { toast(link(r)); }
+    try { await navigator.clipboard.writeText(r.qr_payload); toast('نُسخت بيانات رمز الإجازة'); }
+    catch { toast(r.short_code); }
   };
   const revoke = async () => {
     try {
@@ -83,8 +81,7 @@ export default function IjazaRegister({ settings, openId, onOpened, onCorrect })
                 </div>
                 <div className="actions">
                   <button className="icon-btn" onClick={() => setView(r)} aria-label="عرض وطباعة"><Icon name="print" size={16} /></button>
-                  <button className="icon-btn" onClick={() => copy(r)} aria-label="نسخ رابط التحقق"><Icon name="link" size={16} /></button>
-                  <a className="icon-btn" href={`${link(r)}?preview=1`} target="_blank" rel="noreferrer" aria-label="فتح صفحة التحقق"><Icon name="globe" size={16} /></a>
+                  <button className="icon-btn" onClick={() => copy(r)} aria-label="نسخ بيانات الرمز" title="نسخ بيانات رمز QR"><Icon name="copy" size={16} /></button>
                   {r.revoked_at
                     ? <button className="icon-btn" onClick={() => restore(r)} aria-label="إعادة التفعيل" title="إعادة التفعيل"><Icon name="reset" size={16} /></button>
                     : <button className="icon-btn danger" onClick={() => setRevoking({ row: r, reason: '' })} aria-label="إلغاء الإجازة" title="إلغاء الإجازة"><Icon name="x" size={16} /></button>}
@@ -113,10 +110,10 @@ export default function IjazaRegister({ settings, openId, onOpened, onCorrect })
             <button className="btn btn-danger" onClick={revoke}>إلغاء الإجازة</button>
           </>}>
           <p className="muted small" style={{ marginBottom: 10 }}>
-            تبقى في السجل، لكن من يمسح رمزها يرى أنها «ملغاة». يمكنك إعادة تفعيلها لاحقاً.
+            تبقى في السجل، وعند التحقق من رمزها تظهر «ملغاة». يمكنك إعادة تفعيلها لاحقاً.
           </p>
           <label className="field">
-            <span className="field-label">السبب (يظهر في صفحة التحقق، اختياري)</span>
+            <span className="field-label">السبب (يظهر عند التحقق، اختياري)</span>
             <input className="input" value={revoking.reason} maxLength={255}
               onChange={e => setRevoking(v => ({ ...v, reason: e.target.value }))} placeholder="مثال: خطأ في اسم المجاز، صدرت بدلها إجازة جديدة" />
           </label>
