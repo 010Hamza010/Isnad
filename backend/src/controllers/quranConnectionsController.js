@@ -1,4 +1,5 @@
 const QC = require('../models/QuranConnectionModel');
+const { requireFields } = require('../utils/httpError');
 
 exports.list = async (req, res) => {
   try { res.json(await QC.findAllForUser(req.user.id)); }
@@ -6,6 +7,7 @@ exports.list = async (req, res) => {
 };
 
 exports.create = async (req, res) => {
+  requireFields(req.body, ['to_person_id']);
   try {
     const { items = [], ...fields } = req.body;
     res.json(await QC.create(req.user.id, fields, items));
@@ -13,6 +15,7 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
+  requireFields(req.body, ['to_person_id']);
   try {
     const { items = [], ...fields } = req.body;
     await QC.update(req.params.id, req.user.id, fields, items);

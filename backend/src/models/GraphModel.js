@@ -45,13 +45,12 @@ exports.getRiwayaById = async (riwaya_id) => {
 };
 
 exports.getQiraaById = async (id) => {
-
-  const [result, metadata] = await db.query( 
+  const [[row]] = await db.query(
     'SELECT q.*, p.name_ar as imam_name FROM qiraat q LEFT JOIN persons p ON p.id=q.imam_id WHERE q.id=?',
-    [id]);
-
-  return result;
-}
+    [id]
+  );
+  return row;
+};
 
 exports.getAllPersons = async () => {
   const [persons] = await db.query('SELECT id, name_ar, primary_qiraa_id FROM persons');
@@ -68,7 +67,7 @@ exports.getFullGraphData = async (userId, module) => {
   let matnEdges = [], quranEdges = [];
   if (module !== 'quran') {
     const [r] = await db.query(
-      `SELECT mc.from_person_id, mc.to_person_id, tt.name_ar as tx_name, m.title as matn_title
+      `SELECT mc.from_person_id, mc.to_person_id, mc.is_general_ijaza, tt.name_ar as tx_name, m.title as matn_title
        FROM matn_connections mc
        LEFT JOIN transmission_types tt ON mc.transmission_type_id = tt.id
        LEFT JOIN mutoon m ON mc.matn_id = m.id
@@ -81,7 +80,7 @@ exports.getFullGraphData = async (userId, module) => {
       `SELECT qc.from_person_id, qc.to_person_id, tt.name_ar as tx_name
        FROM quran_connections qc
        LEFT JOIN transmission_types tt ON qc.transmission_type_id = tt.id
-       `
+       WHERE qc.user_id = ?`, [userId]
     );
     quranEdges = r;
   }

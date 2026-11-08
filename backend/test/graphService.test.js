@@ -1,0 +1,75 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { buildPaths, formatPath } = require('../src/services/graphService');
+
+const e = (from, to, extra = {}) => ({ from_person_id: from, to_person_id: to, items: [], ...extra });
+const names = (path) => path.map(x => `${x.from_person_id}>${x.to_person_id}`).join(' ');
+const flatten = groups => groups.flatMap(g => g.chains.map(c => [g.firstEdge, ...c]));
+
+test('finds every chain from me (0) to the target and groups by first hop', () => {
+  const edges = [e(0, 1), e(1, 9), e(0, 2), e(2, 3), e(3, 9), e(2, 9)];
+  const groups = buildPaths(edges, 0, [9], null, null, null, new Map(), null, null);
+  assert.equal(groups.length, 2);
+  const paths = flatten(groups).map(names).sort();
+  assert.deepEqual(paths, ['0>1 1>9', '0>2 2>3 3>9', '0>2 2>9']);
+});
+
+test('returns no paths when the chain is munqati (never reaches target)', () => {
+  const groups = buildPaths([e(0, 1), e(1, 2)], 0, [9], null, null, null, new Map(), null, null);
+  assert.deepEqual(groups, []);
+});
+
+test('does not loop on cycles', () => {
+  const groups = buildPaths([e(0, 1), e(1, 2), e(2, 1), e(2, 9)], 0, [9], null, null, null, new Map(), null, null);
+  assert.deepEqual(flatten(groups).map(names), ['0>1 1>2 2>9']);
+});
+
+test('keeps the strongest transmission per pair (lowest type id, untyped last)', () => {
+  const edges = [
+    e(0, 1, { transmission_type_id: 3, tx_name: 'إجازة' }),
+    e(0, 1, { transmission_type_id: 1, tx_name: 'سماع' }),
+    e(0, 1, { transmission_type_id: null, tx_name: null }),
+    e(1, 9),
+  ];
+  const [group] = buildPaths(edges, 0, [9], null, null, null, new Map(), null, null);
+  assert.equal(group.firstEdge.tx_name, 'سماع');
+});
+
+test('scope filter runs before dedup: a second edge to the same shaykh with another riwaya is kept', () => {
+  // two connections me → shaykh 1: one for riwaya 10 (sama'), one for riwaya 20 (ijaza)
+  const edges = [
+    e(0, 1, { transmission_type_id: 1, items: [{ riwaya_id: 10 }] }),
+    e(0, 1, { transmission_type_id: 3, items: [{ riwaya_id: 20 }] }),
+    e(1, 5),
+  ];
+  const groups = buildPaths(edges, 0, [5], 20, null, null, new Map(), null, null);
+  assert.equal(groups.length, 1, 'riwaya-20 path must survive dedup');
+  assert.equal(groups[0].firstEdge.items[0].riwaya_id, 20);
+});
+
+test('qiraa filter rejects edges whose items belong to another qiraa', () => {
+  const riwayaQiraa = new Map([[10, 1], [20, 2]]);
+  const edges = [
+    e(0, 1, { items: [{ riwaya_id: 10 }] }),
+    e(0, 2, { items: [{ qiraa_id: 2 }] }),
+    e(1, 5), e(2, 5),
+  ];
+  const groups = buildPaths(edges, 0, [5], null, null, 2, new Map(), null, riwayaQiraa);
+  assert.deepEqual(flatten(groups).map(names), ['0>2 2>5']);
+});
+
+test('unscoped edge to an imam of a different qiraa is rejected', () => {
+  const imamMap = new Map([[5, 1], [6, 2]]); // imam person → qiraa
+  const edges = [e(0, 1), e(1, 5), e(1, 6)];
+  const groups = buildPaths(edges, 0, [5, 6], null, null, 2, new Map(), imamMap, null);
+  assert.deepEqual(flatten(groups).map(names), ['0>1 1>6']);
+});
+
+test('formatPath labels me as أنا and resolves names', () => {
+  const pMap = new Map([[1, { name_ar: 'الشيخ' }], [9, { name_ar: 'المؤلف' }]]);
+  const [group] = buildPaths([e(0, 1), e(1, 9)], 0, [9], null, null, null, pMap, null, null);
+  const out = formatPath(group, pMap);
+  assert.equal(out.firstEdge.from_name, 'أنا');
+  assert.equal(out.firstEdge.to_name, 'الشيخ');
+  assert.equal(out.chains[0][0].to_name, 'المؤلف');
+});

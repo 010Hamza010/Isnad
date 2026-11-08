@@ -53,29 +53,31 @@ function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwa
 function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap) {
   const targetSet = new Set(targetIds.map(Number));
 
-  // deduplicate edges: keep highest transmission_type_id per from→to pair
+  // Filter by scope first, then deduplicate: per from→to pair keep the strongest
+  // transmission (lowest transmission_type_id; untyped edges rank last).
+  // Filtering first matters — two edges to the same shaykh may cover different riwayat.
   const edgeMap = new Map();
   for (const edge of edges) {
+    if (!edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap)) continue;
     const key = `${edge.from_person_id}-${edge.to_person_id}`;
-    if (!edgeMap.has(key)) {
-      edgeMap.set(key, edge);
-    } else {
-      const existing = edgeMap.get(key);
-      const existingTx = Number(existing.transmission_type_id) || 10;
-      const newTx      = Number(edge.transmission_type_id)     || 10;
-      if (newTx < existingTx) edgeMap.set(key, edge);
-    }
+    const existing = edgeMap.get(key);
+    const rank = e => Number(e.transmission_type_id) || Infinity;
+    if (!existing || rank(edge) < rank(existing)) edgeMap.set(key, edge);
   }
-  const dedupedEdges = [...edgeMap.values()];
+
+  // adjacency list: from_person_id → outgoing edges
+  const adjacency = new Map();
+  for (const edge of edgeMap.values()) {
+    const from = Number(edge.from_person_id);
+    if (!adjacency.has(from)) adjacency.set(from, []);
+    adjacency.get(from).push(edge);
+  }
 
   const allPaths = [];
   const dfs = (currentId, path, visited) => {
     if (targetSet.has(Number(currentId))) { allPaths.push([...path]); return; }
     if (visited.size > 30) return;
-    const next = dedupedEdges.filter(e =>
-      Number(e.from_person_id) === Number(currentId) &&
-      edgeCompatible(e, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap)
-    );
+    const next = adjacency.get(Number(currentId)) || [];
     for (const edge of next) {
       const toId = Number(edge.to_person_id);
       if (visited.has(toId)) continue;

@@ -17,5 +17,8 @@ app.use('/api/graph',     require('./routes/graph'));
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
+app.use('/api', (_, res) => res.status(404).json({ error: 'Not found' }));
+app.use(require('./middleware/errorHandler'));
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Isnad API running on :${PORT}`));
