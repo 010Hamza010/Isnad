@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useUI } from '../ui/UIProvider';
 import Icon from '../ui/Icon';
+import IsnadProse from './IsnadProse';
 
 /** Rendered prose of one path group, with copy. Uses the user's saved keyword settings. */
 export default function IsnadText({ group }) {
@@ -24,7 +25,7 @@ export default function IsnadText({ group }) {
 
   return (
     <div className="isnad-panel">
-      {text == null ? <div className="skeleton" style={{ height: 70 }} /> : <div className="isnad-text">{text}</div>}
+      {text == null ? <div className="skeleton" style={{ height: 70 }} /> : <div className="isnad-text"><IsnadProse text={text} /></div>}
       <div className="row" style={{ marginTop: 8 }}>
         <span className="small muted spacer">الصيغ تُضبط من <Link to="/settings">الإعدادات</Link></span>
         <button className="btn btn-secondary btn-sm" onClick={copy} disabled={!text}><Icon name="copy" size={14} /> نسخ</button>

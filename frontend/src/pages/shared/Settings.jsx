@@ -7,19 +7,20 @@ import { Field } from '../../components/ui/Field';
 import TagInput from '../../components/ui/TagInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
+import IsnadProse from '../../components/isnad/IsnadProse';
 
 const SAMPLE_TEXT = 'أخبرنا شيخنا العلامة محمد عبد الحي الكتاني رحمه الله، قال: ثنا أبو المواهب جعفر الكتاني، عن أبيه، أنا إدريس العراقي ح وحدثنا محمد بن عبد الكبير، كلاهما عن المؤلف';
 
 // a fixed chain to preview rendering (ids are placeholders)
 const SAMPLE_CHAINS = [
   [
-    { from_person_id: 0, to_person_id: 1, to_name: 'محمد عبد الحي الكتاني', transmission_type_id: 2 },
-    { from_person_id: 1, to_person_id: 2, to_name: 'جعفر الكتاني', transmission_type_id: 1 },
+    { from_person_id: 0, to_person_id: 1, to_name: 'محمد عبد الحي الكتاني', to_death_year: '1382', transmission_type_id: 2 },
+    { from_person_id: 1, to_person_id: 2, to_name: 'جعفر الكتاني', to_death_year: '1323', transmission_type_id: 1 },
     { from_person_id: 2, to_person_id: 3, to_name: 'إدريس العراقي', transmission_type_id: 3 },
     { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', transmission_type_id: null },
   ],
   [
-    { from_person_id: 0, to_person_id: 5, to_name: 'محمد بن عبد الكبير', transmission_type_id: 1 },
+    { from_person_id: 0, to_person_id: 5, to_name: 'محمد بن عبد الكبير', transmission_type_id: 10 },
     { from_person_id: 5, to_person_id: 3, to_name: 'إدريس العراقي', transmission_type_id: null },
     { from_person_id: 3, to_person_id: 4, to_name: 'المؤلف', transmission_type_id: null },
   ],
@@ -59,6 +60,7 @@ export default function Settings() {
 
   const setStyle = (k, v) => setDraft(d => ({ ...d, style: { ...d.style, [k]: v } }));
   const setList  = (k, v) => setDraft(d => ({ ...d, [k]: v }));
+  const setClear = (which, tx, v) => setDraft(d => ({ ...d, clear: { ...d.clear, [which]: { ...d.clear[which], [tx]: v } } }));
   const setKw = (i, patch) => setDraft(d => {
     const keywords = d.keywords.map((k, j) => (j === i ? { ...k, ...patch } : k));
     // one preferred form per transmission type
@@ -136,10 +138,19 @@ export default function Settings() {
               <input type="checkbox" checked={draft.style.abbreviate} onChange={e => setStyle('abbreviate', e.target.checked)} />
               استعمل الصيغ المختصرة (ثنا، أنا)
             </label>
-            <label className="check" style={{ marginBottom: 14 }}>
+            <label className="check" style={{ marginBottom: 10 }}>
               <input type="checkbox" checked={draft.style.qala} onChange={e => setStyle('qala', e.target.checked)} />
               أضف «قال:» قبل كل صيغة
             </label>
+            <label className="check" style={{ marginBottom: 10 }}>
+              <input type="checkbox" checked={draft.style.clear} onChange={e => setStyle('clear', e.target.checked)} />
+              عبارات صريحة بعد كل اسم (قرأتُ عليه، سماعاً عليه)
+            </label>
+            <label className="check" style={{ marginBottom: 14 }}>
+              <input type="checkbox" checked={draft.style.deathYears} onChange={e => setStyle('deathYears', e.target.checked)} />
+              تاريخ الوفاة بعد كل اسم (ت …هـ)
+            </label>
+            <p className="field-hint" style={{ marginBottom: 12 }}>هذه لنص الإسناد في صفحات الأسانيد؛ الإجازات لها خياراتها الخاصة.</p>
             <div className="form-grid">
               <Field label="لقب الشيخ المباشر" hint="مثل: شيخنا، شيخي — اتركه فارغاً لحذفه">
                 <input className="input" value={draft.style.firstTitle} onChange={e => setStyle('firstTitle', e.target.value)} />
@@ -163,6 +174,26 @@ export default function Settings() {
           </div>
         </section>
       </div>
+
+      <section className="card settings-section">
+        <div className="card-head">
+          <div className="card-title">العبارات الصريحة</div>
+          <span className="muted">تُكتب بعد اسم الشيخ لتوضيح كيفية الأخذ</span>
+        </div>
+        <div className="kw-head phrase-grid">
+          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span>
+        </div>
+        {[{ id: 'null', name_ar: 'عنعنة / غير محدد' }, ...data.txTypes].map(t => (
+          <div key={t.id} className="kw-row phrase-grid">
+            <span className="small strong">{t.name_ar}</span>
+            <input className="input" value={draft.clear.first[t.id] ?? ''} placeholder="—" aria-label={`${t.name_ar} — اتصالي`}
+              onChange={e => setClear('first', t.id, e.target.value)} />
+            <input className="input" value={draft.clear.others[t.id] ?? ''} placeholder="—" aria-label={`${t.name_ar} — من فوقي`}
+              onChange={e => setClear('others', t.id, e.target.value)} />
+          </div>
+        ))}
+        <div style={{ height: 10 }} />
+      </section>
 
       <Playground settings={draft} />
 
@@ -217,7 +248,7 @@ function Playground({ settings }) {
             <p className="small muted" style={{ marginBottom: 8 }}>
               سندان تجريبيان يلتقيان عند «إدريس العراقي» — لاحظ التحويل «ح» و«كلاهما»:
             </p>
-            {out?.text ? <div className="isnad-text">{out.text}</div> : <div className="skeleton" style={{ height: 80 }} />}
+            {out?.text ? <div className="isnad-text"><IsnadProse text={out.text} /></div> : <div className="skeleton" style={{ height: 80 }} />}
           </>
         )}
 
@@ -237,6 +268,7 @@ function Playground({ settings }) {
                       <div key={li} className="parsed-link">
                         <span className="badge">{l.keyword}</span>
                         <span className="strong">{l.name}</span>
+                        {l.death_year && <span className="small muted">(ت {l.death_year})</span>}
                         <span className="status-dot" style={{ background: st.color }} />
                         <span className="tiny" style={{ color: st.color }}>{st.label}</span>
                         {l.status === 'ambiguous' && <span className="tiny muted">({l.candidates.slice(0, 3).map(x => x.name_ar).join(' / ')})</span>}
@@ -250,7 +282,7 @@ function Playground({ settings }) {
             {out?.rendered && (
               <>
                 <div className="section-label">إعادة الصياغة بإعداداتك</div>
-                <div className="isnad-text">{out.rendered}</div>
+                <div className="isnad-text"><IsnadProse text={out.rendered} /></div>
               </>
             )}
           </>

@@ -36,6 +36,7 @@ export default function QuranConnections() {
   const [saving, setSaving]   = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const pOpts = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
+  const shaykhOpts = useMemo(() => personOptions(persons), [persons]);
 
   const byId = (rows, id) => rows.find(x => String(x.id) === String(id));
   const itemQiraa = it => it.qiraa_id || byId(riwayat, it.riwaya_id)?.qiraa_id;
@@ -148,7 +149,7 @@ export default function QuranConnections() {
               <Combobox value={form.from_person_id} opts={pOpts} onChange={v => set('from_person_id', v)} />
             </Field>
             <Field label="قرأ على" required>
-              <Combobox value={form.to_person_id} opts={pOpts} onChange={v => set('to_person_id', v)} />
+              <Combobox value={form.to_person_id} opts={shaykhOpts} onChange={v => set('to_person_id', v)} />
             </Field>
           </div>
 

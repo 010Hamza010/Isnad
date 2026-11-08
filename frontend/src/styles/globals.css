@@ -436,10 +436,13 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .kw-row .tag-input { min-height: 36px; padding: 3px 6px; }
 .star { color: var(--faint); }
 .star.on { color: var(--accent); }
+.kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: 1fr 1.4fr 1.4fr; }
 @media (max-width: 860px) {
   .kw-head { display: none; }
   .kw-row { grid-template-columns: 1fr 1fr; padding: 12px 18px; border-bottom: 1px solid var(--border); }
   .kw-row > :nth-child(3), .kw-row > :nth-child(4) { grid-column: 1 / -1; }
+  .kw-row.phrase-grid { grid-template-columns: 1fr; }
+  .kw-row.phrase-grid > * { grid-column: auto; }
 }
 .savebar {
   position: sticky; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 10px; margin-top: 8px;
@@ -456,3 +459,65 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .parsed-link { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--border); }
 .parsed-link:last-child { border-bottom: none; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Ijaza certificate ─────────────────────────────────────── */
+/* Fixed "paper" colours: a certificate looks the same in dark mode and in print. */
+.certificate {
+  --paper: #fffdf6; --ink: #1f2a2a; --gilt: #a87a22; --gilt-soft: #e9d9b0;
+  position: relative; background: var(--paper); color: var(--ink);
+  font-family: var(--font-display); font-size: 19px; line-height: 2.15; text-align: justify;
+  padding: 56px 58px 48px; border-radius: 4px; box-shadow: var(--shadow);
+}
+.certificate::before, .certificate::after { content: ''; position: absolute; pointer-events: none; }
+.certificate::before { inset: 14px; border: 2px solid var(--gilt); }
+.certificate::after  { inset: 20px; border: 1px solid var(--gilt-soft); }
+.cert-head { text-align: center; margin-bottom: 18px; }
+.cert-ornament { color: var(--gilt); font-size: 22px; letter-spacing: 10px; }
+.cert-title { font-size: 40px; font-weight: 700; line-height: 1.4; color: var(--gilt); }
+.cert-sub { font-size: 20px; }
+.cert-body p { margin-bottom: 14px; white-space: pre-line; }
+.cert-body p:first-child { text-align: center; font-size: 22px; }
+.cert-body p:last-child { text-align: left; margin-top: 26px; margin-bottom: 0; }
+.tahwil { color: #b42318; font-weight: 700; padding: 0 2px; }
+.cert-body .ph, .isnad-text .ph { background: #fde7c4; color: #8a4b00; border-radius: 4px; padding: 0 4px; font-family: var(--font); font-size: 15px; }
+.cert-editor { font-family: var(--font-display); font-size: 18px; line-height: 2; min-height: 520px; }
+/* detailed: text on the right, margin notes on the left (RTL), Tufte-style floated sidenotes */
+.certificate.detailed .cert-body { margin-left: 31%; }
+.certificate.detailed .cert-body p:last-child { text-align: right; }
+.note-ref { color: var(--gilt); font-family: var(--font); font-size: 11px; font-weight: 700; margin-inline-start: 1px; }
+.sidenote {
+  /* % are of the paragraph (69% of the sheet): -45% reaches the sheet edge, 40% ≈ 28% of the sheet */
+  float: left; clear: left; width: 40%; margin-left: -45%; margin-top: 6px; margin-bottom: 8px;
+  padding-right: 8px; border-right: 2px solid var(--gilt-soft); text-align: right;
+  font-family: var(--font); font-size: 11.5px; line-height: 1.65; color: #4a4a40;
+}
+.sidenote strong { color: var(--ink); }
+.note-num { color: var(--gilt); font-weight: 700; margin-left: 4px; }
+.tree-sheet .isnad-tree { width: 100%; height: auto; display: block; margin-top: 8px; }
+.cert-sub { font-size: 18px; color: #6b706b; }
+@media (max-width: 700px) { .certificate { padding: 40px 30px 32px; font-size: 17px; } .cert-title { font-size: 32px; } }
+
+.ijaza-layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+.ijaza-layout > .card:first-child { position: sticky; top: 0; }
+@media (max-width: 1000px) { .ijaza-layout { grid-template-columns: 1fr; } .ijaza-layout > .card:first-child { position: static; } }
+.check-list { display: flex; flex-direction: column; gap: 6px; }
+.check-list .check { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); align-items: flex-start; }
+.ph-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.ph-chips button { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.ph-chips button:hover { filter: brightness(.95); }
+
+/* ── Print ─────────────────────────────────────────────────── */
+#print-root { display: none; }
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #fff !important; }
+  #root { display: none !important; }
+  #print-root { display: block; }
+  #print-root .certificate { box-shadow: none; border-radius: 0; min-height: 297mm; padding: 26mm 24mm 22mm; font-size: 17pt; }
+  #print-root .certificate::before { inset: 9mm; }
+  #print-root .certificate::after { inset: 11mm; }
+  #print-root .cert-body .ph { background: none; color: inherit; padding: 0; }
+  #print-root .tree-sheet { break-before: page; }
+  #print-root .stack { display: block; }
+  .certificate { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
