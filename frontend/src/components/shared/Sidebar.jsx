@@ -46,8 +46,10 @@ export default function Sidebar({ stats, open }) {
       </nav>
 
       <div className="sidebar-foot">
-        <div className="avatar">{(username || '?').slice(0, 1).toUpperCase()}</div>
-        <div className="spacer truncate small strong">{username}</div>
+        <NavLink to="/profile" className="row spacer" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} title="الملف الشخصي">
+          <div className="avatar">{(username || '?').slice(0, 1).toUpperCase()}</div>
+          <div className="truncate small strong">{username}</div>
+        </NavLink>
         <button className="icon-btn" onClick={toggleTheme} title="تبديل المظهر" aria-label="تبديل المظهر">
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
         </button>

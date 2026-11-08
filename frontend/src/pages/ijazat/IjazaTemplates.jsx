@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useUI } from '../../components/ui/UIProvider';
 import { Field } from '../../components/ui/Field';
@@ -39,20 +40,8 @@ export default function IjazaTemplates({ settings, onSaved }) {
 
   return (
     <>
-      <div className="card card-pad settings-section">
-        <div className="form-grid">
-          <Field label="اسمك كما يُكتب في الإجازة" hint="يظهر في موضع {المجيز}">
-            <input className="input" value={draft.shaykh_name} onChange={e => setDraft(d => ({ ...d, shaykh_name: e.target.value }))} placeholder="الفقير إلى ربه فلان بن فلان" />
-          </Field>
-          <div className="field">
-            <span className="field-label">جنسك</span>
-            <Segmented value={draft.shaykh_gender || 'M'} onChange={v => setDraft(d => ({ ...d, shaykh_gender: v }))} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
-            <span className="field-hint">لصياغة {'{المجيز:وكتبه|وكتبته}'}</span>
-          </div>
-          <Field label="المكان الافتراضي">
-            <input className="input" value={draft.place} onChange={e => setDraft(d => ({ ...d, place: e.target.value }))} />
-          </Field>
-        </div>
+      <div className="callout settings-section">
+        اسمك الكامل والمختصر وجنسك والمكان الافتراضي في <Link to="/profile">الملف الشخصي</Link>.
       </div>
 
       <div className="card settings-section">

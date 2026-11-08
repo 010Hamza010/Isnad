@@ -34,7 +34,7 @@ const MODULES = [
  * correction: an issued ijaza being corrected — the form starts from its data, and saving issues a
  * new ijaza that replaces it (the old one is revoked and linked, never edited).
  */
-export default function NewIjaza({ settings, onSaved, onEditTemplates, correction = null, onCancelCorrection }) {
+export default function NewIjaza({ settings, profile = {}, onSaved, onEditTemplates, correction = null, onCancelCorrection }) {
   const c0 = correction;
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
@@ -175,7 +175,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates, correctio
   };
 
   const detailed = style === 'detailed' && module !== 'general';
-  const people = { student: student.trim(), shaykh: settings.shaykh_name, names: teachers.map(t => t.name) };
+  // shaykh = full name (signature), me = short name (tree)
+  const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: teachers.map(t => t.name) };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (

@@ -11,7 +11,7 @@ import { matches } from '../../utils/text';
 
 const MODULE_BADGE = { mutoon: ['متن', 'badge-info'], quran: ['قرآن', 'badge-accent'], general: ['عامة', 'badge-purple'] };
 
-export default function IjazaRegister({ settings, openId, onOpened, onCorrect }) {
+export default function IjazaRegister({ settings, profile, openId, onOpened, onCorrect }) {
   const { toast, notifyError, confirm } = useUI();
   const { data: rows, loading, reload, setData } = useLoad(() => api.get('/ijazat').then(r => r.data), [], []);
   const [search, setSearch] = useState('');
@@ -99,7 +99,7 @@ export default function IjazaRegister({ settings, openId, onOpened, onCorrect })
 
       {view && (
         <Modal title={`${view.student_name} — ${view.short_code}`} size="lg" onClose={() => setView(null)}>
-          <ArchiveView row={view} settings={settings} onChanged={replace} />
+          <ArchiveView row={view} settings={settings} profile={profile} onChanged={replace} />
         </Modal>
       )}
 
