@@ -12,6 +12,7 @@ import MatnList from './pages/mutoon/MatnList';
 import QuranIsnads from './pages/quran/QuranIsnads';
 import QuranConnections from './pages/quran/QuranConnections';
 import QuranMasterData from './pages/quran/QuranMasterData';
+import Settings from './pages/shared/Settings';
 import { routeMeta } from './routes';
 import api from './utils/api';
 
@@ -67,6 +68,7 @@ function Layout() {
               <Route path="/quran/master"       element={<QuranMasterData />} />
               <Route path="/persons"            element={<Persons />} />
               <Route path="/graph"              element={<Graph />} />
+              <Route path="/settings"           element={<Settings />} />
               <Route path="*"                   element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>

@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import ChainView from '../../components/isnad/ChainView';
+import IsnadText from '../../components/isnad/IsnadText';
 import EmptyState from '../../components/ui/EmptyState';
 import Icon from '../../components/ui/Icon';
 import { isMe, countLabel } from '../../utils/text';
@@ -23,6 +24,7 @@ export default function QuranIsnads() {
 
   const [selected, setSelected] = useState(null);
   const [result, setResult]     = useState(null);
+  const [asText, setAsText]     = useState({});
   const [loading, setLoading]   = useState(false);
 
   const qMap = useMemo(() => new Map(qiraat.map(q => [Number(q.id), q])), [qiraat]);
@@ -55,7 +57,7 @@ export default function QuranIsnads() {
   }, [conns, qMap, rMap, tMap]);
 
   const load = async opt => {
-    setSelected(opt); setLoading(true);
+    setSelected(opt); setLoading(true); setAsText({});
     try {
       const params = new URLSearchParams();
       if (opt.riwaya_id) params.append('riwaya_id', opt.riwaya_id);
@@ -143,8 +145,13 @@ export default function QuranIsnads() {
                   <span className="badge badge-primary">{i + 1}</span>
                   <span className="via">قرأتُ على</span>
                   <span className="strong">{g.firstEdge.to_name}</span>
-                  {g.chains.length > 1 && <span className="badge" style={{ marginInlineStart: 'auto' }}>{g.chains.length} طرق</span>}
+                  {g.chains.length > 1 && <span className="badge">{g.chains.length} طرق</span>}
+                  <button className={`btn btn-sm ${asText[i] ? 'btn-secondary' : 'btn-ghost'}`} style={{ marginInlineStart: 'auto' }}
+                    onClick={() => setAsText(s => ({ ...s, [i]: !s[i] }))} aria-pressed={!!asText[i]}>
+                    <Icon name="text" size={14} /> نص الإسناد
+                  </button>
                 </div>
+                {asText[i] && <IsnadText group={g} />}
                 <ChainView firstEdge={g.firstEdge} chains={g.chains} endIds={[imamId]} scopeOf={scopeOf} />
               </div>
             ))}
