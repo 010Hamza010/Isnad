@@ -1,5 +1,6 @@
 const { mergeSettings } = require('./settings');
 const { isMe } = require('./normalize');
+const { applyGender } = require('./gender');
 
 const sameTx = (a, b) => (a == null ? null : Number(a)) === (b == null ? null : Number(b));
 const pick = list => list.find(k => k.preferred) || list[0];
@@ -48,23 +49,29 @@ function phraseFor(e, mine, s) {
   return key in map ? map[key] || null : map.null || null;
 }
 
+// gender of the narrator (from) and the shaykh (to) of a link; me → my setting; unknown → M
+const fromGender = (e, s) => (isMe(e.from_person_id) ? s.style.myGender : e.from_gender) === 'F' ? 'F' : 'M';
+const toGender = e => (e.to_gender === 'F' ? 'F' : 'M');
+
 // one phrase per edge; `opening` marks the first link of the whole isnad
 function renderLinks(edges, s, ctx, { opening = true } = {}) {
   return edges.map((e, i) => {
     const first = opening && i === 0;
     const mine = first && isMe(e.from_person_id);
-    const title = mine && s.style.firstTitle ? `${s.style.firstTitle} ` : '';
+    const genders = { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) };
+    const titleWord = genders['الشيخ'] === 'F' ? s.style.firstTitleF : s.style.firstTitle;
+    const title = mine && titleWord ? `${titleWord} ` : '';
     const who = `${title}${personLabel(e.to_person_id, e.to_name, e.to_death_year, e.to_description, s, ctx)}`;
 
     const phrase = phraseFor(e, mine, s);
     if (phrase) {
       // «قرأتُ على شيخنا فلان حفظاً»
       const mode = mine && s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
-      return phrase.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
+      return applyGender(phrase, genders).replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
     const kw = keywordFor(e.transmission_type_id, s);
-    const qala = s.style.qala && !first && !ANAN.has(kw) ? 'قال: ' : '';
+    const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   });
 }
@@ -116,7 +123,9 @@ function renderChains(chains, settings) {
     const tail = list[0].slice(list[0].length - k);
     const joinPoint = personLabel(tail[0].to_person_id, tail[0].to_name, tail[0].to_death_year, tail[0].to_description, s, ctx);
     const [, ...rest] = renderLinks(tail, s, ctx, { opening: false });
-    const all = list.length === 2 ? 'كلاهما' : 'كلهم';
+    // the narrators who meet at the join point: all women → كلتاهما / كلهن
+    const allF = list.every(c => fromGender(c[c.length - k], s) === 'F');
+    const all = list.length === 2 ? (allF ? 'كلتاهما' : 'كلاهما') : (allF ? 'كلهن' : 'كلهم');
     text += s.style.separator + [`${all} عن ${joinPoint}`, ...rest].join(s.style.separator);
   }
   return text;

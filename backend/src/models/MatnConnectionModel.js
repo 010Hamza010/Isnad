@@ -3,7 +3,7 @@ const db = require('../../config/db');
 exports.findAll = async () => {
   const [rows] = await db.execute(`
     SELECT mc.*,
-      pf.name_ar as from_name, pt.name_ar as to_name,
+      pf.name_ar as from_name, pt.name_ar as to_name, pf.gender as from_gender, pt.gender as to_gender,
       m.title as matn_title, tt.name_ar as tx_name
     FROM matn_connections mc
     LEFT JOIN persons pf ON pf.id = mc.from_person_id

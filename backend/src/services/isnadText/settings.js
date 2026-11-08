@@ -1,5 +1,6 @@
 const DEFAULTS = require('./defaults');
 const { normalizeArabic } = require('./normalize');
+const { stripAlternations } = require('./gender');
 
 class SettingsError extends Error {}
 
@@ -9,6 +10,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /** Stored (partial) settings on top of defaults. Arrays replace, style merges. */
 function mergeSettings(stored) {
   const s = clone(DEFAULTS);
+  delete s.legacyPhrases;
   if (!stored || typeof stored !== 'object') return s;
   if (Array.isArray(stored.keywords)) s.keywords = stored.keywords;
   if (stored.style && typeof stored.style === 'object') {
@@ -18,7 +20,12 @@ function mergeSettings(stored) {
   }
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
   ['first', 'others'].forEach(k => {
-    if (stored.phrases?.[k] && typeof stored.phrases[k] === 'object') s.phrases[k] = { ...s.phrases[k], ...stored.phrases[k] };
+    if (!stored.phrases?.[k] || typeof stored.phrases[k] !== 'object') return;
+    Object.entries(stored.phrases[k]).forEach(([tx, v]) => {
+      // a stored copy of a masculine-only default follows the new gendered default
+      if (v === DEFAULTS.legacyPhrases[k]?.[tx]) return;
+      s.phrases[k][tx] = v;
+    });
   });
   return s;
 }
@@ -27,8 +34,10 @@ const phraseMap = (m, field) => {
   if (!m || typeof m !== 'object' || Array.isArray(m)) throw new SettingsError(`${field}: invalid`);
   return Object.fromEntries(Object.entries(m).map(([k, v]) => {
     if (!/^(\d+|null)$/.test(k)) throw new SettingsError(`${field}: invalid key ${k}`);
-    const v2 = str(v, 80, `${field}.${k}`);
-    if (v2 && (v2.match(/\{الاسم\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الاسم} once`);
+    const v2 = str(v, 160, `${field}.${k}`);
+    const plain = stripAlternations(v2);
+    if (v2 && (plain.match(/\{الاسم\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الاسم} once`);
+    if (/[{}]/.test(plain.replace(/\{الاسم\}/g, ''))) throw new SettingsError(`${field}.${k}: use {الراوي:مذكر|مؤنث} or {الشيخ:مذكر|مؤنث}`);
     return [k, v2];
   }));
 };
@@ -91,6 +100,8 @@ function validateSettings(input) {
     separator: typeof st.separator === 'string' && st.separator.length <= 5 ? st.separator : DEFAULTS.style.separator,
     tahwil: str(st.tahwil, 5, 'style.tahwil', { required: true }),
     firstTitle: str(st.firstTitle, 30, 'style.firstTitle'),
+    firstTitleF: str(st.firstTitleF, 30, 'style.firstTitleF'),
+    myGender: st.myGender === 'F' ? 'F' : 'M',
     clear: !!st.clear,
     deathYears: !!st.deathYears,
     noteMarkers: !!st.noteMarkers,
