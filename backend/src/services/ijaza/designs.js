@@ -30,7 +30,7 @@ const CLASSIC = {
   },
   frame: { style: 'double', ornament: '❁ ❁ ❁', marginMm: 9, paddingMm: 18 },
   boldNames: true,
-  qr: { show: true, sizeMm: 30 }, // QR after the signature; it carries ~300 bytes of data, so keep it ≥ 28 mm
+  qr: { show: true, sizeMm: 20 }, // QR after the signature (~130–180 bytes: readable at ~20 mm)
 };
 
 const SIMPLE = {
@@ -57,6 +57,7 @@ const MANUSCRIPT = {
 };
 
 const PRESETS = [CLASSIC, SIMPLE, MANUSCRIPT];
+const LEGACY_QR_SIZES = [22, 30];
 const COLOR = /^#[0-9a-f]{6}$/i;
 const clone = o => JSON.parse(JSON.stringify(o));
 
@@ -72,6 +73,8 @@ function mergeDesign(d) {
     frame: { ...base.frame, ...(d.frame || {}) },
     boldNames: d.boldNames ?? base.boldNames,
     qr: { ...base.qr, ...(d.qr || {}) },
+    // sizes that were earlier defaults (never chosen by the user) follow the current default
+    ...(LEGACY_QR_SIZES.includes(Number(d.qr?.sizeMm)) ? { qr: { ...base.qr, ...(d.qr || {}), sizeMm: base.qr.sizeMm } } : {}),
   };
 }
 
