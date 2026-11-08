@@ -111,7 +111,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
   }), [module, matnId, quranOpt?.key, refs]);
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
-    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord });
+    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord }, settings.teachers_title ?? 'الشيخ');
 
   const values = {
     'الطالب': student.trim(),
