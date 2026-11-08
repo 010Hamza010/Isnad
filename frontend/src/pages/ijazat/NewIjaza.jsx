@@ -66,6 +66,16 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const quranOpt = qOpts.flatMap(([, o]) => o).find(o => o.key === quranKey);
   const matn = refs.mutoon.find(m => String(m.id) === String(matnId));
 
+  // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
+  const teachers = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
+    matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
+  }), [module, matnId, quranOpt?.key, refs]);
+  const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
+    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord }, settings.teachers_title ?? 'الشيخ');
+
+  const listsTeachers = teachersText !== '';
+
+
   // Hijri follows the Gregorian date; it stays editable (moon sighting may differ by a day)
   const changeDate = v => { setDate(v); setHijri(formatDates(v).hijri); };
 
@@ -90,7 +100,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   useEffect(() => {
     if (!chains.length) { setIsnadText(''); setNotes({}); return; }
     let alive = true;
-    const renderStyle = { clear: clearWords, deathYears, noteMarkers: style === 'detailed' };
+    // «غيباً من حفظي» is stated once: in the teachers paragraph when there is one, else in the isnad
+    const renderStyle = { clear: clearWords, deathYears, noteMarkers: style === 'detailed', hideMyReadingMode: listsTeachers };
     api.post('/isnad-text/render', { chains, style: renderStyle })
       .then(r => {
         if (!alive) return;
@@ -99,19 +110,12 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
       })
       .catch(e => alive && notifyError(e));
     return () => { alive = false; };
-  }, [chains, style, clearWords, deathYears]);
+  }, [chains, style, clearWords, deathYears, listsTeachers]);
 
   const reading = quranOpt ? readingPhrase({
     qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
   }) : '';
   const dates = formatDates(date);
-
-  // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
-  const teachers = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
-    matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
-  }), [module, matnId, quranOpt?.key, refs]);
-  const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
-    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord }, settings.teachers_title ?? 'الشيخ');
 
   const values = {
     'الطالب': student.trim(),
