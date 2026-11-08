@@ -30,7 +30,7 @@ const CLASSIC = {
   },
   frame: { style: 'double', ornament: '❁ ❁ ❁', marginMm: 9, paddingMm: 18 },
   boldNames: true,
-  qr: { show: true, sizeMm: 22 }, // verification QR after the signature
+  qr: { show: true, sizeMm: 30 }, // QR after the signature; it carries ~300 bytes of data, so keep it ≥ 28 mm
 };
 
 const SIMPLE = {
