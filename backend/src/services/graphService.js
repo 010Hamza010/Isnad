@@ -50,14 +50,7 @@ function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwa
   });
 }
 
-// Strength of a transmission, strongest first (transmission_types ids):
-// سماع، قراءة، قراءة عليه وأنا أسمع، عرض، مناولة، إجازة، كتابة، إجازة عامة، إعلام، وجادة.
-const TX_PRIORITY = [1, 2, 10, 9, 5, 3, 6, 4, 8, 7];
-const GENERAL_IJAZA = 4;
-const txRank = tx => {
-  const i = TX_PRIORITY.indexOf(Number(tx));
-  return i === -1 ? TX_PRIORITY.length : i; // untyped / unknown last
-};
+const { kindOf, rankOf } = require('./txKinds');
 
 /**
  * Lower is stronger. The chosen transmission type decides («سماع» stays سماع even if the
@@ -66,8 +59,8 @@ const txRank = tx => {
  */
 function edgeRank(edge) {
   const general = Number(edge.is_general_ijaza) ? 1 : 0;
-  const typed = edge.transmission_type_id != null && edge.transmission_type_id !== '';
-  const r = typed ? txRank(edge.transmission_type_id) : general ? txRank(GENERAL_IJAZA) : txRank(null);
+  const kind = kindOf(edge); // by kind, never by type id: ids differ between databases (see txKinds.js)
+  const r = rankOf(kind ?? (general ? 'ijaza_general' : null));
   return r * 4 + general * 2 + (edge.matn_id ? 0 : 1);
 }
 
@@ -135,6 +128,7 @@ function formatPath(group, pMap) {
     to_description:  pMap.get(Number(edge.to_person_id))?.description || null,
     tx_name:     edge.tx_name     || null,
     transmission_type_id: edge.transmission_type_id ?? null,
+    tx_kind:              kindOf(edge),
     reading_mode:         edge.reading_mode || null,
     description: edge.description || null,
     items:       edge.items       || [],

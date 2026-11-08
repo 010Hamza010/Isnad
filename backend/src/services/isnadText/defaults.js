@@ -1,24 +1,26 @@
 /**
- * Default isnad-text settings. Users override them in Settings; see validate.js for the shape.
+ * Default isnad-text settings. Users override them in Settings; see settings.js for the shape.
+ * Everything is keyed by transmission *kind* (see ../txKinds.js), never by a type id.
  *
  * keywords — صيغ الأداء. `word` is the full form used when rendering, `abbr` the abbreviated
  *   form (ثنا، أنا…), `variants` are extra spellings recognised when parsing.
- *   `tx_type_id` links to transmission_types (null = عنعنة). `preferred` marks the form
- *   used when rendering that transmission type.
+ *   `kind` is the transmission kind (null = عنعنة). `preferred` marks the form used when
+ *   rendering that kind.
  */
 module.exports = {
   keywords: [
-    { word: 'حدثنا',     abbr: 'ثنا',  variants: ['نا', 'حدثني'],             tx_type_id: 1,    preferred: true },
-    { word: 'سمعت',      abbr: '',     variants: ['سمعنا'],                    tx_type_id: 1,    preferred: false },
-    { word: 'أخبرنا',    abbr: 'أنا',  variants: ['أرنا', 'أخبرني'],           tx_type_id: 2,    preferred: true },
-    { word: 'قرأت على',  abbr: '',     variants: ['قرأنا على'],                tx_type_id: 2,    preferred: false },
-    { word: 'أنبأنا',    abbr: 'أنبا', variants: ['أنبأني'],                   tx_type_id: 3,    preferred: true },
-    { word: 'أجازني',    abbr: '',     variants: ['أجازنا', 'أجاز لي', 'أجاز لنا'], tx_type_id: 3, preferred: false },
-    { word: 'ناولني',    abbr: '',     variants: ['ناولنا'],                   tx_type_id: 5,    preferred: true },
-    { word: 'كتب إلي',   abbr: '',     variants: ['كتب إلينا', 'كاتبني'],      tx_type_id: 6,    preferred: true },
-    { word: 'وجدت بخط',  abbr: '',     variants: [],                          tx_type_id: 7,    preferred: true },
-    { word: 'عرضت على',  abbr: '',     variants: ['عرضنا على', 'قرأت القرآن على'], tx_type_id: 9, preferred: true },
-    { word: 'عن',        abbr: '',     variants: [],                          tx_type_id: null, preferred: true },
+    { word: 'حدثنا',     abbr: 'ثنا',  variants: ['نا', 'حدثني'],                   kind: 'lafz',     preferred: true },
+    // «سماع» has no keyword of its own: it borrows «حدثنا» (see KIND_FALLBACK in render.js)
+    { word: 'سمعت',      abbr: '',     variants: ['سمعنا'],                          kind: 'lafz',     preferred: false },
+    { word: 'أخبرنا',    abbr: 'أنا',  variants: ['أرنا', 'أخبرني'],                 kind: 'qiraa',    preferred: true },
+    { word: 'قرأت على',  abbr: '',     variants: ['قرأنا على'],                      kind: 'qiraa',    preferred: false },
+    { word: 'أنبأنا',    abbr: 'أنبا', variants: ['أنبأني'],                         kind: 'ijaza',    preferred: true },
+    { word: 'أجازني',    abbr: '',     variants: ['أجازنا', 'أجاز لي', 'أجاز لنا'],    kind: 'ijaza',    preferred: false },
+    { word: 'ناولني',    abbr: '',     variants: ['ناولنا'],                         kind: 'munawala', preferred: true },
+    { word: 'كتب إلي',   abbr: '',     variants: ['كتب إلينا', 'كاتبني'],            kind: 'kitaba',   preferred: true },
+    { word: 'وجدت بخط',  abbr: '',     variants: [],                                kind: 'wijada',   preferred: true },
+    { word: 'عرضت على',  abbr: '',     variants: ['عرضنا على', 'قرأت القرآن على'],    kind: 'ard',      preferred: true },
+    { word: 'عن',        abbr: '',     variants: [],                                kind: null,       preferred: true },
   ],
   style: {
     abbreviate: false,   // use ثنا/أنا instead of حدثنا/أخبرنا
@@ -36,43 +38,37 @@ module.exports = {
     hideMyReadingMode: false, // omit it on my own link (the ijaza sets this when the teachers paragraph already says it)
   },
   /*
-   * Clear sentences per transmission type id ('null' = untyped / عنعنة); {الاسم} is the shaykh.
-   * `first` is my own link (I speak), `others` every link above it («وهو …» = the previous shaykh).
-   * An empty phrase falls back to the keyword form for that type.
+   * Clear sentences per transmission kind ('null' = untyped / عنعنة); {الاسم} is the shaykh.
+   * `first` is my own link (I speak), `others` every link above it («وهو …» = the previous shaykh),
+   * `joined` follows «كلاهما / كلهم» when every narrator meeting there took the same way.
+   * Gender: {الراوي:m|f} follows the narrator of the link, {الشيخ:m|f} the shaykh named in it.
+   * An empty sentence falls back to the keyword form for that kind.
    */
   phrases: {
-    // gender: {الراوي:m|f} follows the narrator of the link, {الشيخ:m|f} the shaykh named in it
     first: {
-      1: 'سمعتُ من {الاسم}', 2: 'قرأتُ على {الاسم}', 10: 'قُرئ على {الاسم} وأنا أسمع',
-      3: '{الشيخ:أجازني|أجازتني} {الاسم}', 4: '{الشيخ:أجازني|أجازتني} {الاسم} إجازةً عامة',
-      5: '{الشيخ:ناولني|ناولتني} {الاسم}', 6: '{الشيخ:كتب|كتبت} إليّ {الاسم}',
-      7: 'وجدتُ بخط {الاسم}', 8: '{الشيخ:أعلمني|أعلمتني} {الاسم}', 9: 'عرضتُ على {الاسم}', null: 'عن {الاسم}',
+      lafz: 'سمعتُ من لفظ {الاسم}', sama: 'سمعتُ من {الاسم}', qiraa: 'قرأتُ على {الاسم}', ard: 'عرضتُ على {الاسم}',
+      sama_reading: 'قُرئ على {الاسم} وأنا أسمع',
+      munawala: '{الشيخ:ناولني|ناولتني} {الاسم}', ijaza: '{الشيخ:أجازني|أجازتني} {الاسم}',
+      kitaba: '{الشيخ:كتب|كتبت} إليّ {الاسم}', ijaza_general: '{الشيخ:أجازني|أجازتني} {الاسم} إجازةً عامة',
+      ilam: '{الشيخ:أعلمني|أعلمتني} {الاسم}', wasiyya: '{الشيخ:أوصى|أوصت} لي {الاسم}', wijada: 'وجدتُ بخط {الاسم}',
+      null: 'عن {الاسم}',
     },
     others: {
-      1: '{الراوي:وهو سمع|وهي سمعت} من {الاسم}', 2: '{الراوي:وهو قرأ|وهي قرأت} على {الاسم}',
-      10: '{الراوي:وهو|وهي} قُرئ على {الاسم} {الراوي:وهو يسمع|وهي تسمع}',
-      3: '{الراوي:وهو|وهي} {الشيخ:أجاز|أجازت}{الراوي:ه|ها} {الاسم}',
-      4: '{الراوي:وهو|وهي} {الشيخ:أجاز|أجازت}{الراوي:ه|ها} {الاسم} إجازةً عامة',
-      5: '{الراوي:وهو|وهي} {الشيخ:ناول|ناولت}{الراوي:ه|ها} {الاسم}',
-      6: '{الراوي:وهو|وهي} {الشيخ:كتب|كتبت} {الراوي:إليه|إليها} {الاسم}',
-      7: '{الراوي:وهو وجد|وهي وجدت} بخط {الاسم}',
-      8: '{الراوي:وهو|وهي} {الشيخ:أعلم|أعلمت}{الراوي:ه|ها} {الاسم}',
-      9: '{الراوي:وهو عرض|وهي عرضت} على {الاسم}', null: 'عن {الاسم}',
+      lafz: '{الراوي:وهو سمع|وهي سمعت} من لفظ {الاسم}', sama: '{الراوي:وهو سمع|وهي سمعت} من {الاسم}',
+      qiraa: '{الراوي:وهو قرأ|وهي قرأت} على {الاسم}', ard: '{الراوي:وهو عرض|وهي عرضت} على {الاسم}',
+      sama_reading: '{الراوي:وهو|وهي} قُرئ على {الاسم} {الراوي:وهو يسمع|وهي تسمع}',
+      munawala: '{الراوي:وهو|وهي} {الشيخ:ناول|ناولت}{الراوي:ه|ها} {الاسم}',
+      ijaza: '{الراوي:وهو|وهي} {الشيخ:أجاز|أجازت}{الراوي:ه|ها} {الاسم}',
+      kitaba: '{الراوي:وهو|وهي} {الشيخ:كتب|كتبت} {الراوي:إليه|إليها} {الاسم}',
+      ijaza_general: '{الراوي:وهو|وهي} {الشيخ:أجاز|أجازت}{الراوي:ه|ها} {الاسم} إجازةً عامة',
+      ilam: '{الراوي:وهو|وهي} {الشيخ:أعلم|أعلمت}{الراوي:ه|ها} {الاسم}',
+      wasiyya: '{الراوي:وهو|وهي} {الشيخ:أوصى|أوصت} {الراوي:له|لها} {الاسم}',
+      wijada: '{الراوي:وهو وجد|وهي وجدت} بخط {الاسم}',
+      null: 'عن {الاسم}',
     },
-    // after «كلاهما / كلهم» when every narrator meeting there took the same way («كلاهما سمع من فلان»);
-    // {الراوي:m|f} is masculine unless all of them are women. Empty → «كلاهما عن فلان».
     joined: {
-      1: '{الراوي:سمع|سمعت} من {الاسم}', 2: '{الراوي:قرأ|قرأت} على {الاسم}', 9: '{الراوي:عرض|عرضت} على {الاسم}',
-    },
-  },
-  // masculine-only sentences shipped before gender support; stored copies are upgraded to the defaults above
-  // each value: one older default or a list of them
-  legacyPhrases: {
-    first: { null: 'رويتُ عن {الاسم}', 3: 'أجازني {الاسم}', 4: 'أجازني {الاسم} إجازةً عامة', 5: 'ناولني {الاسم}', 6: 'كتب إليّ {الاسم}', 8: 'أعلمني {الاسم}' },
-    others: {
-      1: 'وهو سمع من {الاسم}', 2: 'وهو قرأ على {الاسم}', 10: 'وهو قُرئ على {الاسم} وهو يسمع', 3: 'وهو أجازه {الاسم}',
-      4: 'وهو أجازه {الاسم} إجازةً عامة', 5: 'وهو ناوله {الاسم}', 6: 'وهو كتب إليه {الاسم}', 7: 'وهو وجد بخط {الاسم}',
-      8: 'وهو أعلمه {الاسم}', 9: 'وهو عرض على {الاسم}', null: ['وهو يروي عن {الاسم}', '{الراوي:وهو يروي|وهي تروي} عن {الاسم}'],
+      lafz: '{الراوي:سمع|سمعت} من لفظ {الاسم}', sama: '{الراوي:سمع|سمعت} من {الاسم}',
+      qiraa: '{الراوي:قرأ|قرأت} على {الاسم}', ard: '{الراوي:عرض|عرضت} على {الاسم}',
     },
   },
   // stripped from the start of a name when parsing

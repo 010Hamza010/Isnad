@@ -2,14 +2,21 @@ const { mergeSettings } = require('./settings');
 const { isMe } = require('./normalize');
 const { applyGender } = require('./gender');
 
-const sameTx = (a, b) => (a == null ? null : Number(a)) === (b == null ? null : Number(b));
+const { kindOf } = require('../txKinds');
+
+// kind of an edge: its tx_kind (from transmission_types.kind or the type's name), null = untyped
+const edgeKind = e => kindOf(e);
+const sameKind = (a, b) => (a ?? null) === (b ?? null);
+// when no keyword exists for a kind, borrow the closest one
+const KIND_FALLBACK = { sama_reading: 'qiraa', ard: 'qiraa', lafz: 'sama', sama: 'lafz', ijaza_general: 'ijaza', ilam: 'ijaza', wasiyya: 'ijaza' };
 const pick = list => list.find(k => k.preferred) || list[0];
-const txKey = id => (id == null ? 'null' : String(Number(id)));
+const txKey = kind => (kind == null ? 'null' : String(kind));
 
 /** The keyword to write for a transmission type; falls back to the عنعنة form. */
-function keywordFor(txTypeId, s) {
-  const k = pick(s.keywords.filter(k => sameTx(k.tx_type_id, txTypeId)))
-         || pick(s.keywords.filter(k => k.tx_type_id == null));
+function keywordFor(kind, s) {
+  const k = pick(s.keywords.filter(k => sameKind(k.kind, kind)))
+         || (KIND_FALLBACK[kind] && pick(s.keywords.filter(k => sameKind(k.kind, KIND_FALLBACK[kind]))))
+         || pick(s.keywords.filter(k => k.kind == null));
   if (!k) return 'عن';
   return s.style.abbreviate && k.abbr ? k.abbr : k.word;
 }
@@ -44,7 +51,7 @@ const NAME_SLOT = '{الاسم}';
 function phraseFor(e, mine, s) {
   if (!s.style.clear) return null;
   const map = mine ? s.phrases.first : s.phrases.others;
-  const key = txKey(e.transmission_type_id);
+  const key = txKey(edgeKind(e));
   // a type left empty on purpose uses its keyword; an unknown type uses the عنعنة sentence
   return key in map ? map[key] || null : map.null || null;
 }
@@ -70,7 +77,7 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
       return applyGender(phrase, genders).replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
-    const kw = keywordFor(e.transmission_type_id, s);
+    const kw = keywordFor(edgeKind(e), s);
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   });
@@ -87,7 +94,7 @@ function renderChainWith(edges, s, ctx) {
 /**
  * One chain of edges → text.
  * Edges are ordered from the reader upward: { from_person_id, from_name, to_person_id, to_name,
- * transmission_type_id, to_death_year?, to_description? }.
+ * tx_kind (or tx_name), to_death_year?, to_description? }.
  * If the chain starts at me (person 0) the speaker is implicit: «أخبرنا شيخنا فلان، عن فلان…».
  */
 function renderChain(edges, settings) {
@@ -162,7 +169,7 @@ function renderSet(chains, s, ctx, scope) {
   const x = tail[0];
   const who = personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx);
   // «كلاهما سمع من فلان» when every narrator took from X the same way, else «كلاهما عن فلان»
-  const txs = new Set(live.map(c => txKey(c[c.length - k].transmission_type_id)));
+  const txs = new Set(live.map(c => txKey(edgeKind(c[c.length - k]))));
   const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
   const meet = `${joinWord(narrators.size, allF)} ${joined
     ? applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) }).replace(NAME_SLOT, who)

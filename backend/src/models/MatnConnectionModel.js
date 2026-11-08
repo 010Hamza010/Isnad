@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const TxType = require('./TxTypeModel');
 
 exports.findAll = async () => {
   const [rows] = await db.execute(`
@@ -11,7 +12,7 @@ exports.findAll = async () => {
     LEFT JOIN mutoon m   ON m.id  = mc.matn_id
     LEFT JOIN transmission_types tt ON tt.id = mc.transmission_type_id
     ORDER BY mc.created_at DESC`);
-  return rows;
+  return TxType.annotate(rows);
 };
 
 exports.create = async ({ from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, reading_mode, description }) => {

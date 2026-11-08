@@ -16,7 +16,7 @@ const phraseParts = s => [s.phrases.first, s.phrases.others].flatMap(map => Obje
   .filter(([, p]) => p && p.includes(NAME_SLOT))
   .flatMap(([tx, p]) => expandGender(p).map(v => {
     const [before, after] = v.split(NAME_SLOT);
-    return { tx: tx === 'null' ? null : Number(tx), prefix: before.trim(), suffix: after.trim() };
+    return { tx: tx === 'null' ? null : tx, prefix: before.trim(), suffix: after.trim() };
   })));
 
 function buildMatcher(s) {
@@ -25,13 +25,13 @@ function buildMatcher(s) {
     .forEach(f => forms.push({ seq: keys(f), keyword: k })));
   // clear sentences act as keywords too: «وهو قرأ على» → قراءة
   phraseParts(s).forEach(({ prefix, tx }) => {
-    if (prefix) forms.push({ seq: keys(prefix), keyword: { word: prefix, tx_type_id: tx } });
+    if (prefix) forms.push({ seq: keys(prefix), keyword: { word: prefix, kind: tx } });
   });
   // built-in forms («بسماعه من»…) unless the user's keywords already cover them
   const known = new Set(forms.map(f => f.seq.join(' ')));
   LINK_FORMS.forEach(([f, tx]) => {
     const seq = keys(f);
-    if (!known.has(seq.join(' '))) forms.push({ seq, keyword: { word: f, tx_type_id: tx } });
+    if (!known.has(seq.join(' '))) forms.push({ seq, keyword: { word: f, kind: tx } });
   });
   forms.sort((a, b) => b.seq.length - a.seq.length); // longest match first («قرأت على» before «قرأت»)
 
@@ -87,14 +87,14 @@ function parseSegment(tokens, s, match, warnings, ctx) {
     // only after a name: «سماعاً عليه» before any name is ordinary text
     const suffix = cur && cur.words.length ? ctx.suffixAt(tokens, i) : null;
     if (suffix) {
-      if (suffix.tx !== undefined) cur.tx_type_id = suffix.tx; // «عن فلان سماعاً عليه» → سماع
+      if (suffix.tx !== undefined) cur.tx_kind = suffix.tx; // «عن فلان سماعاً عليه» → سماع
       if (suffix.mode) cur.reading_mode = suffix.mode;        // «… حفظاً»
       i += suffix.seq.length; continue;
     }
     const m = match(tokens, i);
     if (m) {
       if (cur) links.push(cur);
-      cur = { keyword: m.keyword.word, tx_type_id: m.keyword.tx_type_id, words: [] };
+      cur = { keyword: m.keyword.word, tx_kind: m.keyword.kind ?? null, words: [] };
       i += m.length;
       continue;
     }
@@ -105,7 +105,7 @@ function parseSegment(tokens, s, match, warnings, ctx) {
   if (cur) links.push(cur);
 
   const named = links
-    .map(l => ({ keyword: l.keyword, tx_type_id: l.tx_type_id, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null }))
+    .map(l => ({ keyword: l.keyword, tx_kind: l.tx_kind, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null }))
     .filter(l => {
       if (l.name) return true;
       warnings.push(`صيغة «${l.keyword}» بلا اسم بعدها — تم تجاهلها`);
@@ -117,7 +117,7 @@ function parseSegment(tokens, s, match, warnings, ctx) {
 
 /**
  * Text → chains. Inverse of render.renderChains.
- * Returns { chains: [{ start: string|null, start_death_year, links: [{ keyword, tx_type_id, name, death_year }] }], warnings }.
+ * Returns { chains: [{ start: string|null, start_death_year, links: [{ keyword, tx_kind, name, death_year, reading_mode }] }], warnings }.
  * start === null means the chain begins with me (the speaker of the first keyword).
  */
 const DEATH = /^\s*(?:ت|توفي|توفّي|المتوفى)\.?\s*(.+?)\s*$/;
