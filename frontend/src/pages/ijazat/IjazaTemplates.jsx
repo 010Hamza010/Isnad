@@ -69,6 +69,12 @@ export default function IjazaTemplates({ settings, onSaved }) {
                 onChange={e => setDraft(d => ({ ...d, teachers_sentence: { ...d.teachers_sentence, [which]: e.target.value } }))} />
             </Field>
           )}
+          {which !== 'general' && (
+            <Field label="اللقب قبل اسم كل شيخ في هذه الفقرة" hint="مثل: الشيخ، شيخنا، العلامة">
+              <input className="input" style={{ maxWidth: 240 }} value={draft.teachers_title ?? ''}
+                onChange={e => setDraft(d => ({ ...d, teachers_title: e.target.value }))} />
+            </Field>
+          )}
           <p className="small muted" style={{ marginTop: 8 }}>اترك سطراً فارغاً بين الفقرات. الفقرة الأولى تُوسَّط، والأخيرة (التوقيع) تُحاذى إلى اليسار.</p>
         </div>
       </div>

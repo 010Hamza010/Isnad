@@ -71,12 +71,16 @@ export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = (
   return [...seen.values()];
 }
 
-/** The teachers paragraph, or '' when fewer than two shuyukh (then it is left out). */
-export function teachersParagraph(teachers, sentence, words = {}) {
+/**
+ * The teachers paragraph, or '' when fewer than two shuyukh (then it is left out).
+ * «منهم: الشيخ أ غيباً من حفظي، والشيخ ب»
+ */
+export function teachersParagraph(teachers, sentence, words = {}, title = 'الشيخ') {
   if (teachers.length < 2 || !sentence) return '';
   const items = teachers.map(t => {
     const mode = { heart: words.heart, looking: words.looking }[t.reading_mode];
-    return mode ? `${t.name} ${mode}` : t.name;
+    const name = title ? `${title} ${t.name}` : t.name;
+    return mode ? `${name} ${mode}` : name;
   });
   return sentence.replace('{الشيوخ}', joinArabic(items));
 }

@@ -99,8 +99,9 @@ test('readingTeachers (quran): riwaya match, qiraa-level and unscoped connection
 
 test('teachersParagraph needs two or more shuyukh and adds the reading mode word', () => {
   const sentence = 'قرأتُه على جماعة، منهم: {الشيوخ}.';
-  const words = { heart: 'حفظاً', looking: 'نظراً' };
+  const words = { heart: 'غيباً من حفظي', looking: 'نظراً' };
   assert.equal(teachersParagraph([{ name: 'أ' }], sentence, words), '');
   assert.equal(teachersParagraph([{ name: 'أ', reading_mode: 'heart' }, { name: 'ب' }], sentence, words),
-    'قرأتُه على جماعة، منهم: أ حفظاً، وب.');
+    'قرأتُه على جماعة، منهم: الشيخ أ غيباً من حفظي، والشيخ ب.');
+  assert.equal(teachersParagraph([{ name: 'أ' }, { name: 'ب' }], sentence, words, ''), 'قرأتُه على جماعة، منهم: أ، وب.');
 });
