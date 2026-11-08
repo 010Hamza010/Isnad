@@ -209,7 +209,7 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
     if (!showQr || !verification.payload) return;
     let alive = true;
     // level L: the payload is small and printed on paper (not scratched outdoors), so prefer larger modules
-    QRCode.toString(verification.payload, { type: 'svg', errorCorrectionLevel: 'L', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
+    QRCode.toString(verification.payload, { type: 'svg', errorCorrectionLevel: 'L', margin: 2, /* quiet zone: scanners need it */ color: { dark: d.colors.text, light: '#ffffff' } })
       .then(svg => alive && setQrSvg(svg))
       .catch(() => {});
     return () => { alive = false; };

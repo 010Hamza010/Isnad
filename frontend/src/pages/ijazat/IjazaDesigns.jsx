@@ -5,6 +5,7 @@ import { Field } from '../../components/ui/Field';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
+import QRCode from 'qrcode';
 
 const COLOR_GROUPS = [
   { title: 'الورقة والنص', keys: { paper: 'لون الورقة', text: 'النص' } },
@@ -47,6 +48,15 @@ const SAMPLE = {
 };
 
 const newId = () => `d-${Date.now().toString(36)}`;
+
+// How big one QR square prints, for a typical payload (code, ~25-letter name, long subject, date, signature):
+// phones read ≥ 0.35 mm comfortably, ≥ 0.3 mm in good light.
+const TYPICAL_QR = QRCode.create('ISN-7K3Q-9P2M\nحمزة بن محمد الطيب شنتير\nالقرآن الكريم برواية ورش عن نافع\n2026-11-08 10:32\ncmbYsPThyUccUZiD', { errorCorrectionLevel: 'L' });
+const qrHint = sizeMm => {
+  const mm = sizeMm / (TYPICAL_QR.modules.size + 4); // + quiet zone (2 squares each side)
+  const note = mm >= 0.35 ? 'يُقرأ بسهولة' : mm >= 0.3 ? 'يُقرأ في إضاءة جيدة' : 'صغير جداً — قد لا يُقرأ';
+  return `المربع الواحد ≈ ${mm.toFixed(2)} مم — ${note}`;
+};
 
 export default function IjazaDesigns({ settings, options, onSaved }) {
   const { toast, notifyError, confirm } = useUI();
@@ -144,8 +154,8 @@ export default function IjazaDesigns({ settings, options, onSaved }) {
             <input type="checkbox" checked={design.qr?.show !== false} onChange={e => update(d => ({ ...d, qr: { ...d.qr, show: e.target.checked } }))} />
             إظهار رمز QR ورمز التحقق بعد التوقيع
           </label>
-          <Field label={`حجم الرمز: ${design.qr?.sizeMm ?? 30} مم (يُنصح بـ 28 فأكثر)`}>
-            <input type="range" min="14" max="40" value={design.qr?.sizeMm ?? 30}
+          <Field label={`حجم الرمز: ${design.qr?.sizeMm ?? 20} مم`} hint={qrHint(design.qr?.sizeMm ?? 20)}>
+            <input type="range" min="14" max="40" value={design.qr?.sizeMm ?? 20}
               onChange={e => update(d => ({ ...d, qr: { ...d.qr, sizeMm: Number(e.target.value) } }))} />
           </Field>
 
