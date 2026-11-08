@@ -90,6 +90,7 @@ exports.remove = async () => {
 };
 
 const MAX_DOC = 8 * 1024 * 1024;
+const variantOf = v => (Ijaza.VARIANTS?.includes(v) ? v : 'normal');
 const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
 
 /** Freeze the exact rendered document once (a standalone HTML page); its SHA-256 is the fingerprint. */
@@ -102,12 +103,13 @@ exports.freeze = async (req, res) => {
   const row = await Ijaza.findById(req.params.id, req.user.id);
   if (!row) throw new HttpError(404, 'Not found');
   const hash = sha256(html);
-  if (!(await Ijaza.freeze(row.id, req.user.id, html, hash))) throw new HttpError(409, 'حُفظت نسخة هذه الإجازة من قبل ولا تُغيَّر');
+  const variant = variantOf(req.body?.variant);
+  if (!(await Ijaza.freeze(row.id, req.user.id, html, hash, variant))) throw new HttpError(409, 'حُفظت نسخة هذه الإجازة من قبل ولا تُغيَّر');
   res.json({ content_hash: hash });
 };
 
 exports.document = async (req, res) => {
-  const doc = await Ijaza.documentById(req.params.id, req.user.id);
+  const doc = await Ijaza.documentById(req.params.id, req.user.id, variantOf(req.query.variant));
   if (!doc?.html) throw new HttpError(404, 'لا توجد نسخة محفوظة');
   res.json(doc);
 };
@@ -125,8 +127,10 @@ exports.uploadPdf = async (req, res) => {
   try { filename = decodeURIComponent(String(req.get('X-Filename') || filename)); } catch { /* keep default */ }
   filename = filename.replace(/[\/\\\r\n"]/g, '_').slice(0, 200);
   const meta = { filename, size: data.length, sha256: sha256(data), data };
-  if (!(await Ijaza.savePdf(row.id, meta))) throw new HttpError(409, 'أُرفق ملف PDF لهذه الإجازة من قبل ولا يُستبدل');
-  res.json({ pdf_sha256: meta.sha256, pdf_size: meta.size, pdf_filename: meta.filename });
+  const variant = variantOf(req.query.variant);
+  if (!(await Ijaza.savePdf(row.id, meta, variant))) throw new HttpError(409, 'أُرفق ملف PDF لهذه النسخة من قبل ولا يُستبدل');
+  const p = variant === 'detailed' ? 'pdf_detailed' : 'pdf';
+  res.json({ [`${p}_sha256`]: meta.sha256, [`${p}_size`]: meta.size, [`${p}_filename`]: meta.filename });
 };
 
 const sendPdf = (res, f) => {
@@ -141,7 +145,7 @@ const sendPdf = (res, f) => {
 exports.sendPdf = sendPdf;
 
 exports.pdf = async (req, res) => {
-  const f = await Ijaza.pdfById(req.params.id, req.user.id);
+  const f = await Ijaza.pdfById(req.params.id, req.user.id, variantOf(req.query.variant));
   if (!f) throw new HttpError(404, 'لا يوجد ملف PDF');
   sendPdf(res, f);
 };

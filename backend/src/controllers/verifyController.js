@@ -34,7 +34,8 @@ exports.verify = async (req, res) => {
     ijaza: {
       id: row.id, short_code: row.short_code, student_name: row.student_name, title: row.title,
       issued_at: row.issued_at, issued_hijri: row.issued_hijri, created_at: row.created_at, place: row.place,
-      revoked_at: row.revoked_at, revoke_reason: row.revoke_reason, content_hash: row.content_hash,
+      revoked_at: row.revoked_at, revoke_reason: row.revoke_reason, content_hash: row.content_hash, detailed_hash: row.detailed_hash,
+      pdf_detailed_sha256: row.pdf_detailed_sha256,
       pdf_sha256: row.pdf_sha256, replaced_by_code: row.replaced_by_code, replaces_code: row.replaces_code,
       scan_count: (row.scan_count || 0) + 1,
     },
