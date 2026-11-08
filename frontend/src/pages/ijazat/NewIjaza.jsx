@@ -30,7 +30,12 @@ const MODULES = [
   { value: 'general', label: 'إجازة عامة' },
 ];
 
-export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
+/**
+ * correction: an issued ijaza being corrected — the form starts from its data, and saving issues a
+ * new ijaza that replaces it (the old one is revoked and linked, never edited).
+ */
+export default function NewIjaza({ settings, onSaved, onEditTemplates, correction = null, onCancelCorrection }) {
+  const c0 = correction;
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
     const [m, c, q, r, t, tx, mc, is] = await Promise.all([
@@ -41,25 +46,26 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style };
   }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {} });
 
-  const [module, setModule]   = useState('mutoon');
-  const [style, setStyle]     = useState('normal');
+  const [module, setModule]   = useState(c0?.module || 'mutoon');
+  const [style, setStyle]     = useState(c0?.style || 'normal');
   const [clearWords, setClearWords] = useState(true);
   const [deathYears, setDeathYears] = useState(true);
   const [notes, setNotes]     = useState({});
-  const [designId, setDesignId] = useState(settings.default_design);
+  const [designId, setDesignId] = useState(c0?.details?.design?.id || settings.default_design);
   const design = settings.designs.find(x => x.id === designId) || settings.designs[0];
-  const [student, setStudent] = useState('');
+  const [student, setStudent] = useState(c0?.student_name || '');
   const [studentGender, setStudentGender] = useState('M');
-  const [matnId, setMatnId]   = useState('');
-  const [quranKey, setQuranKey] = useState('');
-  const [txId, setTxId]       = useState(null);
+  const [matnId, setMatnId]   = useState(c0?.matn_id || '');
+  const [quranKey, setQuranKey] = useState(c0?.module === 'quran' ? `q${c0.qiraa_id || null}-r${c0.riwaya_id || null}-t${c0.tariq_id || null}` : '');
+  const [txId, setTxId]       = useState(c0?.transmission_type_id ?? null);
+  const [correctionReason, setCorrectionReason] = useState('');
   // default «كيف أخذ عنك»: this database's قراءة type (ids differ between databases)
   useEffect(() => {
     if (txId == null && refs.txTypes.length) setTxId((refs.txTypes.find(t => t.kind === 'qiraa') || refs.txTypes[0]).id);
   }, [refs.txTypes]);
   const [date, setDate]       = useState(todayISO());
   const [hijri, setHijri]     = useState(formatDates(todayISO()).hijri);
-  const [place, setPlace]     = useState(settings.place);
+  const [place, setPlace]     = useState(c0?.place ?? settings.place);
   const [groups, setGroups]   = useState([]);
   const [chosen, setChosen]   = useState(new Set());
   const [pathsLoading, setPathsLoading] = useState(false);
@@ -159,6 +165,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         transmission_type_id: module === 'general' ? null : txId,
         issued_at: date, issued_hijri: hijri, place,
         style: detailed ? 'detailed' : 'normal',
+        ...(correction ? { replaces_id: correction.id, correction_reason: correctionReason } : {}),
         // snapshot: reprints look the same even if the design or biographies change later
         details: { notes: detailed ? notes : {}, chains: chains.map(slimChain), design, people },
       });
@@ -172,6 +179,18 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (
+    <>
+    {correction && (
+      <div className="alert alert-error row row-wrap" style={{ marginBottom: 14 }}>
+        <span className="spacer">
+          <strong>تصحيح الإجازة {correction.short_code}</strong> — ستصدر إجازة جديدة برمز جديد، وتُلغى القديمة مع الإشارة إلى الجديدة.
+          لا يُعدَّل شيء في الإجازة القديمة.
+        </span>
+        <input className="input" style={{ maxWidth: 320 }} value={correctionReason} maxLength={150}
+          onChange={e => setCorrectionReason(e.target.value)} placeholder="سبب التصحيح (يظهر في صفحة التحقق)" />
+        <button className="btn btn-secondary btn-sm" onClick={onCancelCorrection}>إلغاء التصحيح</button>
+      </div>
+    )}
     <div className="ijaza-layout">
       <div className="card card-pad">
         <div className="field">
@@ -314,5 +333,6 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         </p>
       </div>
     </div>
+    </>
   );
 }

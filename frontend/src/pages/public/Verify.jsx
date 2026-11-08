@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../utils/api';
 import { errorMessage } from '../../components/ui/UIProvider';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
 import IsnadProse from '../../components/isnad/IsnadProse';
+import FrozenDocument from '../../components/ijaza/FrozenDocument';
+import { shortHash } from '../../utils/frozenDoc';
 
 const fmtDate = d => String(d ?? '').slice(0, 10);
 
@@ -17,6 +19,14 @@ export default function Verify() {
   const nav = useNavigate();
   const [state, setState] = useState({ loading: !!token, data: null, error: '' });
   const [code, setCode] = useState('');
+  const [original, setOriginal] = useState(null); // the archived document, exactly as issued
+
+  useEffect(() => {
+    setOriginal(null);
+    const d = state.data;
+    if (!d?.frozen) return;
+    api.get(`/public/ijazat/${encodeURIComponent(d.token)}/document`).then(r => setOriginal(r.data.html)).catch(() => {});
+  }, [state.data]);
 
   useEffect(() => {
     if (!token) return;
@@ -80,8 +90,27 @@ export default function Verify() {
             <div><dt>رمز التحقق</dt><dd dir="ltr">{d.short_code}</dd></div>
           </dl>
 
+          {(d.replaced_by || d.replaces) && (
+            <div className="card card-pad archive-box">
+              {d.replaced_by && <span>صدرت بدلها الإجازة <Link to={`/v/${d.replaced_by.token}`} dir="ltr">{d.replaced_by.code}</Link></span>}
+              {d.replaces && <span>هذه الإجازة تصحيح للإجازة <Link to={`/v/${d.replaces.token}`} dir="ltr">{d.replaces.code}</Link> (ملغاة)</span>}
+            </div>
+          )}
+
+          {(d.frozen || d.pdf) && (
+            <div className="card card-pad archive-box">
+              {d.frozen && <span>بصمة النسخة الأصلية <code title={d.content_hash}>{shortHash(d.content_hash)}</code></span>}
+              {d.pdf && (
+                <>
+                  <span>بصمة ملف PDF المسلَّم <code title={d.pdf.sha256}>{shortHash(d.pdf.sha256)}</code></span>
+                  <a className="btn btn-secondary btn-sm" href={`/api/public/ijazat/${encodeURIComponent(d.token)}/pdf`}>تنزيل PDF</a>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="section-label">نص الإجازة كما صدر</div>
-          {d.details?.design ? (
+          {original ? <FrozenDocument html={original} /> : d.frozen ? <div className="skeleton" style={{ height: 300 }} /> : d.details?.design ? (
             <Certificate title={d.title} body={d.body} variant={d.style} notes={d.details.notes || {}}
               chains={d.details.chains || []} design={d.details.design} people={d.details.people || {}} />
           ) : (

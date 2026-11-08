@@ -537,6 +537,11 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 .ph-chips button { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
 .ph-chips button:hover { filter: brightness(.95); }
 
+/* ── Archived (frozen) ijaza ── */
+.frozen-doc { width: 100%; border: 0; display: block; min-height: 400px; background: #e9e6df; border-radius: var(--radius-sm); }
+.archive-box { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; }
+.archive-box code { direction: ltr; font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
+
 /* ── Public verification page ──────────────────────────────── */
 .verify-page { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
 .verify-head { display: flex; align-items: center; gap: 12px; }
