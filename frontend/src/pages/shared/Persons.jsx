@@ -11,7 +11,7 @@ import Icon from '../../components/ui/Icon';
 import { matches } from '../../utils/text';
 import { rowOptions } from '../../utils/options';
 
-const EMPTY = { name_ar: '', name_latin: '', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '', primary_qiraa_id: '' };
+const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '', primary_qiraa_id: '' };
 
 export default function Persons() {
   const { toast, notifyError, confirm } = useUI();
@@ -80,6 +80,7 @@ export default function Persons() {
                 <div className="row row-wrap" style={{ gap: 6 }}>
                   <span className="list-title display" style={{ fontSize: 17 }}>{p.name_ar}</span>
                   {p.kunya && <span className="muted small">({p.kunya})</span>}
+                  {p.gender === 'F' && <span className="badge badge-purple">أنثى</span>}
                   {p.primary_qiraa_id && <span className="badge badge-accent">{qiraaName(p.primary_qiraa_id)}</span>}
                 </div>
                 <div className="list-sub">
@@ -101,6 +102,11 @@ export default function Persons() {
           <Field label="الاسم بالعربية" required>
             <TextInput form={form} set={set} name="name_ar" placeholder="مثال: محمد بن أحمد الحسني" />
           </Field>
+          <div className="field">
+            <span className="field-label">الجنس</span>
+            <Segmented value={form.gender || 'M'} onChange={v => set('gender', v)} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
+            <span className="field-hint">تُصاغ به الضمائر والأفعال في الأسانيد والإجازات: «وهي قرأت على…»</span>
+          </div>
           <div className="form-grid">
             <Field label="الكنية"><TextInput form={form} set={set} name="kunya" placeholder="أبو عبد الله" /></Field>
             <Field label="النسبة"><TextInput form={form} set={set} name="nisba" placeholder="المالكي، الفاسي" /></Field>

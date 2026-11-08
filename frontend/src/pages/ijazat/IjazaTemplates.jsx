@@ -44,6 +44,11 @@ export default function IjazaTemplates({ settings, onSaved }) {
           <Field label="اسمك كما يُكتب في الإجازة" hint="يظهر في موضع {المجيز}">
             <input className="input" value={draft.shaykh_name} onChange={e => setDraft(d => ({ ...d, shaykh_name: e.target.value }))} placeholder="الفقير إلى ربه فلان بن فلان" />
           </Field>
+          <div className="field">
+            <span className="field-label">جنسك</span>
+            <Segmented value={draft.shaykh_gender || 'M'} onChange={v => setDraft(d => ({ ...d, shaykh_gender: v }))} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
+            <span className="field-hint">لصياغة {'{المجيز:وكتبه|وكتبته}'}</span>
+          </div>
           <Field label="المكان الافتراضي">
             <input className="input" value={draft.place} onChange={e => setDraft(d => ({ ...d, place: e.target.value }))} />
           </Field>
@@ -70,12 +75,21 @@ export default function IjazaTemplates({ settings, onSaved }) {
             </Field>
           )}
           {which !== 'general' && (
-            <Field label="اللقب قبل اسم كل شيخ في هذه الفقرة" hint="مثل: الشيخ، شيخنا، العلامة">
-              <input className="input" style={{ maxWidth: 240 }} value={draft.teachers_title ?? ''}
-                onChange={e => setDraft(d => ({ ...d, teachers_title: e.target.value }))} />
-            </Field>
+            <div className="form-grid">
+              <Field label="اللقب قبل اسم كل شيخ" hint="مثل: الشيخ، شيخنا، العلامة">
+                <input className="input" value={draft.teachers_title ?? ''}
+                  onChange={e => setDraft(d => ({ ...d, teachers_title: e.target.value }))} />
+              </Field>
+              <Field label="… وقبل اسم الشيخة" hint="مثل: الشيخة، شيختنا">
+                <input className="input" value={draft.teachers_title_f ?? ''}
+                  onChange={e => setDraft(d => ({ ...d, teachers_title_f: e.target.value }))} />
+              </Field>
+            </div>
           )}
-          <p className="small muted" style={{ marginTop: 8 }}>اترك سطراً فارغاً بين الفقرات. الفقرة الأولى تُوسَّط، والأخيرة (التوقيع) تُحاذى إلى اليسار.</p>
+          <p className="small muted" style={{ marginTop: 8 }}>
+            اترك سطراً فارغاً بين الفقرات. الفقرة الأولى تُوسَّط، والأخيرة (التوقيع) تُحاذى إلى اليسار.<br />
+            للمذكر والمؤنث: <code>{'{المجاز:فأجزته|فأجزتها}'}</code> حسب المجاز، و<code>{'{المجيز:وكتبه|وكتبته}'}</code> حسبك.
+          </p>
         </div>
       </div>
 

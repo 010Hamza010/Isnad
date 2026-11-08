@@ -19,14 +19,19 @@ export const PLACEHOLDERS = [
 
 const PLACEHOLDER_RE = /\{([^{}\n]{1,40})\}/g;
 
+// {المجاز:فأجزته|فأجزتها} — masculine|feminine by the student (المجاز) or me (المجيز); same syntax as the backend
+const GENDER_RE = /\{([^{}:|\n]{1,20}):([^{}|\n]*)\|([^{}|\n]*)\}/g;
+export const applyGender = (text, genders = {}) =>
+  String(text ?? '').replace(GENDER_RE, (whole, role, m, f) => (role in genders ? (genders[role] === 'F' ? f : m) : whole));
+
 /**
  * Replace {key} with values[key]. Unknown or empty keys stay visible and are reported,
  * except `optional` keys, which simply disappear (with their now-empty paragraph).
  */
-export function fillTemplate(template, values, { optional = [] } = {}) {
+export function fillTemplate(template, values, { optional = [], genders = {} } = {}) {
   const missing = new Set();
   const skip = new Set(optional);
-  const text = String(template ?? '').replace(PLACEHOLDER_RE, (whole, key) => {
+  const text = applyGender(template, genders).replace(PLACEHOLDER_RE, (whole, key) => {
     const k = key.trim();
     const v = values[k];
     if (v == null || String(v).trim() === '') {
@@ -66,28 +71,38 @@ export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = (
     if (module === 'quran' && (!option || !coversQuran(c, option, riwayaQiraa))) return;
     if (module !== 'mutoon' && module !== 'quran') return;
     const prev = seen.get(c.to_person_id);
-    if (!prev || (!prev.reading_mode && c.reading_mode)) seen.set(c.to_person_id, { id: c.to_person_id, name: c.to_name, reading_mode: c.reading_mode || null });
+    if (!prev || (!prev.reading_mode && c.reading_mode)) {
+      seen.set(c.to_person_id, { id: c.to_person_id, name: c.to_name, gender: c.to_gender === 'F' ? 'F' : 'M', reading_mode: c.reading_mode || null });
+    }
   });
   return [...seen.values()];
 }
 
 /**
  * The teachers paragraph, or '' when fewer than two shuyukh (then it is left out).
- * «منهم: الشيخ أ غيباً من حفظي، والشيخ ب»
+ * «منهم: الشيخ أ غيباً من حفظي، والشيخة ب»
+ * titles: { M, F } (a plain string is used for both).
  */
-export function teachersParagraph(teachers, sentence, words = {}, title = 'الشيخ') {
+export function teachersParagraph(teachers, sentence, words = {}, titles = { M: 'الشيخ', F: 'الشيخة' }) {
   if (teachers.length < 2 || !sentence) return '';
+  const t2 = typeof titles === 'string' ? { M: titles, F: titles } : titles;
   const items = teachers.map(t => {
     const mode = { heart: words.heart, looking: words.looking }[t.reading_mode];
+    const title = t2[t.gender === 'F' ? 'F' : 'M'];
     const name = title ? `${title} ${t.name}` : t.name;
     return mode ? `${name} ${mode}` : name;
   });
   return sentence.replace('{الشيوخ}', joinArabic(items));
 }
 
-// how the student received, by transmission_types.id
-const TAKHAMMUL = { 1: 'سمع مني', 2: 'قرأ عليّ', 3: 'استجازني في', 4: 'استجازني في', 5: 'ناولته', 6: 'كتبت إليه', 9: 'عرض عليّ' };
-export const takhammulPhrase = txTypeId => TAKHAMMUL[Number(txTypeId)] || 'قرأ عليّ';
+// how the student received, by transmission_types.id — [masculine, feminine]
+const TAKHAMMUL = {
+  1: ['سمع مني', 'سمعت مني'], 2: ['قرأ عليّ', 'قرأت عليّ'], 3: ['استجازني في', 'استجازتني في'],
+  4: ['استجازني في', 'استجازتني في'], 5: ['ناولته', 'ناولتها'], 6: ['كتبت إليه', 'كتبت إليها'],
+  9: ['عرض عليّ', 'عرضت عليّ'], 10: ['سمع مني بقراءة غيره', 'سمعت مني بقراءة غيرها'],
+};
+export const takhammulPhrase = (txTypeId, gender = 'M') =>
+  (TAKHAMMUL[Number(txTypeId)] || TAKHAMMUL[2])[gender === 'F' ? 1 : 0];
 
 const withWord = (name, word) => (name.startsWith(word) ? name : `${word} ${name}`);
 
