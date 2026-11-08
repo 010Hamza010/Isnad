@@ -34,3 +34,12 @@ test('errorHandler hides internal messages but exposes client errors', () => {
     assert.equal(res.statusCode, 400); assert.equal(res.body.error, 'Missing fields: x');
   } finally { console.error = orig; }
 });
+
+test('requireValidLink rejects links to "me" (0) and self-links', () => {
+  const { requireValidLink } = require('../src/utils/httpError');
+  assert.throws(() => requireValidLink({ from_person_id: 5, to_person_id: 0 }), e => e.status === 400);
+  assert.throws(() => requireValidLink({ from_person_id: 5, to_person_id: 5 }), e => e.status === 400);
+  assert.throws(() => requireValidLink({ from_person_id: 5 }), e => e.status === 400);
+  assert.doesNotThrow(() => requireValidLink({ from_person_id: 0, to_person_id: 5 }));
+  assert.doesNotThrow(() => requireValidLink({ to_person_id: 5 })); // from defaults to me
+});

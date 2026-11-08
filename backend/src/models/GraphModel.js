@@ -53,7 +53,7 @@ exports.getQiraaById = async (id) => {
 };
 
 exports.getAllPersons = async () => {
-  const [persons] = await db.query('SELECT id, name_ar, primary_qiraa_id FROM persons');
+  const [persons] = await db.query('SELECT id, name_ar, death_year, description, primary_qiraa_id FROM persons');
   return new Map(persons.map(p => [Number(p.id), p]));
 };
 

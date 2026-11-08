@@ -1,0 +1,26 @@
+-- Register of ijazat issued by a user (the rendered text is stored as a snapshot).
+CREATE TABLE IF NOT EXISTS `ijazat` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `student_name` varchar(200) NOT NULL,
+  `module` enum('mutoon','quran','general') NOT NULL,
+  `matn_id` int(11) DEFAULT NULL,
+  `qiraa_id` int(11) DEFAULT NULL,
+  `riwaya_id` int(11) DEFAULT NULL,
+  `tariq_id` int(11) DEFAULT NULL,
+  `transmission_type_id` int(11) DEFAULT NULL,
+  `title` varchar(300) DEFAULT NULL,
+  `body` longtext NOT NULL,
+  `issued_at` date NOT NULL,
+  `issued_hijri` varchar(60) DEFAULT NULL,
+  `place` varchar(150) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `ijazat_user` (`user_id`, `issued_at`),
+  CONSTRAINT `ijazat_user_fk`   FOREIGN KEY (`user_id`)   REFERENCES `users` (`id`)   ON DELETE CASCADE,
+  CONSTRAINT `ijazat_matn_fk`   FOREIGN KEY (`matn_id`)   REFERENCES `mutoon` (`id`)  ON DELETE SET NULL,
+  CONSTRAINT `ijazat_qiraa_fk`  FOREIGN KEY (`qiraa_id`)  REFERENCES `qiraat` (`id`)  ON DELETE SET NULL,
+  CONSTRAINT `ijazat_riwaya_fk` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `ijazat_tariq_fk`  FOREIGN KEY (`tariq_id`)  REFERENCES `turuq` (`id`)   ON DELETE SET NULL,
+  CONSTRAINT `ijazat_tx_fk`     FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

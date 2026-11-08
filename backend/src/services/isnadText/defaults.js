@@ -26,6 +26,21 @@ module.exports = {
     separator: '، ',
     tahwil: 'ح',         // marker between alternative chains
     firstTitle: 'شيخنا', // title before my own shaykh's name ('' to disable)
+    clear: false,        // append an explicit phrase per link: «… قرأتُ عليه»، «… سماعاً عليه»
+    deathYears: false,   // «فلان (ت 852هـ)»
+    noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for margin notes
+  },
+  // explicit phrases by transmission type id ('null' = untyped / عنعنة).
+  // `first` is used for my own link (I speak), `others` for every link above it.
+  clear: {
+    first: {
+      1: 'سمعتُ عليه', 2: 'قرأتُ عليه', 10: 'قراءةً عليه وأنا أسمع', 3: 'إجازةً', 4: 'إجازةً عامة',
+      5: 'مناولةً', 6: 'مكاتبةً', 7: 'وجادةً', 8: 'إعلاماً', 9: 'عرضتُ عليه', null: '',
+    },
+    others: {
+      1: 'سماعاً عليه', 2: 'قراءةً عليه', 10: 'قراءةً عليه وهو يسمع', 3: 'إجازةً', 4: 'إجازةً عامة',
+      5: 'مناولةً', 6: 'مكاتبةً', 7: 'وجادةً', 8: 'إعلاماً', 9: 'عرضاً عليه', null: '',
+    },
   },
   // stripped from the start of a name when parsing
   titles: ['شيخنا', 'شيخي', 'الشيخ', 'الإمام', 'العلامة', 'الحافظ', 'المحدث', 'المسند', 'الفقيه', 'القاضي', 'المقرئ'],
