@@ -49,6 +49,11 @@ export default function IjazaTemplates({ settings, onSaved }) {
             <Segmented value={draft.shaykh_gender || 'M'} onChange={v => setDraft(d => ({ ...d, shaykh_gender: v }))} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
             <span className="field-hint">لصياغة {'{المجيز:وكتبه|وكتبته}'}</span>
           </div>
+          <Field label="عنوان التحقق (لرمز QR)"
+            hint={`العنوان الذي يفتحه الهاتف عند مسح الرمز، مثل http://192.168.1.20 في شبكتك المنزلية. فارغ = العنوان الحالي (${window.location.origin})`}>
+            <input className="input" dir="ltr" value={draft.public_base_url ?? ''} placeholder={window.location.origin}
+              onChange={e => setDraft(d => ({ ...d, public_base_url: e.target.value }))} />
+          </Field>
           <Field label="المكان الافتراضي">
             <input className="input" value={draft.place} onChange={e => setDraft(d => ({ ...d, place: e.target.value }))} />
           </Field>

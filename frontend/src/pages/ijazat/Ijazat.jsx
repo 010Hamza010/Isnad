@@ -13,6 +13,7 @@ export default function Ijazat() {
   const settings = data?.settings;
   const setSettings = s => setData(d => ({ ...d, settings: s }));
   const [registerKey, setRegisterKey] = useState(0);
+  const [openId, setOpenId] = useState(null); // just-issued ijaza to open for printing
 
   return (
     <>
@@ -26,10 +27,10 @@ export default function Ijazat() {
       </div>
       {loading || !settings ? <div className="skeleton" style={{ height: 400 }} /> : <>
         {tab === 'new' && (
-          <NewIjaza settings={settings} onSaved={() => { setRegisterKey(k => k + 1); setTab('register'); }}
+          <NewIjaza settings={settings} onSaved={row => { setOpenId(row?.id ?? null); setRegisterKey(k => k + 1); setTab('register'); }}
             onEditTemplates={() => setTab('templates')} />
         )}
-        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} />}
+        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} openId={openId} onOpened={() => setOpenId(null)} />}
         {tab === 'templates' && <IjazaTemplates settings={settings} onSaved={setSettings} />}
         {tab === 'designs' && <IjazaDesigns settings={settings} options={data.designOptions} onSaved={setSettings} />}
       </>}

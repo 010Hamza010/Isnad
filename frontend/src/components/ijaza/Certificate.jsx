@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import IsnadTree from './IsnadTree';
 import { roleMatcher, bodyToParagraphs, numberNotes, chainNames, designVars } from '../../utils/certificate';
 import { shortBio } from '../../utils/isnadTree';
+import QRCode from 'qrcode';
 
 const PAGE_WIDTH_PX = 794; // 210mm at 96dpi
 const deathLabel = d => (d ? ` (ت ${/^\d+$/.test(String(d)) ? `${d}هـ` : d})` : '');
@@ -64,7 +65,21 @@ function pageSkeleton(first, title, ornament) {
  * Lay the paragraphs out on A4 pages inside `root` (an off-screen element carrying the design).
  * Each page holds as much text as fits together with the footnotes it references.
  */
-function paginate(root, { paragraphs, numbers, notes, title, ornament }) {
+// Verification block after the signature: the QR (SVG from the qrcode library) and the short code.
+function verifyNode(v) {
+  const box = el('div', `cert-verify${v.placeholder ? ' placeholder' : ''}`);
+  const qr = el('div', 'cert-qr');
+  if (v.svg) qr.innerHTML = v.svg; // generated locally by the qrcode library from our own URL
+  else qr.appendChild(el('span', null, 'QR'));
+  box.appendChild(qr);
+  const txt = el('div', 'cert-verify-text');
+  txt.appendChild(el('div', 'cert-verify-title', v.placeholder ? 'رمز التحقق' : 'للتحقق من هذه الإجازة'));
+  txt.appendChild(el('div', 'cert-verify-code', v.placeholder ? 'يُضاف بعد الحفظ' : v.code));
+  box.appendChild(txt);
+  return box;
+}
+
+function paginate(root, { paragraphs, numbers, notes, title, ornament, verify }) {
   const done = [];
   let cur = null;
 
@@ -125,6 +140,13 @@ function paginate(root, { paragraphs, numbers, notes, title, ornament }) {
       close(); open();
     }
   });
+  // the verification QR goes after the signature; if it does not fit, it starts a new page
+  if (verify) {
+    const node = verifyNode(verify);
+    cur.flow.appendChild(node);
+    if (!fits() && !cur.empty) { node.remove(); close(); open(); cur.flow.appendChild(verifyNode(verify)); }
+    cur.empty = false;
+  }
   if (!cur.empty || done.length === 0) close();
   root.replaceChildren();
 
@@ -158,7 +180,10 @@ function useZoom(ref) {
  *   variant 'detailed' — footnotes (biographies) at the bottom of each page + a tree page.
  * people: { student, shaykh } names to colour.
  */
-export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {} }) {
+/**
+ * verification: { url, code } of a saved ijaza (QR + short code), or { placeholder: true } before saving.
+ */
+export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null }) {
   const detailed = variant === 'detailed';
   const measureRef = useRef(null);
   const wrapRef = useRef(null);
@@ -175,15 +200,33 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
   const vars = useMemo(() => designVars(d), [d]);
   const rootClass = `cert-root frame-${d.frame.style}`;
 
+  // QR as SVG in the design's text colour, transparent background
+  const showQr = verification && d.qr?.show !== false;
+  const [qrSvg, setQrSvg] = useState(null);
+  useEffect(() => {
+    setQrSvg(null);
+    if (!showQr || !verification.url) return;
+    let alive = true;
+    QRCode.toString(verification.url, { type: 'svg', errorCorrectionLevel: 'M', margin: 0, color: { dark: d.colors.text, light: '#0000' } })
+      .then(svg => alive && setQrSvg(svg))
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [showQr, verification?.url, d.colors.text]);
+  const verify = useMemo(() => {
+    if (!showQr) return null;
+    if (verification.placeholder) return { placeholder: true };
+    return qrSvg ? { svg: qrSvg, code: verification.code } : null;
+  }, [showQr, verification?.placeholder, verification?.code, qrSvg]);
+
   useEffect(() => {
     let alive = true;
     const t = setTimeout(async () => {
       await fontsReady(d);
       if (!alive || !measureRef.current) return;
-      setPages(paginate(measureRef.current, { paragraphs, numbers, notes, title, ornament: d.frame.ornament }));
+      setPages(paginate(measureRef.current, { paragraphs, numbers, notes, title, ornament: d.frame.ornament, verify }));
     }, 120);
     return () => { alive = false; clearTimeout(t); };
-  }, [paragraphs, numbers, notes, title, d]);
+  }, [paragraphs, numbers, notes, title, d, verify]);
 
   const tree = detailed && chains.length > 0 && (
     <div className="cert-page tree-page">

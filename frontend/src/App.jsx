@@ -14,6 +14,7 @@ import QuranConnections from './pages/quran/QuranConnections';
 import QuranMasterData from './pages/quran/QuranMasterData';
 import Settings from './pages/shared/Settings';
 import Ijazat from './pages/ijazat/Ijazat';
+import Verify from './pages/public/Verify';
 import { routeMeta } from './routes';
 import api from './utils/api';
 
@@ -86,6 +87,9 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginGuard />} />
+        {/* public, no login: QR verification of issued ijazat */}
+        <Route path="/v" element={<Verify />} />
+        <Route path="/v/:token" element={<Verify />} />
         <Route path="/*" element={<Layout />} />
       </Routes>
     </AuthProvider>

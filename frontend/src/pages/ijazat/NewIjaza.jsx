@@ -150,7 +150,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     if (module === 'mutoon' && !matnId) return toast('اختر المتن', 'error');
     setSaving(true);
     try {
-      await api.post('/ijazat', {
+      const { data: saved } = await api.post('/ijazat', {
         student_name: student, module, title, body,
         matn_id: module === 'mutoon' ? matnId : null,
         qiraa_id: module === 'quran' ? quranOpt?.qiraa_id : null,
@@ -162,8 +162,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         // snapshot: reprints look the same even if the design or biographies change later
         details: { notes: detailed ? notes : {}, chains: chains.map(slimChain), design, people },
       });
-      toast('حُفظت الإجازة في السجل');
-      reset(); onSaved();
+      toast('حُفظت الإجازة — يمكنك طباعتها الآن مع رمز التحقق');
+      reset(); onSaved(saved);
     } catch (e) { notifyError(e); } finally { setSaving(false); }
   };
 
@@ -292,9 +292,9 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
             <Icon name="edit" size={14} /> تعديل النص
           </button>
           <div className="spacer" />
-          <button className="btn btn-secondary" onClick={() => window.print()}><Icon name="print" size={16} /> طباعة / PDF</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? <span className="spinner" /> : <Icon name="save" size={16} />} حفظ في السجل
+          <button className="btn btn-primary" onClick={save} disabled={saving}
+            title="تُحفظ في السجل وتحصل على رمز التحقق، ثم تُفتح للطباعة">
+            {saving ? <span className="spinner" /> : <Icon name="save" size={16} />} حفظ وإصدار
           </button>
         </div>
 
@@ -308,9 +308,9 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
           <div className="callout">لا توجد تراجم للأعلام في هذا الإسناد — أضفها في صفحة <Link to="/persons">الأعلام</Link> لتظهر في الهامش.</div>
         )}
         <Certificate title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
-          notes={notes} chains={chains} design={design} people={people} />
+          notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }} />
         <p className="small muted">
-          الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». للحفظ كملف PDF اختر «حفظ كـ PDF» في نافذة الطباعة.
+          الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمز التحقق للطباعة أو الحفظ كـ PDF.
         </p>
       </div>
     </div>

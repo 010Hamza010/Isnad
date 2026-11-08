@@ -139,6 +139,16 @@ export default function IjazaDesigns({ settings, options, onSaved }) {
             الأسماء بخط عريض
           </label>
 
+          <div className="section-label">رمز التحقق (QR)</div>
+          <label className="check" style={{ marginBottom: 8 }}>
+            <input type="checkbox" checked={design.qr?.show !== false} onChange={e => update(d => ({ ...d, qr: { ...d.qr, show: e.target.checked } }))} />
+            إظهار رمز QR ورمز التحقق بعد التوقيع
+          </label>
+          <Field label={`حجم الرمز: ${design.qr?.sizeMm ?? 22} مم`}>
+            <input type="range" min="14" max="40" value={design.qr?.sizeMm ?? 22}
+              onChange={e => update(d => ({ ...d, qr: { ...d.qr, sizeMm: Number(e.target.value) } }))} />
+          </Field>
+
           <div className="section-label">الإطار والصفحة</div>
           <div className="field">
             <Segmented value={design.frame.style} onChange={v => setFrame('style', v)}
@@ -163,7 +173,8 @@ export default function IjazaDesigns({ settings, options, onSaved }) {
             <Segmented value={variant} onChange={setVariant} options={[{ value: 'normal', label: 'عادية' }, { value: 'detailed', label: 'مفصّلة' }]} />
           </div>
           <Certificate title={SAMPLE.title} body={SAMPLE.body} variant={variant} notes={SAMPLE.notes}
-            chains={previewChains} design={design} people={SAMPLE.people} />
+            chains={previewChains} design={design} people={SAMPLE.people}
+            verification={{ url: `${window.location.origin}/v/sample`, code: 'ISN-7K3Q-9P2M' }} />
         </div>
       </div>
 
