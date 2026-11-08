@@ -14,10 +14,9 @@ import { personOptions, rowOptions } from '../../utils/options';
 
 const EMPTY = { from_person_id: 0, to_person_id: '', matn_id: '', transmission_type_id: '', is_general_ijaza: false, description: '' };
 
-// Direction relative to "me" (person 0)
+// Direction relative to "me" (person 0). Links *to* me are not stored — students live in the ijaza register.
 const TABS = [
   { value: 'from_me', label: 'شيوخي',    test: c => isMe(c.from_person_id), anchor: c => c.to_person_id },
-  { value: 'to_me',   label: 'تلاميذي',  test: c => isMe(c.to_person_id),   anchor: c => c.from_person_id },
   { value: 'others',  label: 'سلاسل الشيوخ', test: c => !isMe(c.from_person_id) && !isMe(c.to_person_id), anchor: c => c.from_person_id },
 ];
 
@@ -41,6 +40,7 @@ export default function MatnConnections() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const pOpts   = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
+  const shaykhOpts = useMemo(() => personOptions(persons), [persons]);
   const pName   = id => isMe(id) ? 'أنا' : (persons.find(p => p.id === Number(id))?.name_ar || `#${id}`);
   const current = TABS.find(t => t.value === tab);
 
@@ -65,7 +65,7 @@ export default function MatnConnections() {
   const counts = Object.fromEntries(TABS.map(t => [t.value, conns.filter(inMatn).filter(t.test).length]));
   const shown  = groups.reduce((n, g) => n + g.items.length, 0);
 
-  const openAdd = () => setForm({ ...EMPTY, ...(tab === 'to_me' ? { from_person_id: '', to_person_id: 0 } : {}), matn_id: filterMatn !== 'general' ? filterMatn : '' });
+  const openAdd = () => setForm({ ...EMPTY, ...(tab === 'others' ? { from_person_id: '' } : {}), matn_id: filterMatn !== 'general' ? filterMatn : '' });
   const openEdit = c => setForm({
     id: c.id, from_person_id: c.from_person_id, to_person_id: c.to_person_id,
     matn_id: c.matn_id ?? '', transmission_type_id: c.transmission_type_id ?? '',
@@ -167,7 +167,7 @@ export default function MatnConnections() {
               <Combobox value={form.from_person_id} opts={pOpts} onChange={v => set('from_person_id', v)} />
             </Field>
             <Field label="الشيخ (أخذ عن)" required>
-              <Combobox value={form.to_person_id} opts={pOpts} onChange={v => set('to_person_id', v)} />
+              <Combobox value={form.to_person_id} opts={shaykhOpts} onChange={v => set('to_person_id', v)} />
             </Field>
           </div>
           <Field label="المتن" hint="اتركه فارغاً إن كانت إجازة عامة بكل مروياته">

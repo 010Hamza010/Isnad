@@ -13,6 +13,9 @@ export const NAV = [
     { path: '/quran/connections',  icon: 'link',   label: 'الاتصالات', stat: 'quranConns', title: 'اتصالات القرآن', sub: 'من قرأتَ عليه، وبأي قراءة ورواية وطريق' },
     { path: '/quran/master',       icon: 'layers', label: 'القراءات والروايات', title: 'القراءات والروايات والطرق', sub: 'البيانات المرجعية للقراءات' },
   ]},
+  { section: 'الإجازات', items: [
+    { path: '/ijazat', icon: 'award', label: 'إجازة لطالب', title: 'الإجازات', sub: 'أنشئ إجازة بإسنادك، اطبعها، واحفظها في السجل' },
+  ]},
   { section: 'عام', items: [
     { path: '/persons', icon: 'users',   label: 'الأعلام', stat: 'persons', title: 'الأعلام', sub: 'الشيوخ والرواة والمؤلفون — ملف واحد لكل شخص' },
     { path: '/graph',   icon: 'network', label: 'شبكة الإسناد', title: 'شبكة الإسناد', sub: 'الشبكة الكاملة للاتصالات' },

@@ -13,6 +13,7 @@ import QuranIsnads from './pages/quran/QuranIsnads';
 import QuranConnections from './pages/quran/QuranConnections';
 import QuranMasterData from './pages/quran/QuranMasterData';
 import Settings from './pages/shared/Settings';
+import Ijazat from './pages/ijazat/Ijazat';
 import { routeMeta } from './routes';
 import api from './utils/api';
 
@@ -69,6 +70,7 @@ function Layout() {
               <Route path="/persons"            element={<Persons />} />
               <Route path="/graph"              element={<Graph />} />
               <Route path="/settings"           element={<Settings />} />
+              <Route path="/ijazat"             element={<Ijazat />} />
               <Route path="*"                   element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
