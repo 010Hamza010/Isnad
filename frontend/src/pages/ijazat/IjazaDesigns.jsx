@@ -144,8 +144,8 @@ export default function IjazaDesigns({ settings, options, onSaved }) {
             <input type="checkbox" checked={design.qr?.show !== false} onChange={e => update(d => ({ ...d, qr: { ...d.qr, show: e.target.checked } }))} />
             إظهار رمز QR ورمز التحقق بعد التوقيع
           </label>
-          <Field label={`حجم الرمز: ${design.qr?.sizeMm ?? 22} مم`}>
-            <input type="range" min="14" max="40" value={design.qr?.sizeMm ?? 22}
+          <Field label={`حجم الرمز: ${design.qr?.sizeMm ?? 30} مم (يُنصح بـ 28 فأكثر)`}>
+            <input type="range" min="14" max="40" value={design.qr?.sizeMm ?? 30}
               onChange={e => update(d => ({ ...d, qr: { ...d.qr, sizeMm: Number(e.target.value) } }))} />
           </Field>
 
@@ -174,7 +174,7 @@ export default function IjazaDesigns({ settings, options, onSaved }) {
           </div>
           <Certificate title={SAMPLE.title} body={SAMPLE.body} variant={variant} notes={SAMPLE.notes}
             chains={previewChains} design={design} people={SAMPLE.people}
-            verification={{ url: `${window.location.origin}/v/sample`, code: 'ISN-7K3Q-9P2M' }} />
+            verification={{ code: 'ISN-7K3Q-9P2M', payload: 'إجازة — إسناد\nالرمز: ISN-7K3Q-9P2M\nالمجاز: أحمد بن علي\nالموضوع: إجازة في متن «الآجرومية»\nالتاريخ: 2026-11-08 10:32\nالتوقيع: 0000000000000000000000' }} />
         </div>
       </div>
 

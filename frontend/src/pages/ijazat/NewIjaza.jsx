@@ -187,7 +187,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates, correctio
           لا يُعدَّل شيء في الإجازة القديمة.
         </span>
         <input className="input" style={{ maxWidth: 320 }} value={correctionReason} maxLength={150}
-          onChange={e => setCorrectionReason(e.target.value)} placeholder="سبب التصحيح (يظهر في صفحة التحقق)" />
+          onChange={e => setCorrectionReason(e.target.value)} placeholder="سبب التصحيح (يظهر عند التحقق)" />
         <button className="btn btn-secondary btn-sm" onClick={onCancelCorrection}>إلغاء التصحيح</button>
       </div>
     )}
@@ -329,7 +329,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates, correctio
         <Certificate title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
           notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }} />
         <p className="small muted">
-          الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمز التحقق للطباعة أو الحفظ كـ PDF.
+          الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمزها (QR) للطباعة أو الحفظ كـ PDF.
         </p>
       </div>
     </div>

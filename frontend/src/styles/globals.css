@@ -542,17 +542,17 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 .archive-box { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; }
 .archive-box code { direction: ltr; font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; }
 
-/* ── Public verification page ──────────────────────────────── */
-.verify-page { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
-.verify-head { display: flex; align-items: center; gap: 12px; }
-.verify-form { max-width: 420px; }
+/* ── Verification (dashboard) ── */
 .verify-status { display: flex; gap: 14px; align-items: center; padding: 16px 18px; border-radius: var(--radius); }
 .verify-status.valid { background: var(--success-soft); color: var(--success); }
-.verify-status.revoked, .verify-status.invalid { background: var(--danger-soft); color: var(--danger); }
+.verify-status.revoked, .verify-status.altered, .verify-status.unknown, .verify-status.invalid { background: var(--danger-soft); color: var(--danger); }
 .verify-title { font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1.3; }
 .verify-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; margin: 0; }
 .verify-summary dt { font-size: 12px; color: var(--muted); }
 .verify-summary dd { margin: 0; font-weight: 600; }
+.verify-video { width: 100%; max-height: 320px; border-radius: var(--radius-sm); background: #000; }
+.check-row { display: grid; grid-template-columns: 24px 110px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--border); align-items: start; }
+.check-row:last-child { border-bottom: 0; }
 
 /* ── Print ─────────────────────────────────────────────────── */
 #print-root { display: none; }

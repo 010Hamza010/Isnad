@@ -15,6 +15,7 @@ export const NAV = [
   ]},
   { section: 'الإجازات', items: [
     { path: '/ijazat', icon: 'award', label: 'إجازة لطالب', title: 'الإجازات', sub: 'أنشئ إجازة بإسنادك، اطبعها، واحفظها في السجل' },
+    { path: '/verify', icon: 'check', label: 'التحقق من إجازة', title: 'التحقق من إجازة', sub: 'امسح رمز QR أو الصق بياناته للتأكد من صحتها' },
   ]},
   { section: 'عام', items: [
     { path: '/persons', icon: 'users',   label: 'الأعلام', stat: 'persons', title: 'الأعلام', sub: 'الشيوخ والرواة والمؤلفون — ملف واحد لكل شخص' },

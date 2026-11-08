@@ -101,6 +101,6 @@ export function designVars(design) {
   v['--page-margin'] = `${design.frame.marginMm}mm`;
   v['--page-pad'] = `${design.frame.paddingMm}mm`;
   v['--names-weight'] = design.boldNames ? 700 : 'inherit';
-  v['--qr-size'] = `${design.qr?.sizeMm ?? 22}mm`;
+  v['--qr-size'] = `${design.qr?.sizeMm ?? 30}mm`;
   return v;
 }
