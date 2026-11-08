@@ -9,7 +9,7 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, ijazaTitle, PLACEHOLDERS } from '../../utils/ijaza';
+import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, ijazaTitle, PLACEHOLDERS, readingTeachers, teachersParagraph } from '../../utils/ijaza';
 import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions } from '../../utils/options';
 
@@ -33,12 +33,13 @@ const MODULES = [
 export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
-    const [m, c, q, r, t, tx] = await Promise.all([
+    const [m, c, q, r, t, tx, mc, is] = await Promise.all([
       api.get('/mutoon?connected=1'), api.get('/quran-connections'),
       api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/tx-types'),
+      api.get('/matn-connections'), api.get('/isnad-text/settings'),
     ]);
-    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data };
-  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [] });
+    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style };
+  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {} });
 
   const [module, setModule]   = useState('mutoon');
   const [style, setStyle]     = useState('normal');
@@ -105,6 +106,13 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   }) : '';
   const dates = formatDates(date);
 
+  // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
+  const teachers = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
+    matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
+  }), [module, matnId, quranOpt?.key, refs]);
+  const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
+    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord });
+
   const values = {
     'الطالب': student.trim(),
     'كيفية_الأخذ': takhammulPhrase(txId),
@@ -113,9 +121,10 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     'ما_قرئ': reading || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
     'الرواية': quranOpt?.riwayaLabel, 'الطريق': quranOpt?.tariqLabel,
     'الإسناد': isnadText, 'المجيز': settings.shaykh_name, 'المكان': place,
+    'شيوخ_القراءة': teachersText,
     'التاريخ': dates.gregorian, 'التاريخ_الهجري': hijri,
   };
-  const filled = fillTemplate(settings.templates[module], values);
+  const filled = fillTemplate(settings.templates[module], values, { optional: ['شيوخ_القراءة'] });
   const body = manualBody ?? filled.text;
   const title = ijazaTitle(module, { matn: matn?.title, reading });
   const missing = manualBody == null ? filled.missing : [];
@@ -146,7 +155,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   };
 
   const detailed = style === 'detailed' && module !== 'general';
-  const people = { student: student.trim(), shaykh: settings.shaykh_name };
+  const people = { student: student.trim(), shaykh: settings.shaykh_name, names: teachers.map(t => t.name) };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (
@@ -210,6 +219,11 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {teachers.length > 1 && (
+          <div className="callout" style={{ marginBottom: 14 }}>
+            سيُذكر قبل الإسناد أنك قرأت على {teachers.length} من الشيوخ: {teachers.map(t => t.name).join('، ')}.
           </div>
         )}
         {module === 'mutoon' && matnId && !pathsLoading && !groups.length && (
