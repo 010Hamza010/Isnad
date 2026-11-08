@@ -167,11 +167,11 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
 
   test('clear mode replaces keywords: first person for my link, «وهو …» above it', () => {
     assert.equal(T.renderChain(A, { style: { clear: true, deathYears: true } }),
-      'قرأتُ على شيخنا الكتاني (ت 1382هـ)، وهو سمع من جعفر (ت 1323هـ)، وهو يروي عن إدريس (ت 1183هـ)');
+      'قرأتُ على شيخنا الكتاني (ت 1382هـ)، وهو سمع من جعفر (ت 1323هـ)، عن إدريس (ت 1183هـ)');
   });
 
   test('a sentence can wrap the name: «قُرئ على فلان وأنا أسمع»', () => {
-    assert.equal(T.renderChain(B, { style: { clear: true, firstTitle: '' } }), 'قُرئ على ابن عبد الكبير وأنا أسمع، وهو يروي عن إدريس');
+    assert.equal(T.renderChain(B, { style: { clear: true, firstTitle: '' } }), 'قُرئ على ابن عبد الكبير وأنا أسمع، عن إدريس');
   });
 
   test('an empty sentence falls back to the keyword form for that type', () => {
@@ -265,7 +265,7 @@ describe('gender: pronouns, verbs, titles and joiners follow each person', () =>
   test('narrator and shaykh agree separately («وهي أجازها»، «وهو أجازته»)', () => {
     const chain = [e(0, null, 1, 'نزهة الكتانية', 'F', 2), e(1, 'F', 2, 'عبد الحي', 'M', 3), e(2, 'M', 3, 'فاطمة', 'F', 3), e(3, 'F', 4, 'زيد', 'M', null)];
     assert.equal(T.renderChain(chain, clear),
-      'قرأتُ على شيختنا نزهة الكتانية، وهي أجازها عبد الحي، وهو أجازته فاطمة، وهي تروي عن زيد');
+      'قرأتُ على شيختنا نزهة الكتانية، وهي أجازها عبد الحي، وهو أجازته فاطمة، عن زيد');
   });
 
   test('my own sentences agree with the shaykh («أجازتني شيختنا»), and «قُرئ … وهي تسمع»', () => {
@@ -282,9 +282,9 @@ describe('gender: pronouns, verbs, titles and joiners follow each person', () =>
   test('joiners: كلتاهما / كلهن when every narrator meeting is a woman, else كلاهما / كلهم', () => {
     const w = (id, n) => [e(0, null, id, n, 'F', 2), e(id, 'F', 9, 'المؤلف', 'M', 1)];
     const m = (id, n) => [e(0, null, id, n, 'M', 2), e(id, 'M', 9, 'المؤلف', 'M', 1)];
-    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب')], clear), /كلتاهما عن المؤلف$/);
-    assert.match(T.renderChains([w(1, 'أ'), m(2, 'ب')], clear), /كلاهما عن المؤلف$/);
-    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب'), w(3, 'ج')], clear), /كلهن عن المؤلف$/);
+    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب')], clear), /كلتاهما سمعت من المؤلف$/);
+    assert.match(T.renderChains([w(1, 'أ'), m(2, 'ب')], clear), /كلاهما سمع من المؤلف$/);
+    assert.match(T.renderChains([w(1, 'أ'), w(2, 'ب'), w(3, 'ج')], clear), /كلهن سمعت من المؤلف$/);
   });
 
   test('the parser reads feminine sentences, titles and joiners back', () => {
@@ -341,4 +341,31 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
     for (const name of ['طاهر', 'السعيد', 'عبد الحي', 'بناني', 'ابن غازي']) assert.equal(t.split(name).length - 1, 1, name);
   });
 
+});
+
+describe('meeting point states how they took, عنعنة stays plain «عن»', () => {
+  const mk = (id, n, tx2) => [
+    { from_person_id: 0, to_person_id: id, to_name: n, transmission_type_id: 2 },
+    { from_person_id: id, to_person_id: 9, to_name: 'ابن غازي', transmission_type_id: tx2 },
+  ];
+  const st = { style: { clear: true, firstTitle: '' } };
+
+  test('same way for every narrator → «كلاهما سمع من / قرأ على»', () => {
+    assert.match(T.renderChains([mk(1, 'أ', 1), mk(2, 'ب', 1)], st), /كلاهما سمع من ابن غازي$/);
+    assert.match(T.renderChains([mk(1, 'أ', 2), mk(2, 'ب', 2), mk(3, 'ج', 2)], st), /كلهم قرأ على ابن غازي$/);
+  });
+  test('different ways, or no sentence for that type → «كلاهما عن»', () => {
+    assert.match(T.renderChains([mk(1, 'أ', 1), mk(2, 'ب', 2)], st), /كلاهما عن ابن غازي$/);
+    assert.match(T.renderChains([mk(1, 'أ', 3), mk(2, 'ب', 3)], st), /كلاهما عن ابن غازي$/);
+    assert.match(T.renderChains([mk(1, 'أ', 1), mk(2, 'ب', 1)], {}), /كلاهما عن ابن غازي$/); // keyword mode
+  });
+  test('the type after «كلاهما سمع من» is read back', () => {
+    const r = T.parseIsnad(T.renderChains([mk(1, 'أ', 1), mk(2, 'ب', 1)], st));
+    assert.deepEqual(r.chains.map(c => c.links.map(l => l.tx_type_id)), [[2, 1], [2, 1]]);
+  });
+  test('stored «يروي عن» defaults follow the plain «عن»', () => {
+    const s = T.mergeSettings({ phrases: { others: { null: '{الراوي:وهو يروي|وهي تروي} عن {الاسم}' }, first: { null: 'رويتُ عن {الاسم}' } } });
+    assert.equal(s.phrases.others.null, 'عن {الاسم}');
+    assert.equal(s.phrases.first.null, 'عن {الاسم}');
+  });
 });
