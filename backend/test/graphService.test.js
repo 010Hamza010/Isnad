@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildPaths, formatPath } = require('../src/services/graphService');
 
@@ -80,4 +80,23 @@ test('formatPath carries reading mode and death years for the text renderer', ()
   const out = formatPath(g, pMap);
   assert.equal(out.firstEdge.reading_mode, 'heart');
   assert.equal(out.firstEdge.to_death_year, '1382');
+});
+
+describe('which connection wins between the same two people', () => {
+  const pick = (...candidates) => buildPaths([...candidates, e(1, 9)], 0, [9], null, null, null, new Map(), null, null)[0].firstEdge;
+
+  test('قراءة beats إجازة عامة, whatever the type numbers are', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: 4, tag: 'general' }), e(0, 1, { transmission_type_id: 2, tag: 'qiraa' })).tag, 'qiraa');
+  });
+  test('«قراءة عليه وأنا أسمع» (id 10) beats إجازة (3) and إجازة عامة (4)', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: 3, tag: 'ij' }), e(0, 1, { transmission_type_id: 10, tag: 'listen' })).tag, 'listen');
+    assert.equal(pick(e(0, 1, { transmission_type_id: 10, tag: 'listen' }), e(0, 1, { transmission_type_id: 4, tag: 'gen' })).tag, 'listen');
+  });
+  test('a connection ticked «إجازة عامة» ranks as general even if typed إجازة', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: 3, is_general_ijaza: 1, tag: 'flagged' }), e(0, 1, { transmission_type_id: 6, tag: 'kitaba' })).tag, 'kitaba');
+  });
+  test('same type: the connection for this matn beats a general one; untyped is last', () => {
+    assert.equal(pick(e(0, 1, { transmission_type_id: 2, matn_id: null, tag: 'any' }), e(0, 1, { transmission_type_id: 2, matn_id: 7, tag: 'this' })).tag, 'this');
+    assert.equal(pick(e(0, 1, { transmission_type_id: null, tag: 'none' }), e(0, 1, { transmission_type_id: 7, tag: 'wijada' })).tag, 'wijada');
+  });
 });
