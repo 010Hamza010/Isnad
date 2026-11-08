@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph } from '../src/utils/ijaza.js';
+import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph, applyGender } from '../src/utils/ijaza.js';
 import { quranOptions, quranPathParams, groupsToChains } from '../src/utils/quranOptions.js';
 
 test('fillTemplate replaces known keys and reports missing ones', () => {
@@ -83,7 +83,7 @@ test('readingTeachers (matn): only my قراءة/عرض connections for that mat
     conn(4, 'د', 2, { matn_id: 8 }), { ...conn(5, 'هـ', 2, { matn_id: 7 }), from_person_id: 9 },
   ];
   assert.deepEqual(readingTeachers(conns, 'mutoon', { matnId: 7 }),
-    [{ id: 1, name: 'أ', reading_mode: 'heart' }, { id: 2, name: 'ب', reading_mode: null }]);
+    [{ id: 1, name: 'أ', gender: 'M', reading_mode: 'heart' }, { id: 2, name: 'ب', gender: 'M', reading_mode: null }]);
 });
 
 test('readingTeachers (quran): riwaya match, qiraa-level and unscoped connections count', () => {
@@ -104,4 +104,22 @@ test('teachersParagraph needs two or more shuyukh and adds the reading mode word
   assert.equal(teachersParagraph([{ name: 'أ', reading_mode: 'heart' }, { name: 'ب' }], sentence, words),
     'قرأتُه على جماعة، منهم: الشيخ أ غيباً من حفظي، والشيخ ب.');
   assert.equal(teachersParagraph([{ name: 'أ' }, { name: 'ب' }], sentence, words, ''), 'قرأتُه على جماعة، منهم: أ، وب.');
+});
+
+test('gender alternations follow the student (المجاز) and me (المجيز); unknown roles stay', () => {
+  const tpl = '{المجاز:فأجزته|فأجزتها} {المجيز:وكتبه|وكتبته}: {المجيز} {أخرى:أ|ب}';
+  const r = fillTemplate(tpl, { 'المجيز': 'فلانة' }, { genders: { 'المجاز': 'F', 'المجيز': 'F' } });
+  assert.equal(r.text, 'فأجزتها وكتبته: فلانة {أخرى:أ|ب}');
+  assert.equal(applyGender('{المجاز:قرأ|قرأت}', { 'المجاز': 'M' }), 'قرأ');
+});
+
+test('takhammulPhrase agrees with the student', () => {
+  assert.equal(takhammulPhrase(2, 'F'), 'قرأت عليّ');
+  assert.equal(takhammulPhrase(1, 'F'), 'سمعت مني');
+  assert.equal(takhammulPhrase(99, 'F'), 'قرأت عليّ');
+});
+
+test('teachers paragraph uses «الشيخة» for women', () => {
+  const p = teachersParagraph([{ name: 'نزهة', gender: 'F' }, { name: 'زيد', gender: 'M' }], 'منهم: {الشيوخ}.', {}, { M: 'الشيخ', F: 'الشيخة' });
+  assert.equal(p, 'منهم: الشيخة نزهة، والشيخ زيد.');
 });

@@ -163,6 +163,14 @@ export default function Settings() {
               <Field label="لقب الشيخ المباشر" hint="مثل: شيخنا، شيخي — اتركه فارغاً لحذفه">
                 <input className="input" value={draft.style.firstTitle} onChange={e => setStyle('firstTitle', e.target.value)} />
               </Field>
+              <Field label="… إذا كانت شيخة" hint="مثل: شيختنا">
+                <input className="input" value={draft.style.firstTitleF ?? ''} onChange={e => setStyle('firstTitleF', e.target.value)} />
+              </Field>
+              <div className="field">
+                <span className="field-label">جنسك (أنا)</span>
+                <Segmented value={draft.style.myGender || 'M'} onChange={v => setStyle('myGender', v)}
+                  options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
+              </div>
               <Field label="رمز التحويل"><input className="input" value={draft.style.tahwil} onChange={e => setStyle('tahwil', e.target.value)} /></Field>
             </div>
             <div className="field">
@@ -186,7 +194,10 @@ export default function Settings() {
       <section className="card settings-section">
         <div className="card-head">
           <div className="card-title">العبارات الصريحة</div>
-          <span className="muted">تحلّ محل الصيغة عند تفعيلها — ضع {'{الاسم}'} مكان اسم الشيخ، واتركها فارغة لاستعمال الصيغة</span>
+          <span className="muted">
+            تحلّ محل الصيغة عند تفعيلها — ضع {'{الاسم}'} مكان اسم الشيخ، واتركها فارغة لاستعمال الصيغة.
+            للمذكر والمؤنث: {'{الراوي:وهو قرأ|وهي قرأت}'} حسب الراوي، و{'{الشيخ:أجاز|أجازت}'} حسب الشيخ.
+          </span>
         </div>
         <div className="kw-head phrase-grid">
           <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span>

@@ -49,6 +49,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
   const [designId, setDesignId] = useState(settings.default_design);
   const design = settings.designs.find(x => x.id === designId) || settings.designs[0];
   const [student, setStudent] = useState('');
+  const [studentGender, setStudentGender] = useState('M');
   const [matnId, setMatnId]   = useState('');
   const [quranKey, setQuranKey] = useState('');
   const [txId, setTxId]       = useState(2);
@@ -71,7 +72,8 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
   }), [module, matnId, quranOpt?.key, refs]);
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
-    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord }, settings.teachers_title ?? 'الشيخ');
+    { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord },
+    { M: settings.teachers_title ?? 'الشيخ', F: settings.teachers_title_f ?? 'الشيخة' });
 
   const listsTeachers = teachersText !== '';
 
@@ -119,7 +121,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
 
   const values = {
     'الطالب': student.trim(),
-    'كيفية_الأخذ': takhammulPhrase(txId),
+    'كيفية_الأخذ': takhammulPhrase(txId, studentGender),
     'المتن': matn?.title, 'المؤلف': matn?.author_name,
     // an unrestricted (مطلق) Quran connection has no riwaya to name
     'ما_قرئ': reading || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
@@ -128,7 +130,10 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
     'شيوخ_القراءة': teachersText,
     'التاريخ': dates.gregorian, 'التاريخ_الهجري': hijri,
   };
-  const filled = fillTemplate(settings.templates[module], values, { optional: ['شيوخ_القراءة'] });
+  const filled = fillTemplate(settings.templates[module], values, {
+    optional: ['شيوخ_القراءة'],
+    genders: { 'المجاز': studentGender, 'المجيز': settings.shaykh_gender || 'M' },
+  });
   const body = manualBody ?? filled.text;
   const title = ijazaTitle(module, { matn: matn?.title, reading });
   const missing = manualBody == null ? filled.missing : [];
@@ -179,8 +184,12 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
           </div>
         )}
         <Field label="اسم المجاز" required>
-          <input className="input" value={student} onChange={e => setStudent(e.target.value)} placeholder="الأخ الفاضل فلان بن فلان" />
+          <input className="input" value={student} onChange={e => setStudent(e.target.value)}
+            placeholder={studentGender === 'F' ? 'الأخت الفاضلة فلانة بنت فلان' : 'الأخ الفاضل فلان بن فلان'} />
         </Field>
+        <div className="field">
+          <Segmented value={studentGender} onChange={v => { setStudentGender(v); setManualBody(null); }} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
+        </div>
 
         {module === 'mutoon' && (
           <Field label="المتن" required hint={!refs.mutoon.length ? 'لا توجد متون متصلة الإسناد بعد' : undefined}>
@@ -203,7 +212,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
         {module !== 'general' && (
           <Field label="كيف أخذ عنك">
             <select className="select" value={txId} onChange={e => setTxId(Number(e.target.value))}>
-              {txOpts.map(o => <option key={o.value} value={o.value}>{o.label} — «{takhammulPhrase(o.value)}»</option>)}
+              {txOpts.map(o => <option key={o.value} value={o.value}>{o.label} — «{takhammulPhrase(o.value, studentGender)}»</option>)}
             </select>
           </Field>
         )}
