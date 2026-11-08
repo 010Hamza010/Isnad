@@ -30,12 +30,15 @@ exports.resetSettings = async (req, res) => {
   res.json({ settings: T.mergeSettings(null) });
 };
 
-// body: { group } (a /graph/*/paths group) or { chains: [[edge]] }
+// body: { group } (a /graph/*/paths group) or { chains: [[edge]] }, optional { style } override
+// (e.g. the ijaza page turns on clear phrases, death years and note markers).
 exports.render = async (req, res) => {
-  const { group, chains } = req.body || {};
+  const { group, chains, style } = req.body || {};
   if (!group?.firstEdge && !Array.isArray(chains)) throw new HttpError(400, 'Missing fields: group or chains');
-  const s = await settingsFor(req);
-  res.json({ text: group ? T.renderGroup(group, s) : T.renderChains(chains, s) });
+  let s = await settingsFor(req);
+  if (style && typeof style === 'object') s = validate({ ...s, style: { ...s.style, ...style } });
+  const list = group ? T.groupChains(group) : chains;
+  res.json({ text: T.renderChains(list, s), persons: T.collectPersons(list) });
 };
 
 // body: { text } → parsed chains with each name resolved against persons, plus the text re-rendered
@@ -49,6 +52,6 @@ exports.parse = async (req, res) => {
   res.json({
     chains,
     warnings: parsed.warnings,
-    rendered: T.renderChains(chains.map(c => T.toEdges({ ...c, start: c.start?.name ?? null })), s),
+    rendered: T.renderChains(chains.map(c => T.toEdges({ ...c, start: c.start?.name ?? null, start_death_year: c.start?.death_year })), s),
   });
 };

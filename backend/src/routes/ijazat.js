@@ -1,0 +1,12 @@
+const r    = require('express').Router();
+const auth = require('../middleware/auth');
+const w    = require('../utils/asyncHandler');
+const c    = require('../controllers/ijazatController');
+r.get('/settings',    auth, w(c.getSettings));
+r.put('/settings',    auth, w(c.saveSettings));
+r.delete('/settings', auth, w(c.resetSettings));
+r.get('/',            auth, w(c.list));
+r.get('/:id',         auth, w(c.get));
+r.post('/',           auth, w(c.create));
+r.delete('/:id',      auth, w(c.remove));
+module.exports = r;

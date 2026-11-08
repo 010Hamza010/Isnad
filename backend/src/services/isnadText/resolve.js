@@ -50,7 +50,7 @@ function resolveName(name, index) {
 function resolveChains(parsed, persons) {
   const index = buildIndex(persons);
   return parsed.chains.map(c => ({
-    start: c.start ? { name: c.start, ...resolveName(c.start, index) } : null,
+    start: c.start ? { name: c.start, death_year: c.start_death_year || null, ...resolveName(c.start, index) } : null,
     links: c.links.map(l => ({ ...l, ...resolveName(l.name, index) })),
   }));
 }

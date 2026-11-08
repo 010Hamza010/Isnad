@@ -5,7 +5,7 @@
  *   resolve: parsed names → persons in the DB
  * Pure functions; keywords and style come from per-user settings.
  */
-const { renderChain, renderChains, renderGroup, keywordFor } = require('./render');
+const { renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel } = require('./render');
 const { parseIsnad } = require('./parse');
 const { resolveName, resolveChains } = require('./resolve');
 const { mergeSettings, validateSettings, SettingsError, DEFAULTS } = require('./settings');
@@ -13,16 +13,17 @@ const { mergeSettings, validateSettings, SettingsError, DEFAULTS } = require('./
 // parsed chain → edges, so parse output can be rendered back
 function toEdges(chain) {
   const edges = [];
-  let from = { id: chain.start ? null : 0, name: chain.start };
+  let from = { id: chain.start ? null : 0, name: chain.start, death: chain.start_death_year };
   chain.links.forEach(l => {
-    edges.push({ from_person_id: from.id, from_name: from.name, to_person_id: l.person_id ?? null, to_name: l.name, transmission_type_id: l.tx_type_id });
-    from = { id: l.person_id ?? null, name: l.name };
+    edges.push({ from_person_id: from.id, from_name: from.name, from_death_year: from.death,
+      to_person_id: l.person_id ?? null, to_name: l.name, to_death_year: l.death_year, transmission_type_id: l.tx_type_id });
+    from = { id: l.person_id ?? null, name: l.name, death: l.death_year };
   });
   return edges;
 }
 
 module.exports = {
-  renderChain, renderChains, renderGroup, keywordFor,
+  renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel,
   parseIsnad, resolveName, resolveChains, toEdges,
   mergeSettings, validateSettings, SettingsError, DEFAULTS,
 };

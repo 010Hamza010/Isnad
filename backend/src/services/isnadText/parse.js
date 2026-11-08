@@ -46,9 +46,10 @@ function cleanName(words, titles) {
 }
 
 // One chain without تحويل: [start name] kw name kw name …
-function parseSegment(tokens, s, match, warnings) {
+function parseSegment(tokens, s, match, warnings, ctx) {
   const fillers = new Set(s.fillers.map(normalizeArabic));
   let startWords = [];
+  let startDeath = null;
   const links = [];
   let cur = null;
 
@@ -60,6 +61,17 @@ function parseSegment(tokens, s, match, warnings) {
       i += m.length;
       continue;
     }
+    const death = tokens[i].raw.match(DEATH_TOKEN);
+    if (death) {
+      const year = ctx.deaths[Number(death[1])];
+      if (cur) cur.death_year = year; else startDeath = year;
+      i++; continue;
+    }
+    const clear = ctx.phraseAt(tokens, i);
+    if (clear) {
+      if (cur && cur.tx_type_id == null) cur.tx_type_id = clear.tx; // «عن فلان سماعاً عليه» → سماع
+      i += clear.seq.length; continue;
+    }
     if (fillers.has(tokens[i].norm)) { i++; continue; }
     (cur ? cur.words : startWords).push(tokens[i]);
     i++;
@@ -67,26 +79,56 @@ function parseSegment(tokens, s, match, warnings) {
   if (cur) links.push(cur);
 
   const named = links
-    .map(l => ({ keyword: l.keyword, tx_type_id: l.tx_type_id, name: cleanName(l.words, s.titles) }))
+    .map(l => ({ keyword: l.keyword, tx_type_id: l.tx_type_id, name: cleanName(l.words, s.titles), death_year: l.death_year || null }))
     .filter(l => {
       if (l.name) return true;
       warnings.push(`صيغة «${l.keyword}» بلا اسم بعدها — تم تجاهلها`);
       return false;
     });
 
-  return { start: startWords.length ? cleanName(startWords, s.titles) : null, links: named };
+  return { start: startWords.length ? cleanName(startWords, s.titles) : null, start_death_year: startDeath, links: named };
 }
 
 /**
  * Text → chains. Inverse of render.renderChains.
- * Returns { chains: [{ start: string|null, links: [{ keyword, tx_type_id, name }] }], warnings }.
+ * Returns { chains: [{ start: string|null, start_death_year, links: [{ keyword, tx_type_id, name, death_year }] }], warnings }.
  * start === null means the chain begins with me (the speaker of the first keyword).
  */
+const DEATH = /^\s*(?:ت|توفي|توفّي|المتوفى)\.?\s*(.+?)\s*$/;
+const DEATH_TOKEN = /^⟨D(\d+)⟩$/;
+
+// «(ت 852هـ)» → a marker token ⟨Dn⟩ (value kept in `deaths[n]`) attached to the preceding name;
+// other parentheses and note markers «[[12]]» from rendered text are dropped.
+function prepare(text) {
+  const deaths = [];
+  const out = String(text ?? '')
+    .replace(/\[\[-?\d+\]\]/g, ' ')
+    .replace(/\(([^()]*)\)/g, (_, inner) => {
+      const m = inner.match(DEATH);
+      if (!m) return ' ';
+      deaths.push(m[1].trim());
+      return ` ⟨D${deaths.length - 1}⟩ `;
+    });
+  return { text: out, deaths };
+}
+
+// clear phrases («قراءةً عليه وأنا أسمع») → transmission type, used when the keyword is plain «عن»
+function buildPhraseMatcher(s) {
+  const seqs = [];
+  [s.clear.first, s.clear.others].forEach(map => Object.entries(map).forEach(([tx, p]) => {
+    if (p) seqs.push({ seq: phrase(p), tx: tx === 'null' ? null : Number(tx) });
+  }));
+  seqs.sort((a, b) => b.seq.length - a.seq.length);
+  return (tokens, i) => seqs.find(({ seq }) => seq.every((w, j) => tokens[i + j]?.norm === w)) || null;
+}
+
 function parseIsnad(text, settings) {
   const s = mergeSettings(settings);
   const match = buildMatcher(s);
   const warnings = [];
-  const tokens = stripPhrases(tokenize(text), s.honorifics);
+  const prepared = prepare(text);
+  const ctx = { deaths: prepared.deaths, phraseAt: buildPhraseMatcher(s) };
+  const tokens = stripPhrases(tokenize(prepared.text), s.honorifics);
   const tahwil = normalizeArabic(s.style.tahwil);
 
   // split off a shared tail introduced by كلاهما/كلهم
@@ -98,13 +140,13 @@ function parseIsnad(text, settings) {
   const heads = [[]];
   headTokens.forEach(t => (t.norm === tahwil ? heads.push([]) : heads[heads.length - 1].push(t)));
 
-  const tail = tailTokens.length ? parseSegment(tailTokens, s, match, warnings) : null;
+  const tail = tailTokens.length ? parseSegment(tailTokens, s, match, warnings, ctx) : null;
   if (tail?.start) warnings.push(`نص غير مفهوم بعد «كلاهما»: «${tail.start}»`);
 
   const chains = heads
     .filter(h => h.length)
-    .map(h => parseSegment(h, s, match, warnings))
-    .map(c => ({ start: c.start, links: [...c.links, ...(tail?.links || [])] }))
+    .map(h => parseSegment(h, s, match, warnings, ctx))
+    .map(c => ({ start: c.start, start_death_year: c.start_death_year, links: [...c.links, ...(tail?.links || [])] }))
     .filter(c => c.links.length); // a name with no keyword is not a chain
 
   if (!chains.length && String(text).trim()) warnings.push('لم يُعثر على أي صيغة أداء في النص');
