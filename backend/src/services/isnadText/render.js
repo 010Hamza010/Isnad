@@ -37,23 +37,31 @@ function personLabel(id, name, death, desc, s, ctx) {
   return out;
 }
 
-function clearPhrase(e, mine, s) {
-  if (!s.style.clear) return '';
-  const map = mine ? s.clear.first : s.clear.others;
-  return map[txKey(e.transmission_type_id)] || '';
+const NAME_SLOT = '{الاسم}';
+
+// clear sentence for a link, or null to use the keyword form
+function phraseFor(e, mine, s) {
+  if (!s.style.clear) return null;
+  const map = mine ? s.phrases.first : s.phrases.others;
+  const key = txKey(e.transmission_type_id);
+  // a type left empty on purpose uses its keyword; an unknown type uses the عنعنة sentence
+  return key in map ? map[key] || null : map.null || null;
 }
 
-// "kw name …" phrases for consecutive edges; `opening` marks the first link of the whole isnad
+// one phrase per edge; `opening` marks the first link of the whole isnad
 function renderLinks(edges, s, ctx, { opening = true } = {}) {
   return edges.map((e, i) => {
-    const kw = keywordFor(e.transmission_type_id, s);
     const first = opening && i === 0;
     const mine = first && isMe(e.from_person_id);
     const title = mine && s.style.firstTitle ? `${s.style.firstTitle} ` : '';
+    const who = `${title}${personLabel(e.to_person_id, e.to_name, e.to_death_year, e.to_description, s, ctx)}`;
+
+    const phrase = phraseFor(e, mine, s);
+    if (phrase) return phrase.replace(NAME_SLOT, who);       // «قرأتُ على شيخنا فلان»، «وهو سمع من فلان»
+
+    const kw = keywordFor(e.transmission_type_id, s);
     const qala = s.style.qala && !first && !ANAN.has(kw) ? 'قال: ' : '';
-    const phrase = clearPhrase(e, mine, s);
-    const who = personLabel(e.to_person_id, e.to_name, e.to_death_year, e.to_description, s, ctx);
-    return `${qala}${kw} ${title}${who}${phrase ? ` ${phrase}` : ''}`;
+    return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   });
 }
 

@@ -158,31 +158,40 @@ describe('settings', () => {
   });
 });
 
-describe('ijaza styles: clear phrases, death years, note markers', () => {
+describe('ijaza styles: clear sentences, death years, note markers', () => {
   const d = (from, to, name, tx, death, desc) =>
     ({ from_person_id: from, to_person_id: to, to_name: name, transmission_type_id: tx, to_death_year: death, to_description: desc });
   const A = [d(0, 1, 'الكتاني', 2, '1382', 'محدث'), d(1, 2, 'جعفر', 1, '1323هـ', 'فقيه'), d(2, 3, 'إدريس', null, '1183', null)];
   const B = [d(0, 5, 'ابن عبد الكبير', 10, null, 'عالم'), d(5, 3, 'إدريس', null, '1183', null)];
   const ALL = { style: { clear: true, deathYears: true, noteMarkers: true } };
 
-  test('clear phrase: first person for my link, masdar above it; death years get هـ', () => {
+  test('clear mode replaces keywords: first person for my link, «وهو …» above it', () => {
     assert.equal(T.renderChain(A, { style: { clear: true, deathYears: true } }),
-      'أخبرنا شيخنا الكتاني (ت 1382هـ) قرأتُ عليه، حدثنا جعفر (ت 1323هـ) سماعاً عليه، عن إدريس (ت 1183هـ)');
+      'قرأتُ على شيخنا الكتاني (ت 1382هـ)، وهو سمع من جعفر (ت 1323هـ)، وهو يروي عن إدريس (ت 1183هـ)');
+  });
+
+  test('a sentence can wrap the name: «قُرئ على فلان وأنا أسمع»', () => {
+    assert.equal(T.renderChain(B, { style: { clear: true, firstTitle: '' } }), 'قُرئ على ابن عبد الكبير وأنا أسمع، وهو يروي عن إدريس');
+  });
+
+  test('an empty sentence falls back to the keyword form for that type', () => {
+    const s = { style: { clear: true, firstTitle: '' }, phrases: { first: { 2: '' } } };
+    assert.equal(T.renderChain([A[0]], s), 'أخبرنا الكتاني');
   });
 
   test('note markers only for persons with a biography, once per text', () => {
     const t = T.renderChains([A, B], ALL);
     assert.equal((t.match(/\[\[1\]\]/g) || []).length, 1);
-    assert.match(t, /ابن عبد الكبير\[\[5\]\] قراءةً عليه وأنا أسمع/);
+    assert.match(t, /قُرئ على شيخنا ابن عبد الكبير\[\[5\]\] وأنا أسمع/);
     assert.doesNotMatch(t, /\[\[3\]\]/);
     assert.match(t, /كلاهما عن إدريس \(ت 1183هـ\)$/);
   });
 
   test('styles are off by default (the نص الإسناد panel stays plain)', () => {
-    assert.doesNotMatch(T.renderChain(A), /\(ت|قرأتُ عليه|\[\[/);
+    assert.doesNotMatch(T.renderChain(A), /\(ت|قرأتُ على|\[\[/);
   });
 
-  test('parse reads death years, drops markers and other parentheses, infers type from a clear phrase', () => {
+  test('parse reads clear sentences back with their types, death years, and drops markers', () => {
     const text = T.renderChains([A, B], ALL) + ' (وهو ثقة)';
     const r = T.parseIsnad(text);
     assert.deepEqual(r.chains.map(c => c.links.map(l => [l.name, l.death_year, l.tx_type_id])), [
@@ -191,13 +200,19 @@ describe('ijaza styles: clear phrases, death years, note markers', () => {
     ]);
   });
 
+  test('a sentence ending pins the type when the opening is shared («أجازني … إجازةً عامة»)', () => {
+    const r = T.parseIsnad('أجازني شيخنا فلان إجازةً عامة، وهو أجازه علان');
+    assert.deepEqual(r.chains[0].links.map(l => [l.name, l.tx_type_id]), [['فلان', 4], ['علان', 3]]);
+  });
+
   test('collectPersons lists persons once in first-mention order, skipping me and sacred nodes', () => {
     const withProphet = [...A, d(3, -1, 'النبي ﷺ', null, null, null)];
     assert.deepEqual(T.collectPersons([withProphet, B]).map(p => p.id), [1, 2, 3, 5]);
   });
 
-  test('clear phrase maps are validated and merged per key', () => {
-    assert.equal(T.mergeSettings({ clear: { first: { 2: 'قرأتُ عليه بحمد الله' } } }).clear.first['1'], 'سمعتُ عليه');
-    assert.throws(() => T.validateSettings({ clear: { first: { abc: 'x' } } }), /invalid key/);
+  test('sentences are validated (one {الاسم}) and merged per key', () => {
+    assert.equal(T.mergeSettings({ phrases: { first: { 2: 'قرأتُ بحمد الله على {الاسم}' } } }).phrases.first['1'], 'سمعتُ من {الاسم}');
+    assert.throws(() => T.validateSettings({ phrases: { first: { abc: 'x {الاسم}' } } }), /invalid key/);
+    assert.throws(() => T.validateSettings({ phrases: { first: { 2: 'قرأتُ عليه' } } }), /\{الاسم\} once/);
   });
 });

@@ -14,7 +14,7 @@ function mergeSettings(stored) {
   if (stored.style && typeof stored.style === 'object') s.style = { ...s.style, ...stored.style };
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
   ['first', 'others'].forEach(k => {
-    if (stored.clear?.[k] && typeof stored.clear[k] === 'object') s.clear[k] = { ...s.clear[k], ...stored.clear[k] };
+    if (stored.phrases?.[k] && typeof stored.phrases[k] === 'object') s.phrases[k] = { ...s.phrases[k], ...stored.phrases[k] };
   });
   return s;
 }
@@ -23,7 +23,9 @@ const phraseMap = (m, field) => {
   if (!m || typeof m !== 'object' || Array.isArray(m)) throw new SettingsError(`${field}: invalid`);
   return Object.fromEntries(Object.entries(m).map(([k, v]) => {
     if (!/^(\d+|null)$/.test(k)) throw new SettingsError(`${field}: invalid key ${k}`);
-    return [k, str(v, 60, `${field}.${k}`)];
+    const v2 = str(v, 80, `${field}.${k}`);
+    if (v2 && (v2.match(/\{الاسم\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الاسم} once`);
+    return [k, v2];
   }));
 };
 
@@ -89,9 +91,9 @@ function validateSettings(input) {
     deathYears: !!st.deathYears,
     noteMarkers: !!st.noteMarkers,
   };
-  const clear = { first: phraseMap(merged.clear.first, 'clear.first'), others: phraseMap(merged.clear.others, 'clear.others') };
+  const phrases = { first: phraseMap(merged.phrases.first, 'phrases.first'), others: phraseMap(merged.phrases.others, 'phrases.others') };
 
-  const out = { keywords, style, clear };
+  const out = { keywords, style, phrases };
   LIST_KEYS.forEach(k => { out[k] = strList(merged[k], k); });
   return out;
 }

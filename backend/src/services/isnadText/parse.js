@@ -6,10 +6,23 @@ const CONJ = /^[وف]/; // وأخبرنا، فحدثنا
 
 const phrase = s => tokenize(s).map(t => t.norm);
 
+// split «قُرئ على {الاسم} وأنا أسمع» into its prefix and suffix
+const NAME_SLOT = '{الاسم}';
+const phraseParts = s => [s.phrases.first, s.phrases.others].flatMap(map => Object.entries(map)
+  .filter(([, p]) => p && p.includes(NAME_SLOT))
+  .map(([tx, p]) => {
+    const [before, after] = p.split(NAME_SLOT);
+    return { tx: tx === 'null' ? null : Number(tx), prefix: before.trim(), suffix: after.trim() };
+  }));
+
 function buildMatcher(s) {
   const forms = [];
   s.keywords.forEach(k => [k.word, k.abbr, ...(k.variants || [])].filter(Boolean)
     .forEach(f => forms.push({ seq: phrase(f), keyword: k })));
+  // clear sentences act as keywords too: «وهو قرأ على» → قراءة
+  phraseParts(s).forEach(({ prefix, tx }) => {
+    if (prefix) forms.push({ seq: phrase(prefix), keyword: { word: prefix, tx_type_id: tx } });
+  });
   forms.sort((a, b) => b.seq.length - a.seq.length); // longest match first («قرأت على» before «قرأت»)
 
   // try at tokens[i]; the first word may carry a و/ف prefix
@@ -54,23 +67,24 @@ function parseSegment(tokens, s, match, warnings, ctx) {
   let cur = null;
 
   for (let i = 0; i < tokens.length;) {
-    const m = match(tokens, i);
-    if (m) {
-      if (cur) links.push(cur);
-      cur = { keyword: m.keyword.word, tx_type_id: m.keyword.tx_type_id, words: [] };
-      i += m.length;
-      continue;
-    }
     const death = tokens[i].raw.match(DEATH_TOKEN);
     if (death) {
       const year = ctx.deaths[Number(death[1])];
       if (cur) cur.death_year = year; else startDeath = year;
       i++; continue;
     }
-    const clear = ctx.phraseAt(tokens, i);
-    if (clear) {
-      if (cur && cur.tx_type_id == null) cur.tx_type_id = clear.tx; // «عن فلان سماعاً عليه» → سماع
-      i += clear.seq.length; continue;
+    // sentence endings first: «وأنا أسمع» must not be read as the keyword «أنا»
+    const suffix = ctx.suffixAt(tokens, i);
+    if (suffix) {
+      if (cur) cur.tx_type_id = suffix.tx; // «أجازني فلان إجازةً عامة» → إجازة عامة
+      i += suffix.seq.length; continue;
+    }
+    const m = match(tokens, i);
+    if (m) {
+      if (cur) links.push(cur);
+      cur = { keyword: m.keyword.word, tx_type_id: m.keyword.tx_type_id, words: [] };
+      i += m.length;
+      continue;
     }
     if (fillers.has(tokens[i].norm)) { i++; continue; }
     (cur ? cur.words : startWords).push(tokens[i]);
@@ -112,14 +126,11 @@ function prepare(text) {
   return { text: out, deaths };
 }
 
-// clear phrases («قراءةً عليه وأنا أسمع») → transmission type, used when the keyword is plain «عن»
-function buildPhraseMatcher(s) {
-  const seqs = [];
-  [s.clear.first, s.clear.others].forEach(map => Object.entries(map).forEach(([tx, p]) => {
-    if (p) seqs.push({ seq: phrase(p), tx: tx === 'null' ? null : Number(tx) });
-  }));
+// sentence endings («وأنا أسمع»، «إجازةً عامة») are dropped; they pin the link's type
+function buildSuffixMatcher(s) {
+  const seqs = phraseParts(s).filter(p => p.suffix).map(p => ({ seq: phrase(p.suffix), tx: p.tx }));
   seqs.sort((a, b) => b.seq.length - a.seq.length);
-  return (tokens, i) => seqs.find(({ seq }) => seq.every((w, j) => tokens[i + j]?.norm === w)) || null;
+  return (tokens, i) => seqs.find(({ seq }) => seq.length && seq.every((w, j) => tokens[i + j]?.norm === w)) || null;
 }
 
 function parseIsnad(text, settings) {
@@ -127,7 +138,7 @@ function parseIsnad(text, settings) {
   const match = buildMatcher(s);
   const warnings = [];
   const prepared = prepare(text);
-  const ctx = { deaths: prepared.deaths, phraseAt: buildPhraseMatcher(s) };
+  const ctx = { deaths: prepared.deaths, suffixAt: buildSuffixMatcher(s) };
   const tokens = stripPhrases(tokenize(prepared.text), s.honorifics);
   const tahwil = normalizeArabic(s.style.tahwil);
 
