@@ -14,9 +14,11 @@ const validate = (input, idKinds) => {
 
 // Settings sent with the request (unsaved preview) win over the stored ones.
 // idKinds converts settings saved by versions that keyed things by transmission type id
+// my gender comes from the profile
 const settingsFor = async req => {
-  const idKinds = await TxType.kindMap();
-  return req.body?.settings ? validate(req.body.settings, idKinds) : T.mergeSettings(await Settings.get(req.user.id, KEY), idKinds);
+  const [idKinds, profile] = await Promise.all([TxType.kindMap(), require('./profileController').profileOf(req.user.id)]);
+  const s = req.body?.settings ? validate(req.body.settings, idKinds) : T.mergeSettings(await Settings.get(req.user.id, KEY), idKinds);
+  return { ...s, style: { ...s.style, myGender: profile.gender } };
 };
 
 exports.getSettings = async (req, res) => {
