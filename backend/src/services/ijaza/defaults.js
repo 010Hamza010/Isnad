@@ -6,7 +6,11 @@ const OPENING = 'بسم الله الرحمن الرحيم\n\nالحمد لله 
 const CLOSING = 'وأوصيه بتقوى الله تعالى في السر والعلن، وبالعمل بما علم، وبنشره بين أهله، وألا ينساني من صالح دعائه في خلواته وجلواته.';
 const SIGN = 'وكتبه: {المجيز}\n{المكان}، في {التاريخ_الهجري}، الموافق {التاريخ}';
 
+const { PRESETS } = require('./designs');
+
 module.exports = {
+  designs: PRESETS,
+  default_design: 'classic',
   shaykh_name: '',
   place: '',
   templates: {
