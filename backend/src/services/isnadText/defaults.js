@@ -31,6 +31,7 @@ module.exports = {
     noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for footnotes
     heartWord: 'غيباً من حفظي', // written after the shaykh when I read from memory (clear mode)
     lookingWord: 'نظراً',   // … when I read from the text
+    hideMyReadingMode: false, // omit it on my own link (the ijaza sets this when the teachers paragraph already says it)
   },
   /*
    * Clear sentences per transmission type id ('null' = untyped / عنعنة); {الاسم} is the shaykh.
