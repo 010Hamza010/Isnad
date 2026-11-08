@@ -14,6 +14,7 @@ app.use('/api/matn-connections', require('./routes/matnConnections'));
 app.use('/api/quran',     require('./routes/quran'));
 app.use('/api/quran-connections', require('./routes/quranConnections'));
 app.use('/api/graph',     require('./routes/graph'));
+app.use('/api/isnad-text', require('./routes/isnadText'));
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 

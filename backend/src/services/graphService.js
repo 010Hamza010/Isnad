@@ -110,6 +110,7 @@ function formatPath(group, pMap) {
     to_person_id: edge.to_person_id,
     to_name: pMap.get(Number(edge.to_person_id))?.name_ar || `#${edge.to_person_id}`,
     tx_name:     edge.tx_name     || null,
+    transmission_type_id: edge.transmission_type_id ?? null,
     description: edge.description || null,
     items:       edge.items       || [],
   });
