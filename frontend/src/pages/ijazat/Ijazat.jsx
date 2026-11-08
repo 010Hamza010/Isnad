@@ -14,6 +14,7 @@ export default function Ijazat() {
   const setSettings = s => setData(d => ({ ...d, settings: s }));
   const [registerKey, setRegisterKey] = useState(0);
   const [openId, setOpenId] = useState(null); // just-issued ijaza to open for printing
+  const [correction, setCorrection] = useState(null); // issued ijaza being corrected
 
   return (
     <>
@@ -27,10 +28,12 @@ export default function Ijazat() {
       </div>
       {loading || !settings ? <div className="skeleton" style={{ height: 400 }} /> : <>
         {tab === 'new' && (
-          <NewIjaza settings={settings} onSaved={row => { setOpenId(row?.id ?? null); setRegisterKey(k => k + 1); setTab('register'); }}
+          <NewIjaza key={correction?.id || 'new'} settings={settings} correction={correction} onCancelCorrection={() => setCorrection(null)}
+            onSaved={row => { setCorrection(null); setOpenId(row?.id ?? null); setRegisterKey(k => k + 1); setTab('register'); }}
             onEditTemplates={() => setTab('templates')} />
         )}
-        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} openId={openId} onOpened={() => setOpenId(null)} />}
+        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} openId={openId} onOpened={() => setOpenId(null)}
+          onCorrect={row => { setCorrection(row); setTab('new'); }} />}
         {tab === 'templates' && <IjazaTemplates settings={settings} onSaved={setSettings} />}
         {tab === 'designs' && <IjazaDesigns settings={settings} options={data.designOptions} onSaved={setSettings} />}
       </>}

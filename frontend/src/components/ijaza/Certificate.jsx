@@ -183,7 +183,7 @@ function useZoom(ref) {
 /**
  * verification: { url, code } of a saved ijaza (QR + short code), or { placeholder: true } before saving.
  */
-export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null }) {
+export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered }) {
   const detailed = variant === 'detailed';
   const measureRef = useRef(null);
   const wrapRef = useRef(null);
@@ -228,6 +228,15 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
     return () => { alive = false; clearTimeout(t); };
   }, [paragraphs, numbers, notes, title, d, verify]);
 
+  // tell the parent once the pages (and QR) are laid out, so it can archive them exactly as shown
+  const sheetsRef = useRef(null);
+  const waitingForQr = showQr && !verification.placeholder && !qrSvg;
+  useEffect(() => {
+    if (!onRendered || !pages.length || waitingForQr) return;
+    const t = setTimeout(() => sheetsRef.current && onRendered(sheetsRef.current), 600); // tree fonts settle
+    return () => clearTimeout(t);
+  }, [pages, waitingForQr]);
+
   const tree = detailed && chains.length > 0 && (
     <div className="cert-page tree-page">
       <div className="cert-inner">
@@ -254,7 +263,7 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
       <div className={rootClass} style={vars}>
         <div ref={measureRef} className="cert-measure" aria-hidden="true" />
       </div>
-      <div className={`${rootClass} cert-sheets`} style={{ ...vars, zoom }} dir="rtl">
+      <div ref={sheetsRef} className={`${rootClass} cert-sheets`} style={{ ...vars, zoom }} dir="rtl">
         {pages.length ? sheets : <div className="cert-page"><div className="skeleton" style={{ height: '100%' }} /></div>}
       </div>
       {printRoot && createPortal(<div className={`${rootClass} cert-sheets`} style={vars} dir="rtl">{sheets}</div>, printRoot)}
