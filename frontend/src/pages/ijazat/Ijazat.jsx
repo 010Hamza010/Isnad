@@ -28,11 +28,11 @@ export default function Ijazat() {
       </div>
       {loading || !settings ? <div className="skeleton" style={{ height: 400 }} /> : <>
         {tab === 'new' && (
-          <NewIjaza key={correction?.id || 'new'} settings={settings} correction={correction} onCancelCorrection={() => setCorrection(null)}
+          <NewIjaza key={correction?.id || 'new'} settings={settings} profile={data.profile} correction={correction} onCancelCorrection={() => setCorrection(null)}
             onSaved={row => { setCorrection(null); setOpenId(row?.id ?? null); setRegisterKey(k => k + 1); setTab('register'); }}
             onEditTemplates={() => setTab('templates')} />
         )}
-        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} openId={openId} onOpened={() => setOpenId(null)}
+        {tab === 'register' && <IjazaRegister key={registerKey} settings={settings} profile={data.profile} openId={openId} onOpened={() => setOpenId(null)}
           onCorrect={row => { setCorrection(row); setTab('new'); }} />}
         {tab === 'templates' && <IjazaTemplates settings={settings} onSaved={setSettings} />}
         {tab === 'designs' && <IjazaDesigns settings={settings} options={data.designOptions} onSaved={setSettings} />}

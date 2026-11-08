@@ -246,7 +246,7 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
           <div className="cert-title">شجرة الإسناد</div>
           {title && <div className="cert-sub">{title}</div>}
         </header>
-        <IsnadTree chains={chains} design={d} meName={people.shaykh} />
+        <IsnadTree chains={chains} design={d} meName={people.me || people.shaykh} />
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ const kb = n => `${Math.round((n || 0) / 1024)} ك.ب`;
  * One issued ijaza, as archived. The first time it is opened its pages are laid out once and
  * frozen (exact document + SHA-256); afterwards the frozen document is shown and printed as-is.
  */
-export default function ArchiveView({ row, settings, onChanged }) {
+export default function ArchiveView({ row, settings, profile = {}, onChanged }) {
   const { toast, notifyError } = useUI();
   const [doc, setDoc] = useState(null);         // { html, hash, frozen_at } | null
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,7 @@ export default function ArchiveView({ row, settings, onChanged }) {
       {doc ? <FrozenDocument ref={frame} html={doc.html} /> : !loading && (
         <Certificate title={row.title} body={row.body} variant={row.style}
           notes={row.details?.notes || {}} chains={row.details?.chains || []} design={design}
-          people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name }}
+          people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name }}
           verification={{ payload: row.qr_payload, code: row.short_code }}
           onRendered={freeze} />
       )}

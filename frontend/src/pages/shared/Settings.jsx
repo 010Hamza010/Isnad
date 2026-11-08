@@ -198,11 +198,6 @@ export default function Settings() {
               <Field label="… إذا كانت شيخة" hint="مثل: شيختنا">
                 <input className="input" value={draft.style.firstTitleF ?? ''} onChange={e => setStyle('firstTitleF', e.target.value)} />
               </Field>
-              <div className="field">
-                <span className="field-label">جنسك (أنا)</span>
-                <Segmented value={draft.style.myGender || 'M'} onChange={v => setStyle('myGender', v)}
-                  options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
-              </div>
               <Field label="رمز التحويل"><input className="input" value={draft.style.tahwil} onChange={e => setStyle('tahwil', e.target.value)} /></Field>
             </div>
             <div className="field">
