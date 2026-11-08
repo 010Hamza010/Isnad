@@ -5,17 +5,19 @@ const { newToken, newShortCode } = require('../utils/codes');
 const COLUMNS = `i.id, i.user_id, i.student_name, i.module, i.style, i.matn_id, i.qiraa_id, i.riwaya_id, i.tariq_id,
   i.transmission_type_id, i.title, i.body, i.details, i.issued_at, i.issued_hijri, i.place, i.created_at,
   i.public_token, i.short_code, i.revoked_at, i.revoke_reason, i.scan_count, i.last_scanned_at,
-  i.content_hash, i.frozen_at, i.replaces_id`;
+  i.content_hash, i.frozen_at, i.detailed_hash, i.detailed_frozen_at, i.replaces_id`;
 
 const SELECT = `
   SELECT ${COLUMNS}, m.title AS matn_title, q.name_ar AS qiraa_name, r.name_ar AS riwaya_name,
          t.name_ar AS tariq_name, tt.name_ar AS tx_name,
          f.sha256 AS pdf_sha256, f.size AS pdf_size, f.filename AS pdf_filename, f.uploaded_at AS pdf_uploaded_at,
+         fd.sha256 AS pdf_detailed_sha256, fd.size AS pdf_detailed_size, fd.filename AS pdf_detailed_filename,
          old.short_code AS replaces_code, old.public_token AS replaces_token,
          (SELECT n.short_code FROM ijazat n WHERE n.replaces_id = i.id ORDER BY n.id LIMIT 1) AS replaced_by_code,
          (SELECT n.public_token FROM ijazat n WHERE n.replaces_id = i.id ORDER BY n.id LIMIT 1) AS replaced_by_token
   FROM ijazat i
-  LEFT JOIN ijaza_files f ON f.ijaza_id = i.id AND f.kind = 'pdf'
+  LEFT JOIN ijaza_files f  ON f.ijaza_id = i.id AND f.kind = 'pdf'
+  LEFT JOIN ijaza_files fd ON fd.ijaza_id = i.id AND fd.kind = 'pdf_detailed'
   LEFT JOIN ijazat old ON old.id = i.replaces_id
   LEFT JOIN mutoon m  ON m.id = i.matn_id
   LEFT JOIN qiraat q  ON q.id = i.qiraa_id
@@ -111,31 +113,41 @@ exports.create = async (userId, f) => {
 
 /* ── Archive: the exact issued document (frozen once) and the delivered PDF ── */
 
-/** Store the rendered document once; false if it was already frozen (or not this user's). */
-exports.freeze = async (id, userId, html, hash) => {
+// the two versions of an ijaza: normal (printed) and detailed (footnotes + tree, sent as PDF)
+const VARIANT_COLUMNS = {
+  normal:   { html: 'frozen_html',   hash: 'content_hash',  at: 'frozen_at',          pdf: 'pdf' },
+  detailed: { html: 'detailed_html', hash: 'detailed_hash', at: 'detailed_frozen_at', pdf: 'pdf_detailed' },
+};
+const cols = variant => VARIANT_COLUMNS[variant] || VARIANT_COLUMNS.normal;
+exports.VARIANTS = Object.keys(VARIANT_COLUMNS);
+
+/** Store a version's rendered document once; false if it was already frozen (or not this user's). */
+exports.freeze = async (id, userId, html, hash, variant = 'normal') => {
+  const c = cols(variant);
   const [r] = await db.query(
-    'UPDATE ijazat SET frozen_html = ?, content_hash = ?, frozen_at = NOW() WHERE id = ? AND user_id = ? AND frozen_html IS NULL',
+    `UPDATE ijazat SET ${c.html} = ?, ${c.hash} = ?, ${c.at} = NOW() WHERE id = ? AND user_id = ? AND ${c.html} IS NULL`,
     [html, hash, id, userId]);
   return r.affectedRows === 1;
 };
 
-exports.documentById = async (id, userId) => {
-  const [[row]] = await db.query('SELECT frozen_html AS html, content_hash AS hash, frozen_at FROM ijazat WHERE id = ? AND user_id = ?', [id, userId]);
+exports.documentById = async (id, userId, variant = 'normal') => {
+  const c = cols(variant);
+  const [[row]] = await db.query(`SELECT ${c.html} AS html, ${c.hash} AS hash, ${c.at} AS frozen_at FROM ijazat WHERE id = ? AND user_id = ?`, [id, userId]);
   return row;
 };
 
 /** Attach the delivered PDF once; false if one is already attached. */
-exports.savePdf = async (id, { filename, size, sha256, data }) => {
+exports.savePdf = async (id, { filename, size, sha256, data }, variant = 'normal') => {
   try {
     await db.query('INSERT INTO ijaza_files (ijaza_id, kind, filename, size, sha256, data) VALUES (?,?,?,?,?,?)',
-      [id, 'pdf', filename, size, sha256, data]);
+      [id, cols(variant).pdf, filename, size, sha256, data]);
     return true;
   } catch (e) { if (e.code === 'ER_DUP_ENTRY') return false; throw e; }
 };
-exports.pdfById = async (id, userId) => {
+exports.pdfById = async (id, userId, variant = 'normal') => {
   const [[row]] = await db.query(
     `SELECT f.filename, f.size, f.sha256, f.data FROM ijaza_files f JOIN ijazat i ON i.id = f.ijaza_id
-     WHERE f.ijaza_id = ? AND f.kind = 'pdf' AND i.user_id = ?`, [id, userId]);
+     WHERE f.ijaza_id = ? AND f.kind = ? AND i.user_id = ?`, [id, cols(variant).pdf, userId]);
   return row;
 };
 

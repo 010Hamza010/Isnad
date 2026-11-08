@@ -13,15 +13,16 @@ const reset = () => {
 const modelPath = require.resolve(path.join(__dirname, '../src/models/IjazaModel'));
 require.cache[modelPath] = { id: modelPath, filename: modelPath, loaded: true, exports: {
   findById: async (id, uid) => { const r = db.rows.get(Number(id)); return r && r.user_id === uid ? r : undefined; },
-  freeze: async (id, uid, html, hash) => { if (db.docs.has(id)) return false; db.docs.set(id, { html, hash }); return true; },
-  savePdf: async (id, meta) => { if (db.pdfs.has(id)) return false; db.pdfs.set(id, meta); return true; },
-  pdfById: async (id, uid) => (db.rows.get(Number(id))?.user_id === uid ? db.pdfs.get(Number(id)) : undefined),
+  VARIANTS: ['normal', 'detailed'],
+  freeze: async (id, uid, html, hash, v = 'normal') => { const k = `${id}:${v}`; if (db.docs.has(k)) return false; db.docs.set(k, { html, hash }); return true; },
+  savePdf: async (id, meta, v = 'normal') => { const k = `${id}:${v}`; if (db.pdfs.has(k)) return false; db.pdfs.set(k, meta); return true; },
+  pdfById: async (id, uid, v = 'normal') => (db.rows.get(Number(id))?.user_id === uid ? db.pdfs.get(`${id}:${v}`) : undefined),
   create: async (uid, f) => { db.created.push(f); return { id: 3, ...f }; },
 } };
 const c = require('../src/controllers/ijazatController');
 
 const res = () => { const r = { headers: {} }; r.json = b => { r.body = b; return r; }; r.set = h => { Object.assign(r.headers, h); return r; }; r.send = b => { r.sent = b; return r; }; return r; };
-const req = (id, body, extra = {}) => ({ user: { id: 7 }, params: { id }, body, get: () => undefined, ...extra });
+const req = (id, body, extra = {}) => ({ user: { id: 7 }, params: { id }, body, query: {}, get: () => undefined, ...extra });
 const DOC = '<!doctype html><html><body><div class="cert-page">نص</div></body></html>';
 
 describe('freezing the issued document', () => {
@@ -31,7 +32,7 @@ describe('freezing the issued document', () => {
     await c.freeze(req(1, { html: DOC }), r);
     assert.equal(r.body.content_hash, crypto.createHash('sha256').update(DOC).digest('hex'));
     await assert.rejects(c.freeze(req(1, { html: DOC.replace('نص', 'نص معدّل') }), res()), e => e.status === 409);
-    assert.equal(db.docs.get(1).html, DOC);
+    assert.equal(db.docs.get('1:normal').html, DOC);
   });
   test('rejects non-documents and active content; other users\' ijazat are not found', async () => {
     reset();
@@ -80,4 +81,19 @@ describe('corrections', () => {
     await assert.rejects(c.create(req(null, { ...base, replaces_id: 2 }), res()), e => e.status === 409);
     await assert.rejects(c.create(req(null, { ...base, replaces_id: 1 }, { user: { id: 99 } }), res()), e => e.status === 404);
   });
+});
+
+test('the two versions are frozen and get their PDF separately, each only once', async () => {
+  reset();
+  await c.freeze(req(1, { html: DOC }), res());
+  const r = res();
+  await c.freeze(req(1, { html: DOC.replace('نص', 'مفصّل'), variant: 'detailed' }), r);
+  assert.ok(r.body.content_hash);
+  await assert.rejects(c.freeze(req(1, { html: DOC, variant: 'detailed' }), res()), e => e.status === 409);
+  const pdf = Buffer.from('%PDF-1.7 x');
+  const up = res();
+  await c.uploadPdf(req(1, pdf, { query: { variant: 'detailed' } }), up);
+  assert.ok(up.body.pdf_detailed_sha256);
+  await c.uploadPdf(req(1, pdf, { query: {} }), res());           // normal PDF is separate
+  await assert.rejects(c.uploadPdf(req(1, pdf, { query: { variant: 'detailed' } }), res()), e => e.status === 409);
 });
