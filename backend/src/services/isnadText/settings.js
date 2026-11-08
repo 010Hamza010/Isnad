@@ -19,11 +19,11 @@ function mergeSettings(stored) {
     if (s.style.heartWord === 'حفظاً') s.style.heartWord = DEFAULTS.style.heartWord;
   }
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
-  ['first', 'others'].forEach(k => {
+  ['first', 'others', 'joined'].forEach(k => {
     if (!stored.phrases?.[k] || typeof stored.phrases[k] !== 'object') return;
     Object.entries(stored.phrases[k]).forEach(([tx, v]) => {
-      // a stored copy of a masculine-only default follows the new gendered default
-      if (v === DEFAULTS.legacyPhrases[k]?.[tx]) return;
+      // a stored copy of an older default follows the current default
+      if ([].concat(DEFAULTS.legacyPhrases[k]?.[tx] ?? []).includes(v)) return;
       s.phrases[k][tx] = v;
     });
   });
@@ -109,7 +109,7 @@ function validateSettings(input) {
     lookingWord: str(st.lookingWord, 30, 'style.lookingWord'),
     hideMyReadingMode: !!st.hideMyReadingMode,
   };
-  const phrases = { first: phraseMap(merged.phrases.first, 'phrases.first'), others: phraseMap(merged.phrases.others, 'phrases.others') };
+  const phrases = Object.fromEntries(['first', 'others', 'joined'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`)]));
 
   const out = { keywords, style, phrases };
   LIST_KEYS.forEach(k => { out[k] = strList(merged[k], k); });

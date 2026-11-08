@@ -160,7 +160,13 @@ function renderSet(chains, s, ctx, scope) {
   const narrators = new Map(live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]));
   const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');
   const x = tail[0];
-  const meet = `${joinWord(narrators.size, allF)} عن ${personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx)}`;
+  const who = personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx);
+  // «كلاهما سمع من فلان» when every narrator took from X the same way, else «كلاهما عن فلان»
+  const txs = new Set(live.map(c => txKey(c[c.length - k].transmission_type_id)));
+  const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
+  const meet = `${joinWord(narrators.size, allF)} ${joined
+    ? applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) }).replace(NAME_SLOT, who)
+    : `عن ${who}`}`;
   const after = renderLinks(tail.slice(1), s, ctx, { opening: false });
   return [text, meet, ...after].join(sep);
 }
