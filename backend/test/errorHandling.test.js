@@ -43,3 +43,10 @@ test('requireValidLink rejects links to "me" (0) and self-links', () => {
   assert.doesNotThrow(() => requireValidLink({ from_person_id: 0, to_person_id: 5 }));
   assert.doesNotThrow(() => requireValidLink({ to_person_id: 5 })); // from defaults to me
 });
+
+test('requireValidLink accepts heart/looking/empty reading mode only', () => {
+  const { requireValidLink } = require('../src/utils/httpError');
+  ['heart', 'looking', '', null, undefined].forEach(m =>
+    assert.doesNotThrow(() => requireValidLink({ to_person_id: 5, reading_mode: m })));
+  assert.throws(() => requireValidLink({ to_person_id: 5, reading_mode: 'حفظ' }), e => e.status === 400);
+});
