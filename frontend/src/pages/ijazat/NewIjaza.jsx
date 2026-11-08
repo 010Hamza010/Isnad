@@ -216,7 +216,7 @@ export default function NewIjaza({ settings, onSaved, onEditTemplates }) {
           <div className="field">
             <label className="check">
               <input type="checkbox" checked={clearWords} onChange={e => { setClearWords(e.target.checked); setManualBody(null); }} />
-              عبارات صريحة (قرأتُ عليه، سماعاً عليه…)
+              عبارات صريحة (قرأتُ على فلان، وهو سمع من فلان…)
             </label>
             <label className="check">
               <input type="checkbox" checked={deathYears} onChange={e => { setDeathYears(e.target.checked); setManualBody(null); }} />

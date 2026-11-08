@@ -60,7 +60,7 @@ export default function Settings() {
 
   const setStyle = (k, v) => setDraft(d => ({ ...d, style: { ...d.style, [k]: v } }));
   const setList  = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const setClear = (which, tx, v) => setDraft(d => ({ ...d, clear: { ...d.clear, [which]: { ...d.clear[which], [tx]: v } } }));
+  const setPhrase = (which, tx, v) => setDraft(d => ({ ...d, phrases: { ...d.phrases, [which]: { ...d.phrases[which], [tx]: v } } }));
   const setKw = (i, patch) => setDraft(d => {
     const keywords = d.keywords.map((k, j) => (j === i ? { ...k, ...patch } : k));
     // one preferred form per transmission type
@@ -144,7 +144,7 @@ export default function Settings() {
             </label>
             <label className="check" style={{ marginBottom: 10 }}>
               <input type="checkbox" checked={draft.style.clear} onChange={e => setStyle('clear', e.target.checked)} />
-              عبارات صريحة بعد كل اسم (قرأتُ عليه، سماعاً عليه)
+              عبارات صريحة بدل الصيغ (قرأتُ على فلان، وهو سمع من فلان)
             </label>
             <label className="check" style={{ marginBottom: 14 }}>
               <input type="checkbox" checked={draft.style.deathYears} onChange={e => setStyle('deathYears', e.target.checked)} />
@@ -178,7 +178,7 @@ export default function Settings() {
       <section className="card settings-section">
         <div className="card-head">
           <div className="card-title">العبارات الصريحة</div>
-          <span className="muted">تُكتب بعد اسم الشيخ لتوضيح كيفية الأخذ</span>
+          <span className="muted">تحلّ محل الصيغة عند تفعيلها — ضع {'{الاسم}'} مكان اسم الشيخ، واتركها فارغة لاستعمال الصيغة</span>
         </div>
         <div className="kw-head phrase-grid">
           <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span>
@@ -186,10 +186,10 @@ export default function Settings() {
         {[{ id: 'null', name_ar: 'عنعنة / غير محدد' }, ...data.txTypes].map(t => (
           <div key={t.id} className="kw-row phrase-grid">
             <span className="small strong">{t.name_ar}</span>
-            <input className="input" value={draft.clear.first[t.id] ?? ''} placeholder="—" aria-label={`${t.name_ar} — اتصالي`}
-              onChange={e => setClear('first', t.id, e.target.value)} />
-            <input className="input" value={draft.clear.others[t.id] ?? ''} placeholder="—" aria-label={`${t.name_ar} — من فوقي`}
-              onChange={e => setClear('others', t.id, e.target.value)} />
+            <input className="input" value={draft.phrases.first[t.id] ?? ''} placeholder="قرأتُ على {الاسم}" aria-label={`${t.name_ar} — اتصالي`}
+              onChange={e => setPhrase('first', t.id, e.target.value)} />
+            <input className="input" value={draft.phrases.others[t.id] ?? ''} placeholder="وهو قرأ على {الاسم}" aria-label={`${t.name_ar} — من فوقي`}
+              onChange={e => setPhrase('others', t.id, e.target.value)} />
           </div>
         ))}
         <div style={{ height: 10 }} />
