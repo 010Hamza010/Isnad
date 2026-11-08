@@ -15,12 +15,10 @@ require.cache[modelPath] = { id: modelPath, filename: modelPath, loaded: true, e
   findById: async (id, uid) => { const r = db.rows.get(Number(id)); return r && r.user_id === uid ? r : undefined; },
   freeze: async (id, uid, html, hash) => { if (db.docs.has(id)) return false; db.docs.set(id, { html, hash }); return true; },
   savePdf: async (id, meta) => { if (db.pdfs.has(id)) return false; db.pdfs.set(id, meta); return true; },
-  pdfByToken: async t => [...db.rows.values()].find(r => r.public_token === t) && db.pdfs.get(1),
-  documentByToken: async t => ([...db.rows.values()].find(r => r.public_token === t) ? db.docs.get(1) : undefined),
+  pdfById: async (id, uid) => (db.rows.get(Number(id))?.user_id === uid ? db.pdfs.get(Number(id)) : undefined),
   create: async (uid, f) => { db.created.push(f); return { id: 3, ...f }; },
 } };
 const c = require('../src/controllers/ijazatController');
-const pub = require('../src/controllers/publicController');
 
 const res = () => { const r = { headers: {} }; r.json = b => { r.body = b; return r; }; r.set = h => { Object.assign(r.headers, h); return r; }; r.send = b => { r.sent = b; return r; }; return r; };
 const req = (id, body, extra = {}) => ({ user: { id: 7 }, params: { id }, body, get: () => undefined, ...extra });
@@ -59,9 +57,9 @@ describe('delivered PDF', () => {
     await assert.rejects(c.uploadPdf(req(1, pdf), res()), e => e.status === 409);
     await assert.rejects(c.uploadPdf(req(1, Buffer.from('<html>')), res()), e => e.status === 400);
   });
-  test('public download sends the stored bytes with a download filename and fingerprint', async () => {
+  test('download sends the stored bytes with a download filename and fingerprint', async () => {
     const r = res();
-    await pub.pdf({ params: { token: 'T'.repeat(22) } }, r);
+    await c.pdf(req(1), r);
     assert.deepEqual(r.sent, pdf);
     assert.equal(r.headers['Content-Type'], 'application/pdf');
     assert.match(r.headers['Content-Disposition'], /^attachment; filename\*=UTF-8''/);
@@ -82,18 +80,4 @@ describe('corrections', () => {
     await assert.rejects(c.create(req(null, { ...base, replaces_id: 2 }), res()), e => e.status === 409);
     await assert.rejects(c.create(req(null, { ...base, replaces_id: 1 }, { user: { id: 99 } }), res()), e => e.status === 404);
   });
-});
-
-test('public view exposes archive fingerprints and correction links, nothing internal', async () => {
-  const v = await pub.publicView({
-    id: 1, user_id: 7, short_code: 'ISN-AAAA-AAAA', student_name: 'أحمد', body: 'نص', revoked_at: '2026-11-09',
-    revoke_reason: 'صدرت بدلها إجازة ISN-CCCC-CCCC', content_hash: 'h', frozen_at: '2026-11-08',
-    pdf_sha256: 'p', pdf_size: 10, pdf_filename: 'a.pdf', replaced_by_code: 'ISN-CCCC-CCCC', replaced_by_token: 'V'.repeat(22),
-    details: { people: { shaykh: 'الشيخ' } },
-  });
-  assert.equal(v.frozen, true);
-  assert.deepEqual(v.pdf, { sha256: 'p', size: 10, filename: 'a.pdf' });
-  assert.deepEqual(v.replaced_by, { code: 'ISN-CCCC-CCCC', token: 'V'.repeat(22) });
-  assert.equal(v.replaces, null);
-  assert.ok(!('id' in v) && !('user_id' in v));
 });

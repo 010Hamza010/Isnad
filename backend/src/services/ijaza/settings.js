@@ -24,7 +24,6 @@ function mergeSettings(stored) {
   if (!stored || typeof stored !== 'object') return s;
   if (typeof stored.shaykh_name === 'string') s.shaykh_name = stored.shaykh_name;
   if (typeof stored.place === 'string') s.place = stored.place;
-  if (typeof stored.public_base_url === 'string') s.public_base_url = stored.public_base_url;
   if (typeof stored.teachers_title === 'string') s.teachers_title = stored.teachers_title;
   MODULES.forEach(m => { if (typeof stored.templates?.[m] === 'string') s.templates[m] = stored.templates[m]; });
   ['mutoon', 'quran'].forEach(m => {
@@ -44,10 +43,6 @@ function validateSettings(input) {
   const s = mergeSettings(input);
   if (s.shaykh_name.length > 200) throw new HttpError(400, 'اسم المجيز طويل جداً');
   if (s.place.length > 150) throw new HttpError(400, 'المكان طويل جداً');
-  const base = s.public_base_url.trim().replace(/\/+$/, '');
-  if (base && (base.length > 200 || !/^https?:\/\/[^\s/]+(\/[^\s]*)?$/i.test(base)))
-    throw new HttpError(400, 'عنوان التحقق يجب أن يبدأ بـ http:// أو https://');
-  s.public_base_url = base;
   if (s.teachers_title.length > 30 || s.teachers_title_f.length > 30) throw new HttpError(400, 'لقب الشيوخ طويل جداً');
   MODULES.forEach(m => {
     if (!s.templates[m].trim()) throw new HttpError(400, `قالب «${m}» فارغ`);
@@ -63,7 +58,6 @@ function validateSettings(input) {
   const default_design = designs.some(d => d.id === s.default_design) ? s.default_design : designs[0].id;
   return {
     templates_version: DEFAULTS.templates_version, shaykh_name: s.shaykh_name.trim(), place: s.place.trim(),
-    public_base_url: s.public_base_url,
     teachers_title: s.teachers_title.trim(), teachers_title_f: s.teachers_title_f.trim(), shaykh_gender: s.shaykh_gender,
     templates: s.templates, teachers_sentence: s.teachers_sentence, designs, default_design,
   };

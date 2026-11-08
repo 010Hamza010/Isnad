@@ -4,6 +4,7 @@ const w    = require('../utils/asyncHandler');
 const c    = require('../controllers/ijazatController');
 const express = require('express');
 r.get('/settings',    auth, w(c.getSettings));
+r.post('/verify',     auth, w(require('../controllers/verifyController').verify)); // scanned QR
 r.put('/settings',    auth, w(c.saveSettings));
 r.delete('/settings', auth, w(c.resetSettings));
 r.get('/',            auth, w(c.list));

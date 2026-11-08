@@ -16,7 +16,6 @@ app.use('/api/quran-connections', require('./routes/quranConnections'));
 app.use('/api/graph',     require('./routes/graph'));
 app.use('/api/isnad-text', require('./routes/isnadText'));
 app.use('/api/ijazat',    require('./routes/ijazat'));
-app.use('/api/public',    require('./routes/public')); // QR verification, no login
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 

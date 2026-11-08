@@ -2,6 +2,7 @@ const Ijaza    = require('../models/IjazaModel');
 const Settings = require('../models/SettingsModel');
 const IS       = require('../services/ijaza/settings');
 const crypto   = require('crypto');
+const { buildPayload } = require('../utils/qrPayload');
 const { HttpError, requireFields } = require('../utils/httpError');
 
 const KEY = 'ijaza';
@@ -22,12 +23,15 @@ exports.resetSettings = async (req, res) => {
   res.json({ settings: IS.mergeSettings(null) });
 };
 
-exports.list = async (req, res) => res.json(await Ijaza.findAllForUser(req.user.id));
+// every row carries the exact text of its QR code
+const withQr = row => (row ? { ...row, qr_payload: buildPayload(row) } : row);
+
+exports.list = async (req, res) => res.json((await Ijaza.findAllForUser(req.user.id)).map(withQr));
 
 exports.get = async (req, res) => {
   const row = await Ijaza.findById(req.params.id, req.user.id);
   if (!row) throw new HttpError(404, 'Not found');
-  res.json(row);
+  res.json(withQr(row));
 };
 
 exports.create = async (req, res) => {
@@ -52,21 +56,21 @@ exports.create = async (req, res) => {
     if (old.replaced_by_code) throw new HttpError(409, `صدر لهذه الإجازة تصحيح بالفعل (${old.replaced_by_code})`);
     replaces_id = old.id;
   }
-  res.json(await Ijaza.create(req.user.id, {
+  res.json(withQr(await Ijaza.create(req.user.id, {
     ...b, style: b.style || 'normal', details, student_name: String(b.student_name).trim().slice(0, 200),
     replaces_id, replaces_reason: String(b.correction_reason ?? '').trim().slice(0, 150) || null,
-  }));
+  })));
 };
 
 exports.revoke = async (req, res) => {
   const reason = String(req.body?.reason ?? '').trim().slice(0, 255);
   await Ijaza.setRevoked(req.params.id, req.user.id, reason);
-  res.json(await Ijaza.findById(req.params.id, req.user.id));
+  res.json(withQr(await Ijaza.findById(req.params.id, req.user.id)));
 };
 
 exports.unrevoke = async (req, res) => {
   await Ijaza.setRevoked(req.params.id, req.user.id, null);
-  res.json(await Ijaza.findById(req.params.id, req.user.id));
+  res.json(withQr(await Ijaza.findById(req.params.id, req.user.id)));
 };
 
 // An issued ijaza is a document the student holds: it is never deleted, only revoked or corrected.
