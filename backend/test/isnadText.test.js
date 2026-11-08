@@ -306,3 +306,39 @@ describe('gender: pronouns, verbs, titles and joiners follow each person', () =>
     assert.throws(() => T.validateSettings({ phrases: { others: { 2: '{الطالب} على {الاسم}' } } }), /use \{الراوي/);
   });
 });
+
+describe('تحويل with three or more chains is factored recursively (eg.txt)', () => {
+  let ids = {}, next = 1;
+  const id = name => (ids[name] ??= next++);
+  const chain = names => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, to_person_id: id(nm), to_name: nm, transmission_type_id: i === 0 ? 2 : null }; prev = e.to_person_id; return e; });
+  };
+  const mid = ['طاهر', 'السعيد', 'عبد الرحمان'], top = ['ابن غازي', 'ابن بري'];
+  const A = chain(['حسين', ...mid, ...top]);
+  const B = chain(['خالد', ...mid, ...top]);
+  const C = chain(['نزهة', 'عبد الحي', 'ابن الأمين', 'التاودي', 'بناني', 'ابن مجبر', ...top]);
+  const D = chain(['نزهة', 'عبد الحي', 'ابن الأمين', 'السقاط', 'بناني', 'ابن مجبر', ...top]);
+  const st = { style: { firstTitle: '' } };
+
+  test('two chains meeting early', () => {
+    assert.equal(T.renderChains([A, B], st), 'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي، عن ابن بري');
+  });
+
+  test('a third chain: the first two stay grouped, all meet at ابن غازي', () => {
+    assert.equal(T.renderChains([A, B, C], st),
+      'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
+      + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي، عن بناني، عن ابن مجبر'
+      + '، كلاهما عن ابن غازي، عن ابن بري');
+  });
+
+  test('four chains: shared beginning written once, nested meeting points, every name once', () => {
+    const t = T.renderChains([A, B, C, D], st);
+    assert.equal(t,
+      'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
+      + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي ح وعن ابن الأمين، عن السقاط، كلاهما عن بناني، عن ابن مجبر'
+      + '، كلاهما عن ابن غازي، عن ابن بري');
+    for (const name of ['طاهر', 'السعيد', 'عبد الحي', 'بناني', 'ابن غازي']) assert.equal(t.split(name).length - 1, 1, name);
+  });
+
+});
