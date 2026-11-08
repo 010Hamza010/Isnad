@@ -58,13 +58,9 @@ exports.findById = async (id, userId) => {
   return parseDetails(await ensureCodes(row));
 };
 
-/** Public lookups (no user scope): by link token or by the printed short code. */
-exports.findByToken = async (token) => {
-  const [[row]] = await db.query(`${SELECT} WHERE i.public_token = ?`, [token]);
-  return parseDetails(row);
-};
-exports.findByShortCode = async (code) => {
-  const [[row]] = await db.query(`${SELECT} WHERE i.short_code = ?`, [code]);
+/** Lookup by the code printed under the QR, within this user's register. */
+exports.findByShortCode = async (code, userId) => {
+  const [[row]] = await db.query(`${SELECT} WHERE i.short_code = ? AND i.user_id = ?`, [code, userId]);
   return parseDetails(row);
 };
 
@@ -127,10 +123,6 @@ exports.documentById = async (id, userId) => {
   const [[row]] = await db.query('SELECT frozen_html AS html, content_hash AS hash, frozen_at FROM ijazat WHERE id = ? AND user_id = ?', [id, userId]);
   return row;
 };
-exports.documentByToken = async (token) => {
-  const [[row]] = await db.query('SELECT frozen_html AS html, content_hash AS hash, frozen_at FROM ijazat WHERE public_token = ?', [token]);
-  return row;
-};
 
 /** Attach the delivered PDF once; false if one is already attached. */
 exports.savePdf = async (id, { filename, size, sha256, data }) => {
@@ -146,11 +138,6 @@ exports.pdfById = async (id, userId) => {
      WHERE f.ijaza_id = ? AND f.kind = 'pdf' AND i.user_id = ?`, [id, userId]);
   return row;
 };
-exports.pdfByToken = async (token) => {
-  const [[row]] = await db.query(
-    `SELECT f.filename, f.size, f.sha256, f.data FROM ijaza_files f JOIN ijazat i ON i.id = f.ijaza_id
-     WHERE i.public_token = ? AND f.kind = 'pdf'`, [token]);
-  return row;
-};
+
 
 // Issued ijazat are never deleted (see the controller): revoke or correct instead.
