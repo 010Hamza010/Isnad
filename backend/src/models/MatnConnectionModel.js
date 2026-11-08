@@ -14,18 +14,18 @@ exports.findAll = async () => {
   return rows;
 };
 
-exports.create = async ({ from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, description }) => {
+exports.create = async ({ from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, reading_mode, description }) => {
   const [r] = await db.execute(
-    'INSERT INTO matn_connections (from_person_id,to_person_id,matn_id,transmission_type_id,is_general_ijaza,description) VALUES (?,?,?,?,?,?)',
-    [from_person_id ?? 0, to_person_id, matn_id||null, transmission_type_id||null, is_general_ijaza ? 1 : 0, description||null]
+    'INSERT INTO matn_connections (from_person_id,to_person_id,matn_id,transmission_type_id,is_general_ijaza,reading_mode,description) VALUES (?,?,?,?,?,?,?)',
+    [from_person_id ?? 0, to_person_id, matn_id||null, transmission_type_id||null, is_general_ijaza ? 1 : 0, reading_mode||null, description||null]
   );
   return { id: r.insertId };
 };
 
-exports.update = async (id, { from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, description }) => {
+exports.update = async (id, { from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, reading_mode, description }) => {
   await db.execute(
-    'UPDATE matn_connections SET from_person_id=?,to_person_id=?,matn_id=?,transmission_type_id=?,is_general_ijaza=?,description=? WHERE id=?',
-    [from_person_id ?? 0, to_person_id, matn_id||null, transmission_type_id||null, is_general_ijaza ? 1 : 0, description||null, id]
+    'UPDATE matn_connections SET from_person_id=?,to_person_id=?,matn_id=?,transmission_type_id=?,is_general_ijaza=?,reading_mode=?,description=? WHERE id=?',
+    [from_person_id ?? 0, to_person_id, matn_id||null, transmission_type_id||null, is_general_ijaza ? 1 : 0, reading_mode||null, description||null, id]
   );
 };
 

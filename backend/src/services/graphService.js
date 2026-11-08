@@ -114,6 +114,7 @@ function formatPath(group, pMap) {
     to_description:  pMap.get(Number(edge.to_person_id))?.description || null,
     tx_name:     edge.tx_name     || null,
     transmission_type_id: edge.transmission_type_id ?? null,
+    reading_mode:         edge.reading_mode || null,
     description: edge.description || null,
     items:       edge.items       || [],
   });

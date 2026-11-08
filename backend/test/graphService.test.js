@@ -73,3 +73,11 @@ test('formatPath labels me as أنا and resolves names', () => {
   assert.equal(out.firstEdge.to_name, 'الشيخ');
   assert.equal(out.chains[0][0].to_name, 'المؤلف');
 });
+
+test('formatPath carries reading mode and death years for the text renderer', () => {
+  const pMap = new Map([[1, { name_ar: 'أ', death_year: '1382' }]]);
+  const [g] = buildPaths([e(0, 1, { reading_mode: 'heart', transmission_type_id: 2 })], 0, [1], null, null, null, pMap, null, null);
+  const out = formatPath(g, pMap);
+  assert.equal(out.firstEdge.reading_mode, 'heart');
+  assert.equal(out.firstEdge.to_death_year, '1382');
+});
