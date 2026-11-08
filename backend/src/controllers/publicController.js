@@ -23,6 +23,12 @@ async function publicView(row) {
     place: row.place,
     body: row.body,
     details: row.details ? { notes: row.details.notes || {}, chains: row.details.chains || [], design: row.details.design || null, people } : null,
+    // the archived originals
+    frozen: !!row.content_hash, content_hash: row.content_hash || null, frozen_at: row.frozen_at || null,
+    pdf: row.pdf_sha256 ? { sha256: row.pdf_sha256, size: row.pdf_size, filename: row.pdf_filename } : null,
+    // corrections: this one replaces / was replaced by another
+    replaces: row.replaces_token ? { code: row.replaces_code, token: row.replaces_token } : null,
+    replaced_by: row.replaced_by_token ? { code: row.replaced_by_code, token: row.replaced_by_token } : null,
   };
 }
 
@@ -41,6 +47,20 @@ exports.byCode = async (req, res) => {
   const code = normalizeShortCode(req.params.code);
   if (!code) throw new HttpError(400, 'رمز غير صالح — الصيغة: ISN-XXXX-XXXX');
   await respond(await Ijaza.findByShortCode(code), req, res);
+};
+
+exports.document = async (req, res) => {
+  if (!isToken(req.params.token)) throw new HttpError(404, 'لا توجد إجازة بهذا الرمز');
+  const doc = await Ijaza.documentByToken(req.params.token);
+  if (!doc?.html) throw new HttpError(404, 'لا توجد نسخة محفوظة');
+  res.json(doc);
+};
+
+exports.pdf = async (req, res) => {
+  if (!isToken(req.params.token)) throw new HttpError(404, 'لا توجد إجازة بهذا الرمز');
+  const f = await Ijaza.pdfByToken(req.params.token);
+  if (!f) throw new HttpError(404, 'لا يوجد ملف PDF');
+  require('./ijazatController').sendPdf(res, f);
 };
 
 exports.publicView = publicView;
