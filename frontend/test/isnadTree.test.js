@@ -59,3 +59,10 @@ test('inDegrees counts students meeting at a person', () => {
   assert.equal(d.get(9), 2);
   assert.equal(d.get(10), 1);
 });
+
+test('the bottom node is the ijaza\'s shaykh by name, «أنا» only when no name is set', () => {
+  const chains = [[e(0, 1, 'أ'), e(1, 9, 'ي')]];
+  assert.equal(layoutTree(chains, { meName: 'حمزة بن محمود' }).nodes.find(n => n.id === 0).name, 'حمزة بن محمود');
+  assert.equal(layoutTree(chains).nodes.find(n => n.id === 0).name, 'أنا');
+  assert.equal(layoutTree(chains, { meName: '  ' }).nodes.find(n => n.id === 0).name, 'أنا');
+});

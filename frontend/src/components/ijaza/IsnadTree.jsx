@@ -24,27 +24,32 @@ function useFontsTick(family) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
-    document.fonts?.load(`16px "${family}"`).then(() => alive && setTick(t => t + 1)).catch(() => {});
+    // names are measured in bold: wait for both weights, then re-measure
+    Promise.all([`16px "${family}"`, `700 16px "${family}"`].map(f => document.fonts?.load(f)))
+      .then(() => alive && setTick(t => t + 1)).catch(() => {});
     return () => { alive = false; };
   }, [family]);
   return tick;
 }
 
 /** Sizes and positions of every box, row by row (source on top, me at the bottom). */
-function computeLayout(chains, design) {
-  const { nodes, edges, maxLevel } = layoutTree(chains);
+function computeLayout(chains, design, meName) {
+  const { nodes, edges, maxLevel } = layoutTree(chains, { meName });
   const family = design.fonts.tree.family;
   const fs = design.fonts.tree.size * 1.333;          // pt → px (SVG units)
   const nameW = measurer(family, fs, 700);
   const deathFs = fs * 0.78;
-  const padX = fs * 0.7, padY = fs * 0.45, lineH = fs * 1.3;
-  const maxText = fs * 7.5;                            // wrap names wider than ~7.5em
+  const padX = fs * 1.0, padY = fs * 0.45, lineH = fs * 1.3;
+  const maxText = fs * 8.5;                            // wrap names wider than ~8.5em
+  // canvas widths can come out a little narrower than the SVG text (Arabic shaping, a font that
+  // is still loading): leave a safety margin so long names never touch the box border
+  const SAFETY = 1.12;
   const hGap = fs * 0.9, vGap = fs * 2.4;
 
   const boxes = new Map(nodes.map(n => {
     const lines = wrapText(n.name, maxText, nameW);
     const textW = Math.max(...lines.map(nameW), n.death ? measurer(family, deathFs, 400)(death(n.death)) : 0);
-    const w = Math.max(textW + padX * 2, fs * 4);
+    const w = Math.max(textW * SAFETY + padX * 2, fs * 4.5);
     const h = padY * 2 + lines.length * lineH + (n.death ? deathFs * 1.25 : 0);
     return [n.id, { ...n, lines, w, h }];
   }));
@@ -82,9 +87,9 @@ function computeLayout(chains, design) {
  * Isnad tree for the detailed ijaza. Fits the remaining page area (vector, scales cleanly).
  * Colours: line by transmission type, box by role; a badge marks where chains meet.
  */
-export default function IsnadTree({ chains, design }) {
+export default function IsnadTree({ chains, design, meName }) {
   const tick = useFontsTick(design.fonts.tree.family);
-  const L = useMemo(() => computeLayout(chains, design), [chains, design, tick]);
+  const L = useMemo(() => computeLayout(chains, design, meName), [chains, design, meName, tick]);
   const c = design.colors;
   if (!L.edges.length) return null;
 

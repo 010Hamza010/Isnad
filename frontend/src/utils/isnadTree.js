@@ -3,17 +3,18 @@
  * Level = longest distance from me (0), so every teacher sits above all of their students.
  * Order within a level uses a few barycenter sweeps to reduce crossings.
  */
-export function layoutTree(chains) {
+export function layoutTree(chains, { meName } = {}) {
+  const me = String(meName ?? '').trim() || 'أنا'; // the ijaza's shaykh (المجيز) at the bottom
   const nodes = new Map();
   const edges = new Map();
   const add = (id, name, death) => {
-    if (!nodes.has(id)) nodes.set(id, { id, name: name || (id === 0 ? 'أنا' : `#${id}`), death: death || null, level: 0, order: 0 });
+    if (!nodes.has(id)) nodes.set(id, { id, name: id === 0 ? me : name || `#${id}`, death: id === 0 ? null : death || null, level: 0, order: 0 });
     else if (death && !nodes.get(id).death) nodes.get(id).death = death;
   };
 
   (chains || []).forEach(chain => chain.forEach(e => {
     const f = Number(e.from_person_id), t = Number(e.to_person_id);
-    add(f, f === 0 ? 'أنا' : e.from_name, e.from_death_year);
+    add(f, e.from_name, e.from_death_year);
     add(t, e.to_name, e.to_death_year);
     if (f !== t) edges.set(`${f}>${t}`, { from: f, to: t, tx: e.tx_kind || e.tx_name || null });
   }));
