@@ -8,13 +8,14 @@ import Combobox from '../../components/ui/Combobox';
 import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Icon from '../../components/ui/Icon';
+import ReadingModeField, { isReadingTx, READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
 import { personOptions, rowOptions } from '../../utils/options';
 
 const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 const EMPTY = {
   from_person_id: 0, to_person_id: '', transmission_type_id: '', khatmat_count: 1,
-  ijaza_date: '', meeting_mode: 'حضوراً', notes: '', description: '', items: [],
+  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [],
 };
 const EMPTY_ITEM = { qiraa_id: '', riwaya_id: '', tariq_id: '' };
 
@@ -61,7 +62,7 @@ export default function QuranConnections() {
     ...EMPTY, id: c.id,
     from_person_id: c.from_person_id, to_person_id: c.to_person_id,
     transmission_type_id: c.transmission_type_id ?? '', khatmat_count: c.khatmat_count ?? 1,
-    ijaza_date: c.ijaza_date ?? '', meeting_mode: c.meeting_mode || 'حضوراً',
+    ijaza_date: c.ijaza_date ?? '', meeting_mode: c.meeting_mode || 'حضوراً', reading_mode: c.reading_mode ?? '',
     notes: c.notes ?? '', description: c.description ?? '',
     items: (c.items || []).map(it => ({
       qiraa_id: String(it.qiraa_id || ''), riwaya_id: String(it.riwaya_id || ''), tariq_id: String(it.tariq_id || ''),
@@ -80,6 +81,7 @@ export default function QuranConnections() {
         khatmat_count:        parseInt(form.khatmat_count) || 1,
         ijaza_date:           form.ijaza_date || null,
         meeting_mode:         form.meeting_mode || 'حضوراً',
+        reading_mode:         isReadingTx(form.transmission_type_id) ? form.reading_mode || null : null,
         notes:                form.notes || null,
         description:          form.description || null,
         items: form.items
@@ -128,6 +130,7 @@ export default function QuranConnections() {
                   {c.items?.length
                     ? c.items.map((it, i) => <span key={i} className="badge badge-accent">{scopeLabel(it) || 'مطلق'}</span>)
                     : <span className="badge badge-outline">مطلق — كل ما قُرئ</span>}
+                  {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
                   {c.meeting_mode && c.meeting_mode !== 'حضوراً' && <span className="badge badge-info"><Icon name="globe" size={12} /> {c.meeting_mode}</span>}
                   {c.khatmat_count > 1 && <span className="badge"><Icon name="repeat" size={12} /> {c.khatmat_count} ختمات</span>}
                   {c.ijaza_date && <span className="badge badge-purple"><Icon name="calendar" size={12} /> {c.ijaza_date}</span>}
@@ -197,6 +200,7 @@ export default function QuranConnections() {
             <Field label="عدد الختمات"><TextInput form={form} set={set} name="khatmat_count" type="number" min="1" /></Field>
             <Field label="تاريخ الإجازة (هجري)"><TextInput form={form} set={set} name="ijaza_date" placeholder="1444هـ" /></Field>
           </div>
+          <ReadingModeField tx={form.transmission_type_id} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
           <Field label="ملاحظات التلاوة"><TextArea form={form} set={set} name="notes" rows={2} placeholder="أجازني بالغنة والتحقيق…" /></Field>
           <Field label="وصف عام"><TextArea form={form} set={set} name="description" rows={2} placeholder="ختمت عليه في رمضان 1444هـ بمنزله…" /></Field>
         </FormModal>

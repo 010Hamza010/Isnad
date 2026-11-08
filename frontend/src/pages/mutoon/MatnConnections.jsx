@@ -9,10 +9,11 @@ import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
+import ReadingModeField, { isReadingTx, READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
 import { personOptions, rowOptions } from '../../utils/options';
 
-const EMPTY = { from_person_id: 0, to_person_id: '', matn_id: '', transmission_type_id: '', is_general_ijaza: false, description: '' };
+const EMPTY = { from_person_id: 0, to_person_id: '', matn_id: '', transmission_type_id: '', is_general_ijaza: false, reading_mode: '', description: '' };
 
 // Direction relative to "me" (person 0). Links *to* me are not stored — students live in the ijaza register.
 const TABS = [
@@ -69,7 +70,7 @@ export default function MatnConnections() {
   const openEdit = c => setForm({
     id: c.id, from_person_id: c.from_person_id, to_person_id: c.to_person_id,
     matn_id: c.matn_id ?? '', transmission_type_id: c.transmission_type_id ?? '',
-    is_general_ijaza: !!c.is_general_ijaza, description: c.description ?? '',
+    is_general_ijaza: !!c.is_general_ijaza, reading_mode: c.reading_mode ?? '', description: c.description ?? '',
   });
 
   const save = async () => {
@@ -83,6 +84,7 @@ export default function MatnConnections() {
         to_person_id: Number(form.to_person_id),
         matn_id: form.matn_id || null,
         transmission_type_id: form.transmission_type_id || null,
+        reading_mode: isReadingTx(form.transmission_type_id) ? form.reading_mode || null : null,
       };
       if (form.id) await api.put(`/matn-connections/${form.id}`, payload);
       else await api.post('/matn-connections', payload);
@@ -141,6 +143,7 @@ export default function MatnConnections() {
                         <span className="to">{pName(c.to_person_id)}</span>
                         {c.tx_name && <span className="badge badge-primary">{c.tx_name}</span>}
                         {c.is_general_ijaza ? <span className="badge badge-accent">إجازة عامة</span> : null}
+                        {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
                         <span className={`badge ${c.matn_title ? 'badge-info' : 'badge-outline'}`}>{c.matn_title || 'كل المتون'}</span>
                       </div>
                       {c.description && <div className="small muted" style={{ marginTop: 2 }}>{c.description}</div>}
@@ -176,6 +179,7 @@ export default function MatnConnections() {
           <Field label="طريقة التحمل" hint="عند تعدد الاتصالات بين شخصين يُقدَّم الأعلى: السماع ثم القراءة ثم الإجازة…">
             <Select form={form} set={set} name="transmission_type_id" options={rowOptions(txTypes)} />
           </Field>
+          <ReadingModeField tx={form.transmission_type_id} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
           <label className="check" style={{ marginBottom: 14 }}>
             <input type="checkbox" checked={form.is_general_ijaza} onChange={e => set('is_general_ijaza', e.target.checked)} />
             إجازة عامة
