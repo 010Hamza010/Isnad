@@ -50,19 +50,36 @@ function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwa
   });
 }
 
+// Strength of a transmission, strongest first (transmission_types ids):
+// سماع، قراءة، قراءة عليه وأنا أسمع، عرض، مناولة، إجازة، كتابة، إجازة عامة، إعلام، وجادة.
+const TX_PRIORITY = [1, 2, 10, 9, 5, 3, 6, 4, 8, 7];
+const GENERAL_IJAZA = 4;
+const txRank = tx => {
+  const i = TX_PRIORITY.indexOf(Number(tx));
+  return i === -1 ? TX_PRIORITY.length : i; // untyped / unknown last
+};
+
+/**
+ * Lower is stronger. A connection marked «إجازة عامة» ranks as a general ijaza at best;
+ * on a tie, a connection for this specific matn beats a general one.
+ */
+function edgeRank(edge) {
+  let r = txRank(edge.transmission_type_id);
+  if (Number(edge.is_general_ijaza)) r = Math.max(r, txRank(GENERAL_IJAZA));
+  return r * 2 + (edge.matn_id ? 0 : 1);
+}
+
 function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap) {
   const targetSet = new Set(targetIds.map(Number));
 
-  // Filter by scope first, then deduplicate: per from→to pair keep the strongest
-  // transmission (lowest transmission_type_id; untyped edges rank last).
-  // Filtering first matters — two edges to the same shaykh may cover different riwayat.
+  // Filter by scope first, then deduplicate: per from→to pair keep the strongest transmission
+  // (see edgeRank). Filtering first matters — two edges to the same shaykh may cover different riwayat.
   const edgeMap = new Map();
   for (const edge of edges) {
     if (!edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap)) continue;
     const key = `${edge.from_person_id}-${edge.to_person_id}`;
     const existing = edgeMap.get(key);
-    const rank = e => Number(e.transmission_type_id) || Infinity;
-    if (!existing || rank(edge) < rank(existing)) edgeMap.set(key, edge);
+    if (!existing || edgeRank(edge) < edgeRank(existing)) edgeMap.set(key, edge);
   }
 
   // adjacency list: from_person_id → outgoing edges
@@ -127,4 +144,4 @@ function formatPath(group, pMap) {
   };
 }
 
-module.exports = { buildPaths, formatPath };
+module.exports = { buildPaths, formatPath, edgeRank };
