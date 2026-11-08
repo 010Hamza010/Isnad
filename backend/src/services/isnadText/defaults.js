@@ -26,20 +26,25 @@ module.exports = {
     separator: '، ',
     tahwil: 'ح',         // marker between alternative chains
     firstTitle: 'شيخنا', // title before my own shaykh's name ('' to disable)
-    clear: false,        // append an explicit phrase per link: «… قرأتُ عليه»، «… سماعاً عليه»
+    clear: false,        // write each link as a clear sentence (see `phrases`) instead of a keyword
     deathYears: false,   // «فلان (ت 852هـ)»
-    noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for margin notes
+    noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for footnotes
   },
-  // explicit phrases by transmission type id ('null' = untyped / عنعنة).
-  // `first` is used for my own link (I speak), `others` for every link above it.
-  clear: {
+  /*
+   * Clear sentences per transmission type id ('null' = untyped / عنعنة); {الاسم} is the shaykh.
+   * `first` is my own link (I speak), `others` every link above it («وهو …» = the previous shaykh).
+   * An empty phrase falls back to the keyword form for that type.
+   */
+  phrases: {
     first: {
-      1: 'سمعتُ عليه', 2: 'قرأتُ عليه', 10: 'قراءةً عليه وأنا أسمع', 3: 'إجازةً', 4: 'إجازةً عامة',
-      5: 'مناولةً', 6: 'مكاتبةً', 7: 'وجادةً', 8: 'إعلاماً', 9: 'عرضتُ عليه', null: '',
+      1: 'سمعتُ من {الاسم}', 2: 'قرأتُ على {الاسم}', 10: 'قُرئ على {الاسم} وأنا أسمع',
+      3: 'أجازني {الاسم}', 4: 'أجازني {الاسم} إجازةً عامة', 5: 'ناولني {الاسم}', 6: 'كتب إليّ {الاسم}',
+      7: 'وجدتُ بخط {الاسم}', 8: 'أعلمني {الاسم}', 9: 'عرضتُ على {الاسم}', null: 'رويتُ عن {الاسم}',
     },
     others: {
-      1: 'سماعاً عليه', 2: 'قراءةً عليه', 10: 'قراءةً عليه وهو يسمع', 3: 'إجازةً', 4: 'إجازةً عامة',
-      5: 'مناولةً', 6: 'مكاتبةً', 7: 'وجادةً', 8: 'إعلاماً', 9: 'عرضاً عليه', null: '',
+      1: 'وهو سمع من {الاسم}', 2: 'وهو قرأ على {الاسم}', 10: 'وهو قُرئ على {الاسم} وهو يسمع',
+      3: 'وهو أجازه {الاسم}', 4: 'وهو أجازه {الاسم} إجازةً عامة', 5: 'وهو ناوله {الاسم}', 6: 'وهو كتب إليه {الاسم}',
+      7: 'وهو وجد بخط {الاسم}', 8: 'وهو أعلمه {الاسم}', 9: 'وهو عرض على {الاسم}', null: 'وهو يروي عن {الاسم}',
     },
   },
   // stripped from the start of a name when parsing
