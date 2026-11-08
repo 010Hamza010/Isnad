@@ -60,7 +60,7 @@ export default function Settings() {
 
   const setStyle = (k, v) => setDraft(d => ({ ...d, style: { ...d.style, [k]: v } }));
   const setList  = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const setPhrase = (which, tx, v) => setDraft(d => ({ ...d, phrases: { ...d.phrases, [which]: { ...d.phrases[which], [tx]: v } } }));
+  const setPhrase = (which, tx, v) => setDraft(d => ({ ...d, phrases: { ...d.phrases, [which]: { ...(d.phrases[which] || {}), [tx]: v } } }));
   const setKw = (i, patch) => setDraft(d => {
     const keywords = d.keywords.map((k, j) => (j === i ? { ...k, ...patch } : k));
     // one preferred form per transmission type
@@ -200,7 +200,7 @@ export default function Settings() {
           </span>
         </div>
         <div className="kw-head phrase-grid">
-          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span>
+          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span>
         </div>
         {[{ id: 'null', name_ar: 'عنعنة / غير محدد' }, ...data.txTypes].map(t => (
           <div key={t.id} className="kw-row phrase-grid">
@@ -209,6 +209,8 @@ export default function Settings() {
               onChange={e => setPhrase('first', t.id, e.target.value)} />
             <input className="input" value={draft.phrases.others[t.id] ?? ''} placeholder="وهو قرأ على {الاسم}" aria-label={`${t.name_ar} — من فوقي`}
               onChange={e => setPhrase('others', t.id, e.target.value)} />
+            <input className="input" value={draft.phrases.joined?.[t.id] ?? ''} placeholder="عن {الاسم}" aria-label={`${t.name_ar} — بعد كلاهما`}
+              onChange={e => setPhrase('joined', t.id, e.target.value)} />
           </div>
         ))}
         <div style={{ height: 10 }} />
