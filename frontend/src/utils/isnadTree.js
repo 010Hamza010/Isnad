@@ -66,3 +66,31 @@ export function shortBio(text, max = 240) {
   const end = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('،'), cut.lastIndexOf('؛'));
   return `${(end > max * 0.5 ? cut.slice(0, end) : cut.slice(0, cut.lastIndexOf(' '))).trim()}…`;
 }
+
+/** Greedy word wrap; a single word longer than the width stays on its own line (never cut). */
+export function wrapText(text, maxWidth, measure) {
+  const lines = [];
+  String(text ?? '').split(/\s+/).filter(Boolean).forEach(w => {
+    const last = lines[lines.length - 1];
+    if (last && measure(`${last} ${w}`) <= maxWidth) lines[lines.length - 1] = `${last} ${w}`;
+    else lines.push(w);
+  });
+  return lines.length ? lines : [''];
+}
+
+/** Transmission name → colour category used by the tree and its legend. */
+export function txCategory(txName) {
+  const t = String(txName ?? '');
+  if (/عرض/.test(t)) return 'ard';
+  if (/سماع/.test(t)) return 'sama';
+  if (/قراءة/.test(t)) return 'qiraa';
+  if (/إجازة|اجازة/.test(t)) return 'ijaza';
+  return 'other';
+}
+
+/** How many distinct students meet at each person (≥2 = a junction of chains). */
+export function inDegrees(edges) {
+  const m = new Map();
+  edges.forEach(e => m.set(e.to, (m.get(e.to) || 0) + 1));
+  return m;
+}
