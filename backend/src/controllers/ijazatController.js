@@ -46,6 +46,17 @@ exports.create = async (req, res) => {
   res.json(await Ijaza.create(req.user.id, { ...b, style: b.style || 'normal', details, student_name: String(b.student_name).trim().slice(0, 200) }));
 };
 
+exports.revoke = async (req, res) => {
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 255);
+  await Ijaza.setRevoked(req.params.id, req.user.id, reason);
+  res.json(await Ijaza.findById(req.params.id, req.user.id));
+};
+
+exports.unrevoke = async (req, res) => {
+  await Ijaza.setRevoked(req.params.id, req.user.id, null);
+  res.json(await Ijaza.findById(req.params.id, req.user.id));
+};
+
 exports.remove = async (req, res) => {
   await Ijaza.remove(req.params.id, req.user.id);
   res.json({ ok: true });

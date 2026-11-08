@@ -29,6 +29,8 @@ module.exports = {
   GENDERED,
   // 2: templates contain {شيوخ_القراءة}; 3: gendered wording. Older stored templates are upgraded once.
   templates_version: 3,
+  // address the QR codes point to («https://isnad.example.com»); empty = the address the app is opened from
+  public_base_url: '',
   shaykh_gender: 'M',          // my gender: {المجيز:…|…} and «وكتبه / وكتبته»
   teachers_title_f: 'الشيخة',  // before a woman's name in the teachers paragraph
   // the paragraph that lists the shuyukh I read on; only used when there are two or more
