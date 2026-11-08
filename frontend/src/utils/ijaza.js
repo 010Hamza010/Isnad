@@ -46,8 +46,9 @@ export function fillTemplate(template, values, { optional = [], genders = {} } =
 /** «أ، وب، وج» */
 export const joinArabic = items => items.map((x, i) => (i === 0 ? x : `و${x}`)).join('، ');
 
-// connections where I read (قراءة) or presented (عرض) — the ones that count as «قرأتُ عليه»
-const READ_TX = new Set([2, 9]);
+// connections where I read (قراءة) or presented (عرض) — the ones that count as «قرأتُ عليه».
+// By transmission *kind* (from the API), never by type id: ids differ between databases.
+const READ_KINDS = new Set(['qiraa', 'ard']);
 
 /** Does a Quran connection cover the chosen qiraa/riwaya? An unscoped (مطلق) connection covers all. */
 function coversQuran(conn, opt, riwayaQiraa) {
@@ -66,7 +67,7 @@ function coversQuran(conn, opt, riwayaQiraa) {
 export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = () => null } = {}) {
   const seen = new Map();
   conns.forEach(c => {
-    if (Number(c.from_person_id) !== 0 || !READ_TX.has(Number(c.transmission_type_id))) return;
+    if (Number(c.from_person_id) !== 0 || !READ_KINDS.has(c.tx_kind)) return;
     if (module === 'mutoon' && String(c.matn_id) !== String(matnId)) return;
     if (module === 'quran' && (!option || !coversQuran(c, option, riwayaQiraa))) return;
     if (module !== 'mutoon' && module !== 'quran') return;
@@ -95,14 +96,14 @@ export function teachersParagraph(teachers, sentence, words = {}, titles = { M: 
   return sentence.replace('{الشيوخ}', joinArabic(items));
 }
 
-// how the student received, by transmission_types.id — [masculine, feminine]
+// how the student received, by transmission kind — [masculine, feminine]
 const TAKHAMMUL = {
-  1: ['سمع مني', 'سمعت مني'], 2: ['قرأ عليّ', 'قرأت عليّ'], 3: ['استجازني في', 'استجازتني في'],
-  4: ['استجازني في', 'استجازتني في'], 5: ['ناولته', 'ناولتها'], 6: ['كتبت إليه', 'كتبت إليها'],
-  9: ['عرض عليّ', 'عرضت عليّ'], 10: ['سمع مني بقراءة غيره', 'سمعت مني بقراءة غيرها'],
+  lafz: ['سمع من لفظي', 'سمعت من لفظي'], sama: ['سمع مني', 'سمعت مني'], qiraa: ['قرأ عليّ', 'قرأت عليّ'],
+  ard: ['عرض عليّ', 'عرضت عليّ'], sama_reading: ['سمع مني بقراءة غيره', 'سمعت مني بقراءة غيرها'],
+  ijaza: ['استجازني في', 'استجازتني في'], ijaza_general: ['استجازني في', 'استجازتني في'],
+  munawala: ['ناولته', 'ناولتها'], kitaba: ['كتبت إليه', 'كتبت إليها'],
 };
-export const takhammulPhrase = (txTypeId, gender = 'M') =>
-  (TAKHAMMUL[Number(txTypeId)] || TAKHAMMUL[2])[gender === 'F' ? 1 : 0];
+export const takhammulPhrase = (kind, gender = 'M') => (TAKHAMMUL[kind] || TAKHAMMUL.qiraa)[gender === 'F' ? 1 : 0];
 
 const withWord = (name, word) => (name.startsWith(word) ? name : `${word} ${name}`);
 

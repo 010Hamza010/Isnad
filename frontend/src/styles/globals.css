@@ -436,6 +436,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .kw-row .tag-input { min-height: 36px; padding: 3px 6px; }
 .star { color: var(--faint); }
 .star.on { color: var(--accent); }
+.kw-head.tx-grid, .kw-row.tx-grid { grid-template-columns: 1fr 1.4fr 1fr; }
 .kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: .9fr 1.3fr 1.3fr 1.1fr; }
 @media (max-width: 860px) {
   .kw-head { display: none; }

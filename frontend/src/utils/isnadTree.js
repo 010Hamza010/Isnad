@@ -15,7 +15,7 @@ export function layoutTree(chains) {
     const f = Number(e.from_person_id), t = Number(e.to_person_id);
     add(f, f === 0 ? 'أنا' : e.from_name, e.from_death_year);
     add(t, e.to_name, e.to_death_year);
-    if (f !== t) edges.set(`${f}>${t}`, { from: f, to: t, tx: e.tx_name || null });
+    if (f !== t) edges.set(`${f}>${t}`, { from: f, to: t, tx: e.tx_kind || e.tx_name || null });
   }));
 
   // longest-path levels; the iteration cap guards against cycles in bad data
@@ -78,9 +78,16 @@ export function wrapText(text, maxWidth, measure) {
   return lines.length ? lines : [''];
 }
 
-/** Transmission name → colour category used by the tree and its legend. */
-export function txCategory(txName) {
-  const t = String(txName ?? '');
+// transmission kind → tree colour category
+const KIND_CATEGORY = {
+  lafz: 'sama', sama: 'sama', qiraa: 'qiraa', sama_reading: 'qiraa', ard: 'ard',
+  ijaza: 'ijaza', ijaza_general: 'ijaza', munawala: 'ijaza', kitaba: 'ijaza', ilam: 'ijaza', wasiyya: 'ijaza', wijada: 'other',
+};
+
+/** Transmission kind (or, for old snapshots, its name) → colour category used by the tree and its legend. */
+export function txCategory(kindOrName) {
+  if (KIND_CATEGORY[kindOrName]) return KIND_CATEGORY[kindOrName];
+  const t = String(kindOrName ?? '');
   if (/عرض/.test(t)) return 'ard';
   if (/سماع/.test(t)) return 'sama';
   if (/قراءة/.test(t)) return 'qiraa';
