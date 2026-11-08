@@ -57,7 +57,11 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const who = `${title}${personLabel(e.to_person_id, e.to_name, e.to_death_year, e.to_description, s, ctx)}`;
 
     const phrase = phraseFor(e, mine, s);
-    if (phrase) return phrase.replace(NAME_SLOT, who);       // «قرأتُ على شيخنا فلان»، «وهو سمع من فلان»
+    if (phrase) {
+      // «قرأتُ على شيخنا فلان حفظاً»
+      const mode = { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
+      return phrase.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
+    }
 
     const kw = keywordFor(e.transmission_type_id, s);
     const qala = s.style.qala && !first && !ANAN.has(kw) ? 'قال: ' : '';

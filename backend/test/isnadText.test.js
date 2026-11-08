@@ -216,3 +216,35 @@ describe('ijaza styles: clear sentences, death years, note markers', () => {
     assert.throws(() => T.validateSettings({ phrases: { first: { 2: 'قرأتُ عليه' } } }), /\{الاسم\} once/);
   });
 });
+
+describe('vocabulary: sama\' and other manners are recognised however they are written', () => {
+  const one = text => { const l = T.parseIsnad(text).chains[0]?.links[0]; return l && [l.name, l.tx_type_id, l.reading_mode]; };
+  const cases = [
+    ['سمعت من فلان', ['فلان', 1, null]],
+    ['سمعتُ على فلان', ['فلان', 1, null]],
+    ['عن فلان سماعاً عليه', ['فلان', 1, null]],
+    ['عن فلان سماعاً من لفظه', ['فلان', 1, null]],
+    ['وهو سمع على فلان', ['فلان', 1, null]],
+    ['وهو سمعه من فلان', ['فلان', 1, null]],
+    ['بسماعه من فلان', ['فلان', 1, null]],
+    ['حدثنا فلان سماعاً', ['فلان', 1, null]],
+    ['عن فلان قرأتُ عليه حفظاً', ['فلان', 2, 'heart']],
+    ['عن فلان عرضاً عليه من حفظي', ['فلان', 9, 'heart']],
+    ['قرأت على فلان نظراً', ['فلان', 2, 'looking']],
+    ['أجازني فلان إجازةً عامة', ['فلان', 4, null]],
+  ];
+  for (const [text, expected] of cases) test(text, () => assert.deepEqual(one(text), expected));
+
+  test('«على» (keyword) is not confused with the name «علي»', () => {
+    assert.deepEqual(one('قرأت على علي بن محمد'), ['علي بن محمد', 2, null]);
+  });
+
+  test('reading mode is written in clear mode and read back', () => {
+    const e = [{ from_person_id: 0, to_person_id: 1, to_name: 'فلان', transmission_type_id: 2, reading_mode: 'heart' },
+               { from_person_id: 1, to_person_id: 2, to_name: 'علان', transmission_type_id: 2, reading_mode: 'looking' }];
+    const text = T.renderChain(e, { style: { clear: true, firstTitle: '' } });
+    assert.equal(text, 'قرأتُ على فلان حفظاً، وهو قرأ على علان نظراً');
+    assert.deepEqual(T.parseIsnad(text).chains[0].links.map(l => l.reading_mode), ['heart', 'looking']);
+    assert.doesNotMatch(T.renderChain(e), /حفظ/); // keyword mode: unchanged
+  });
+});

@@ -90,6 +90,8 @@ function validateSettings(input) {
     clear: !!st.clear,
     deathYears: !!st.deathYears,
     noteMarkers: !!st.noteMarkers,
+    heartWord: str(st.heartWord, 30, 'style.heartWord'),
+    lookingWord: str(st.lookingWord, 30, 'style.lookingWord'),
   };
   const phrases = { first: phraseMap(merged.phrases.first, 'phrases.first'), others: phraseMap(merged.phrases.others, 'phrases.others') };
 
