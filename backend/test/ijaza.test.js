@@ -120,9 +120,12 @@ test('shaykh gender and feminine teacher title default and validate', () => {
   assert.equal(s.GENDERED, undefined); // internal table not exposed
 });
 
-test('designs carry a verification QR setting (default shown, 30 mm) and validate its size', () => {
+test('designs carry a verification QR setting (default shown, 20 mm) and validate its size', () => {
   const [d] = D.validateDesigns([{ id: 'x', name: 'x' }]);
-  assert.deepEqual(d.qr, { show: true, sizeMm: 30 });
+  assert.deepEqual(d.qr, { show: true, sizeMm: 20 });
+  // earlier defaults (22, 30) follow the new default; a size chosen by the user stays
+  assert.equal(D.validateDesigns([{ id: 'x', name: 'x', qr: { sizeMm: 30 } }])[0].qr.sizeMm, 20);
+  assert.equal(D.validateDesigns([{ id: 'x', name: 'x', qr: { sizeMm: 18 } }])[0].qr.sizeMm, 18);
   assert.equal(D.validateDesigns([{ id: 'x', name: 'x', qr: { show: false } }])[0].qr.show, false);
   assert.throws(() => D.validateDesigns([{ id: 'x', name: 'x', qr: { sizeMm: 80 } }]), e => e.status === 400);
 });
