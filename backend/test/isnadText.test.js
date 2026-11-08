@@ -247,6 +247,9 @@ describe('vocabulary: sama\' and other manners are recognised however they are w
     assert.equal(text, 'قرأتُ على فلان غيباً من حفظي، وهو قرأ على علان نظراً');
     assert.deepEqual(T.parseIsnad(text).chains[0].links.map(l => l.reading_mode), ['heart', 'looking']);
     assert.doesNotMatch(T.renderChain(e), /حفظ/); // keyword mode: unchanged
+    // stated once: hidden on my own link only (the ijaza's teachers paragraph already says it)
+    assert.equal(T.renderChain(e, { style: { clear: true, firstTitle: '', hideMyReadingMode: true } }),
+      'قرأتُ على فلان، وهو قرأ على علان نظراً');
   });
 });
 

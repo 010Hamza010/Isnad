@@ -59,7 +59,7 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const phrase = phraseFor(e, mine, s);
     if (phrase) {
       // «قرأتُ على شيخنا فلان حفظاً»
-      const mode = { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
+      const mode = mine && s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
       return phrase.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
