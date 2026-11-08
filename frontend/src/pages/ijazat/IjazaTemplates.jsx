@@ -62,6 +62,13 @@ export default function IjazaTemplates({ settings, onSaved }) {
             {PLACEHOLDERS.map(p => <button key={p.key} type="button" title={p.hint} onClick={() => insert(p.key)}>{`{${p.key}}`}</button>)}
           </div>
           <textarea ref={ref} className="textarea cert-editor" value={draft.templates[which]} onChange={e => setTpl(e.target.value)} />
+          {which !== 'general' && (
+            <Field label="فقرة الشيوخ الذين قرأت عليهم ({شيوخ_القراءة})"
+              hint="تظهر فقط إذا قرأتَ على أكثر من شيخ؛ ضع {الشيوخ} مكان أسمائهم. اتركها فارغة لإلغائها.">
+              <input className="input" value={draft.teachers_sentence?.[which] ?? ''}
+                onChange={e => setDraft(d => ({ ...d, teachers_sentence: { ...d.teachers_sentence, [which]: e.target.value } }))} />
+            </Field>
+          )}
           <p className="small muted" style={{ marginTop: 8 }}>اترك سطراً فارغاً بين الفقرات. الفقرة الأولى تُوسَّط، والأخيرة (التوقيع) تُحاذى إلى اليسار.</p>
         </div>
       </div>

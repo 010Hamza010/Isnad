@@ -165,7 +165,11 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
   const zoom = useZoom(wrapRef);
   const [pages, setPages] = useState([]);
 
-  const matcher = useMemo(() => roleMatcher({ ...people, ...chainNames(chains) }), [people.student, people.shaykh, chains]);
+  const namesKey = (people.names || []).join('|');
+  const matcher = useMemo(() => {
+    const fromChains = chainNames(chains);
+    return roleMatcher({ ...people, ...fromChains, names: [...fromChains.names, ...(people.names || [])] });
+  }, [people.student, people.shaykh, namesKey, chains]);
   const paragraphs = useMemo(() => bodyToParagraphs(body, matcher), [body, matcher]);
   const numbers = useMemo(() => (detailed ? numberNotes(paragraphs, notes) : new Map()), [detailed, paragraphs, notes]);
   const vars = useMemo(() => designVars(d), [d]);
