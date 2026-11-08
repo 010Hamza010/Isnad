@@ -27,6 +27,34 @@ const FrozenDocument = forwardRef(function FrozenDocument({ html, onReady }, ref
   }, [fit]);
 
   useImperativeHandle(ref, () => ({
+    /**
+     * The archived pages as an A4 PDF: each page drawn at 2× (≈190 dpi) and placed as one image per
+     * page. Libraries are loaded only when needed.
+     */
+    toPdf: async () => {
+      const doc = frame.current?.contentDocument;
+      const pages = [...(doc?.querySelectorAll('.cert-page') || [])];
+      if (!pages.length) throw new Error('no pages');
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      await doc.fonts?.ready;
+      const zoom = doc.body.style.zoom;
+      doc.body.style.zoom = 1;                       // capture at real size
+      try {
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+        for (let i = 0; i < pages.length; i++) {
+          const canvas = await html2canvas(pages[i], {
+            scale: 2, backgroundColor: null, useCORS: true, logging: false,
+            windowWidth: pages[i].scrollWidth + 40, windowHeight: pages[i].scrollHeight + 40,
+          });
+          if (i > 0) pdf.addPage('a4', 'portrait');
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+        }
+        return pdf.output('blob');
+      } finally {
+        doc.body.style.zoom = zoom;
+        fit();
+      }
+    },
     print: () => {
       const w = frame.current?.contentWindow;
       if (!w) return;
