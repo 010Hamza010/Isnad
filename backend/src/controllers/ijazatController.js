@@ -7,7 +7,7 @@ const KEY = 'ijaza';
 const MAX_BODY = 50000;
 
 exports.getSettings = async (req, res) => {
-  res.json({ settings: IS.mergeSettings(await Settings.get(req.user.id, KEY)), defaults: IS.DEFAULTS });
+  res.json({ settings: IS.mergeSettings(await Settings.get(req.user.id, KEY)), defaults: IS.DEFAULTS, designOptions: IS.designOptions() });
 };
 
 exports.saveSettings = async (req, res) => {

@@ -49,3 +49,28 @@ test('create stores style and a JSON details snapshot; rejects unknown style', a
   assert.equal(calls[0][1].style, 'normal');
   assert.equal(calls[0][1].details, null);
 });
+
+const D = require('../src/services/ijaza/designs');
+
+test('designs: built-in presets validate, and a partial design is completed from classic', () => {
+  assert.doesNotThrow(() => D.validateDesigns(D.PRESETS));
+  const [d] = D.validateDesigns([{ id: 'mine', name: 'تصميمي', colors: { student: '#123456' } }]);
+  assert.equal(d.colors.student, '#123456');
+  assert.equal(d.colors.paper, D.CLASSIC.colors.paper);
+  assert.equal(d.fonts.body.family, 'Amiri');
+});
+
+test('designs: reject bad colors, fonts, sizes, frames, duplicate ids', () => {
+  const bad = patch => () => D.validateDesigns([{ id: 'x', name: 'x', ...patch }]);
+  assert.throws(bad({ colors: { student: 'red' } }), e => e.status === 400);
+  assert.throws(bad({ fonts: { body: { family: 'Comic Sans', size: 14 } } }), e => e.status === 400);
+  assert.throws(bad({ fonts: { body: { family: 'Amiri', size: 90 } } }), e => e.status === 400);
+  assert.throws(bad({ frame: { style: 'wavy' } }), e => e.status === 400);
+  assert.throws(() => D.validateDesigns([{ id: 'a', name: 'a' }, { id: 'a', name: 'b' }]), /مكرر/);
+});
+
+test('settings keep a valid default design', () => {
+  const s = IS.validateSettings({ designs: [{ id: 'mine', name: 'م' }], default_design: 'gone' });
+  assert.equal(s.default_design, 'mine');
+  assert.equal(IS.mergeSettings(null).default_design, 'classic');
+});
