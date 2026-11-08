@@ -91,3 +91,9 @@ test('teachers sentence must contain {الشيوخ}', () => {
   assert.throws(() => IS.validateSettings({ teachers_sentence: { mutoon: 'قرأت على جماعة' } }), e => e.status === 400);
   assert.doesNotThrow(() => IS.validateSettings({ teachers_sentence: { mutoon: '' } }));
 });
+
+test('teachers title defaults to «الشيخ» and is validated', () => {
+  assert.equal(IS.mergeSettings(null).teachers_title, 'الشيخ');
+  assert.equal(IS.validateSettings({ teachers_title: '  شيخنا ' }).teachers_title, 'شيخنا');
+  assert.throws(() => IS.validateSettings({ teachers_title: 'x'.repeat(31) }), e => e.status === 400);
+});

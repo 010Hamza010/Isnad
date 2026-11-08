@@ -12,6 +12,7 @@ module.exports = {
   // 2: templates contain {شيوخ_القراءة}; older stored templates are upgraded once (see settings.js)
   templates_version: 2,
   // the paragraph that lists the shuyukh I read on; only used when there are two or more
+  teachers_title: 'الشيخ', // before each name in the teachers paragraph
   teachers_sentence: {
     mutoon: 'وقد قرأتُ هذا المتن على جماعة من شيوخي، منهم: {الشيوخ}.',
     quran: 'وقد قرأتُ القرآن الكريم على جماعة من شيوخي، منهم: {الشيوخ}.',
