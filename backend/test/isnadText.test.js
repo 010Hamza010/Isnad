@@ -229,6 +229,7 @@ describe('vocabulary: sama\' and other manners are recognised however they are w
     ['بسماعه من فلان', ['فلان', 1, null]],
     ['حدثنا فلان سماعاً', ['فلان', 1, null]],
     ['عن فلان قرأتُ عليه حفظاً', ['فلان', 2, 'heart']],
+    ['قرأتُ على فلان غيباً من حفظي', ['فلان', 2, 'heart']],
     ['عن فلان عرضاً عليه من حفظي', ['فلان', 9, 'heart']],
     ['قرأت على فلان نظراً', ['فلان', 2, 'looking']],
     ['أجازني فلان إجازةً عامة', ['فلان', 4, null]],
@@ -243,8 +244,13 @@ describe('vocabulary: sama\' and other manners are recognised however they are w
     const e = [{ from_person_id: 0, to_person_id: 1, to_name: 'فلان', transmission_type_id: 2, reading_mode: 'heart' },
                { from_person_id: 1, to_person_id: 2, to_name: 'علان', transmission_type_id: 2, reading_mode: 'looking' }];
     const text = T.renderChain(e, { style: { clear: true, firstTitle: '' } });
-    assert.equal(text, 'قرأتُ على فلان حفظاً، وهو قرأ على علان نظراً');
+    assert.equal(text, 'قرأتُ على فلان غيباً من حفظي، وهو قرأ على علان نظراً');
     assert.deepEqual(T.parseIsnad(text).chains[0].links.map(l => l.reading_mode), ['heart', 'looking']);
     assert.doesNotMatch(T.renderChain(e), /حفظ/); // keyword mode: unchanged
   });
+});
+
+test('a stored heart word equal to the old default «حفظاً» follows the new default; custom words stay', () => {
+  assert.equal(T.mergeSettings({ style: { heartWord: 'حفظاً' } }).style.heartWord, 'غيباً من حفظي');
+  assert.equal(T.mergeSettings({ style: { heartWord: 'عن ظهر قلب' } }).style.heartWord, 'عن ظهر قلب');
 });

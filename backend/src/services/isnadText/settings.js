@@ -11,7 +11,11 @@ function mergeSettings(stored) {
   const s = clone(DEFAULTS);
   if (!stored || typeof stored !== 'object') return s;
   if (Array.isArray(stored.keywords)) s.keywords = stored.keywords;
-  if (stored.style && typeof stored.style === 'object') s.style = { ...s.style, ...stored.style };
+  if (stored.style && typeof stored.style === 'object') {
+    s.style = { ...s.style, ...stored.style };
+    // the first default was «حفظاً»; follow the new default unless the user chose something else
+    if (s.style.heartWord === 'حفظاً') s.style.heartWord = DEFAULTS.style.heartWord;
+  }
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
   ['first', 'others'].forEach(k => {
     if (stored.phrases?.[k] && typeof stored.phrases[k] === 'object') s.phrases[k] = { ...s.phrases[k], ...stored.phrases[k] };
