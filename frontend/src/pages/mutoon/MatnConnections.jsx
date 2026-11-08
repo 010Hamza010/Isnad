@@ -1,110 +1,188 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import api from '../../utils/api';
-import Modal from '../../components/shared/Modal';
-import EmptyState from '../../components/shared/EmptyState';
-import AutocompleteSelect from '../../components/shared/AutoCompleteSelect';
+import useLoad from '../../hooks/useLoad';
+import { useUI } from '../../components/ui/UIProvider';
+import { FormModal } from '../../components/ui/Modal';
+import { Field, TextArea, Select } from '../../components/ui/Field';
+import Combobox from '../../components/ui/Combobox';
+import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
+import SearchInput from '../../components/ui/SearchInput';
+import Segmented from '../../components/ui/Segmented';
+import Icon from '../../components/ui/Icon';
+import { matches, isMe } from '../../utils/text';
+import { personOptions, rowOptions } from '../../utils/options';
 
-const EMPTY = { from_person_id: '0', to_person_id: '', matn_id: '', transmission_type_id: '', is_general_ijaza: false, description: '' };
+const EMPTY = { from_person_id: 0, to_person_id: '', matn_id: '', transmission_type_id: '', is_general_ijaza: false, description: '' };
+
+// Direction relative to "me" (person 0)
+const TABS = [
+  { value: 'from_me', label: 'شيوخي',    test: c => isMe(c.from_person_id), anchor: c => c.to_person_id },
+  { value: 'to_me',   label: 'تلاميذي',  test: c => isMe(c.to_person_id),   anchor: c => c.from_person_id },
+  { value: 'others',  label: 'سلاسل الشيوخ', test: c => !isMe(c.from_person_id) && !isMe(c.to_person_id), anchor: c => c.from_person_id },
+];
 
 export default function MatnConnections() {
-  const [conns, setConns] = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [mutoon, setMutoon] = useState([]);
-  const [txTypes, setTxTypes] = useState([]);
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState(EMPTY);
-  const [loading, setLoading] = useState(false);
-  const [filterMatn, setFilterMatn] = useState('');
-
-  const load = async () => {
+  const { toast, notifyError, confirm } = useUI();
+  const { data, loading, reload } = useLoad(async () => {
     const [c, p, m, t] = await Promise.all([
       api.get('/matn-connections'), api.get('/persons'),
-      api.get('/mutoon'), api.get('/tx-types?applies_to=mutoon')
+      api.get('/mutoon'), api.get('/tx-types?applies_to=mutoon'),
     ]);
-    setConns(c.data); setPersons(p.data); setMutoon(m.data); setTxTypes(t.data);
-  };
-  useEffect(() => { load(); }, []);
+    return { conns: c.data, persons: p.data, mutoon: m.data, txTypes: t.data };
+  }, [], { conns: [], persons: [], mutoon: [], txTypes: [] });
+  const { conns, persons, mutoon, txTypes } = data;
+
+  const [tab, setTab]           = useState('from_me');
+  const [filterMatn, setFilter] = useState('');
+  const [query, setQuery]       = useState('');
+  const [collapsed, setCollapsed] = useState({});
+  const [form, setForm]         = useState(null);
+  const [saving, setSaving]     = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const pOpts   = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
+  const pName   = id => isMe(id) ? 'أنا' : (persons.find(p => p.id === Number(id))?.name_ar || `#${id}`);
+  const current = TABS.find(t => t.value === tab);
+
+  const inMatn = c => !filterMatn || (filterMatn === 'general' ? !c.matn_id : String(c.matn_id) === filterMatn);
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    conns
+      .filter(inMatn)
+      .filter(current.test)
+      .filter(c => matches(query, c.from_name, c.to_name, c.matn_title, isMe(c.from_person_id) ? 'أنا' : ''))
+      .forEach(c => {
+        const key = current.anchor(c);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(c);
+      });
+    return [...map.entries()]
+      .map(([pid, items]) => ({ pid, name: pName(pid), items }))
+      .sort((a, b) => b.items.length - a.items.length || a.name.localeCompare(b.name, 'ar'));
+  }, [conns, tab, filterMatn, query, persons]);
+
+  const counts = Object.fromEntries(TABS.map(t => [t.value, conns.filter(inMatn).filter(t.test).length]));
+  const shown  = groups.reduce((n, g) => n + g.items.length, 0);
+
+  const openAdd = () => setForm({ ...EMPTY, ...(tab === 'to_me' ? { from_person_id: '', to_person_id: 0 } : {}), matn_id: filterMatn !== 'general' ? filterMatn : '' });
+  const openEdit = c => setForm({
+    id: c.id, from_person_id: c.from_person_id, to_person_id: c.to_person_id,
+    matn_id: c.matn_id ?? '', transmission_type_id: c.transmission_type_id ?? '',
+    is_general_ijaza: !!c.is_general_ijaza, description: c.description ?? '',
+  });
 
   const save = async () => {
-    setLoading(true);
+    if (form.from_person_id === '' || form.to_person_id === '') return toast('اختر الطرفين', 'error');
+    if (String(form.from_person_id) === String(form.to_person_id)) return toast('لا يمكن أن يتصل الشخص بنفسه', 'error');
+    setSaving(true);
     try {
-      const payload = { ...form, from_person_id: parseInt(form.from_person_id) || 0, to_person_id: parseInt(form.to_person_id), matn_id: form.matn_id || null, transmission_type_id: form.transmission_type_id || null };
-      if (modal === 'add') await api.post('/matn-connections', payload);
-      else await api.put(`/matn-connections/${form.id}`, payload);
-      load(); setModal(null);
-    } finally { setLoading(false); }
+      const payload = {
+        ...form,
+        from_person_id: Number(form.from_person_id),
+        to_person_id: Number(form.to_person_id),
+        matn_id: form.matn_id || null,
+        transmission_type_id: form.transmission_type_id || null,
+      };
+      if (form.id) await api.put(`/matn-connections/${form.id}`, payload);
+      else await api.post('/matn-connections', payload);
+      toast(form.id ? 'تم حفظ التعديلات' : 'تمت إضافة الاتصال');
+      setForm(null); reload();
+    } catch (e) { notifyError(e); } finally { setSaving(false); }
   };
 
-  const del = async id => { if (!confirm('حذف؟')) return; await api.delete(`/matn-connections/${id}`); load(); };
-
-  const allP = [{ id: 0, name_ar: 'أنا' }, ...persons];
-  const pName = id => id === 0 ? 'أنا' : (persons.find(p => p.id === id)?.name_ar || `#${id}`);
-  const filtered = filterMatn ? conns.filter(c => String(c.matn_id) === filterMatn) : conns;
-
-  const SL = ({ label, field, opts, opt0 = '—', onCh }) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      <AutocompleteSelect
-        value={form[field] || ''}
-        opts={opts}
-        placeholder={opt0}
-        onChange={val => {
-          setForm(f => ({ ...f, [field]: val }));
-          onCh && onCh(val);
-        }}
-      />
-    </div>
-  );
+  const del = async c => {
+    const ok = await confirm({ title: 'حذف اتصال', message: `${pName(c.from_person_id)} ← ${pName(c.to_person_id)}`, danger: true, confirmLabel: 'حذف' });
+    if (!ok) return;
+    try { await api.delete(`/matn-connections/${c.id}`); toast('تم الحذف'); reload(); } catch (e) { notifyError(e); }
+  };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <select className="form-select" style={{ width: 200 }} value={filterMatn} onChange={e => setFilterMatn(e.target.value)}>
+    <>
+      <div className="toolbar">
+        <Segmented value={tab} onChange={v => { setTab(v); setCollapsed({}); }}
+          options={TABS.map(t => ({ value: t.value, label: t.label, count: counts[t.value] }))} />
+        <div className="spacer" />
+        <button className="btn btn-primary" onClick={openAdd}><Icon name="plus" size={16} /> اتصال جديد</button>
+      </div>
+      <div className="toolbar">
+        <SearchInput className="search" value={query} onChange={setQuery} placeholder="ابحث باسم الشيخ أو المتن…" />
+        <select className="select" style={{ width: 'auto', minWidth: 200 }} value={filterMatn} onChange={e => setFilter(e.target.value)}>
           <option value="">كل المتون</option>
+          <option value="general">إجازة عامة (بلا متن)</option>
           {mutoon.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
         </select>
-        <button className="btn btn-primary" style={{ marginRight: 'auto' }} onClick={() => { setForm(EMPTY); setModal('add'); }}>+ اتصال جديد</button>
+        {(query || filterMatn) && <span className="small muted">{shown} من {counts[tab]}</span>}
       </div>
 
-      {filtered.length === 0
-        ? <EmptyState icon="🔗" title="لا توجد اتصالات" subtitle="أضف أول اتصال بين شخصين" />
-        : filtered.map(c => (
-          <div key={c.id} className="conn-row">
-            <span style={{ fontWeight: 700 }}>{pName(c.from_person_id)}</span>
-            <span className="conn-arrow">←</span>
-            <span style={{ fontWeight: 700 }}>{c.to_name || `#${c.to_person_id}`}</span>
-            <div className="tag-row" style={{ flex: 1 }}>
-              {c.tx_name && <span className="badge badge-teal">{c.tx_name}</span>}
-              {c.matn_title && <span className="badge badge-gray">{c.matn_title}</span>}
-              {c.is_general_ijaza ? <span className="badge badge-gold">إجازة عامة</span> : null}
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setForm({ ...c, from_person_id: String(c.from_person_id), to_person_id: String(c.to_person_id), matn_id: c.matn_id || '', transmission_type_id: c.transmission_type_id || '' }); setModal('edit'); }}>تعديل</button>
-            <button className="btn btn-danger btn-sm" onClick={() => del(c.id)}>حذف</button>
-          </div>
-        ))
-      }
-
-      {modal && (
-        <Modal title={modal === 'add' ? '+ اتصال جديد' : '✏️ تعديل الاتصال'} onClose={() => setModal(null)}
-          footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>إلغاء</button>
-            <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? '...' : 'حفظ'}</button></>}>
-          <div className="hint">أدخل من أخذ عن من — المسارات تُبنى تلقائياً</div>
-          <div className="form-row form-row-2">
-            <SL label="من" field="from_person_id" opts={allP.map(p => ({ value: p.id, label: p.name_ar }))} opt0="اختر" />
-            <SL label="أخذ عن" field="to_person_id" opts={persons.map(p => ({ value: p.id, label: p.name_ar }))} opt0="اختر" />
-          </div>
-          <SL label="المتن (اتركه فارغاً للإجازة العامة)" field="matn_id" opts={mutoon.map(m => ({ value: m.id, label: m.title }))} />
-          <SL label="طريقة التحمل" field="transmission_type_id" opts={txTypes.map(t => ({ value: t.id, label: t.name_ar }))} />
-          <div className="form-group">
-            <label className="form-check">
-              <input type="checkbox" checked={!!form.is_general_ijaza} onChange={e => setForm(f => ({ ...f, is_general_ijaza: e.target.checked }))} />
-              إجازة عامة (تشمل جميع المتون)
-            </label>
-          </div>
-          <div className="form-group"><label className="form-label">وصف / ملاحظة</label>
-            <textarea className="form-textarea" value={form.description || ''} placeholder="مثال: قرأت عليه المتن كاملاً في بيته..." onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
-        </Modal>
+      {loading && !conns.length ? <SkeletonList /> : groups.length === 0 ? (
+        <EmptyState icon="link" title="لا توجد اتصالات مطابقة"
+          subtitle={tab === 'from_me' ? 'أضف شيخاً أخذتَ عنه متناً أو إجازة' : undefined}
+          action={<button className="btn btn-primary" onClick={openAdd}><Icon name="plus" size={16} /> اتصال جديد</button>} />
+      ) : (
+        <div className="stack">
+          {groups.map(g => {
+            const open = !collapsed[g.pid];
+            return (
+              <div key={g.pid} className="card">
+                <button className="accordion-head card-head" aria-expanded={open}
+                  style={{ borderBottom: open ? undefined : 'none' }}
+                  onClick={() => setCollapsed(s => ({ ...s, [g.pid]: open }))}>
+                  <Icon name="chevron" size={16} className="chev" />
+                  <span className="display strong" style={{ fontSize: 18 }}>{g.name}</span>
+                  <span className="badge">{g.items.length}</span>
+                </button>
+                {open && g.items.map(c => (
+                  <div key={c.id} className="list-item">
+                    <div className="list-main">
+                      <div className="conn">
+                        <span className={`from${isMe(c.from_person_id) ? ' me' : ''}`}>{pName(c.from_person_id)}</span>
+                        <span className="arrow"><Icon name="arrow" size={14} /></span>
+                        <span className="to">{pName(c.to_person_id)}</span>
+                        {c.tx_name && <span className="badge badge-primary">{c.tx_name}</span>}
+                        {c.is_general_ijaza ? <span className="badge badge-accent">إجازة عامة</span> : null}
+                        <span className={`badge ${c.matn_title ? 'badge-info' : 'badge-outline'}`}>{c.matn_title || 'كل المتون'}</span>
+                      </div>
+                      {c.description && <div className="small muted" style={{ marginTop: 2 }}>{c.description}</div>}
+                    </div>
+                    <div className="actions">
+                      <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
+                      <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       )}
-    </div>
+
+      {form && (
+        <FormModal title={form.id ? 'تعديل الاتصال' : 'اتصال جديد'} onClose={() => setForm(null)} onSubmit={save} saving={saving}>
+          <div className="callout" style={{ marginBottom: 14 }}>
+            سجّل حلقة واحدة فقط: <strong>التلميذ</strong> أخذ عن <strong>الشيخ</strong>. السلاسل الكاملة تُبنى تلقائياً.
+          </div>
+          <div className="form-grid">
+            <Field label="التلميذ (من)" required>
+              <Combobox value={form.from_person_id} opts={pOpts} onChange={v => set('from_person_id', v)} />
+            </Field>
+            <Field label="الشيخ (أخذ عن)" required>
+              <Combobox value={form.to_person_id} opts={pOpts} onChange={v => set('to_person_id', v)} />
+            </Field>
+          </div>
+          <Field label="المتن" hint="اتركه فارغاً إن كانت إجازة عامة بكل مروياته">
+            <Combobox value={form.matn_id} opts={rowOptions(mutoon, 'title')} onChange={v => set('matn_id', v)} placeholder="كل المتون" />
+          </Field>
+          <Field label="طريقة التحمل" hint="عند تعدد الاتصالات بين شخصين يُقدَّم الأعلى: السماع ثم القراءة ثم الإجازة…">
+            <Select form={form} set={set} name="transmission_type_id" options={rowOptions(txTypes)} />
+          </Field>
+          <label className="check" style={{ marginBottom: 14 }}>
+            <input type="checkbox" checked={form.is_general_ijaza} onChange={e => set('is_general_ijaza', e.target.checked)} />
+            إجازة عامة
+          </label>
+          <Field label="ملاحظات"><TextArea form={form} set={set} name="description" placeholder="المكان، التاريخ، ما قُرئ…" /></Field>
+        </FormModal>
+      )}
+    </>
   );
 }

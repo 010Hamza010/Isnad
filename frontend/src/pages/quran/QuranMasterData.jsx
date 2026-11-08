@@ -1,139 +1,134 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import api from '../../utils/api';
-import Modal from '../../components/shared/Modal';
-import EmptyState from '../../components/shared/EmptyState';
+import useLoad from '../../hooks/useLoad';
+import { useUI } from '../../components/ui/UIProvider';
+import { FormModal } from '../../components/ui/Modal';
+import { Field, TextInput, TextArea, Select } from '../../components/ui/Field';
+import Combobox from '../../components/ui/Combobox';
+import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
+import Segmented from '../../components/ui/Segmented';
+import Icon from '../../components/ui/Icon';
+import { personOptions, rowOptions } from '../../utils/options';
 
-// ✅ moved outside
-const F = ({ label, field, type = 'text', form, setForm }) => (
-  <div className="form-group"><label className="form-label">{label}</label>
-    <input className="form-input" type={type} value={form[field] || ''} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} /></div>
-);
-
-const SL = ({ label, field, opts, form, setForm }) => (
-  <div className="form-group"><label className="form-label">{label}</label>
-    <select className="form-select" value={form[field] || ''} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}>
-      <option value="">— غير محدد —</option>
-      {opts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-    </select></div>
-);
+const TYPES = {
+  qiraat:  { label: 'القراءات', one: 'قراءة', icon: 'quran' },
+  riwayat: { label: 'الروايات', one: 'رواية', icon: 'book' },
+  turuq:   { label: 'الطرق',    one: 'طريق',  icon: 'chain' },
+};
 
 export default function QuranMasterData() {
-  const [tab, setTab] = useState('qiraat');
-  const [qiraat, setQiraat] = useState([]);
-  const [riwayat, setRiwayat] = useState([]);
-  const [turuq, setTuruq] = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
+  const { toast, notifyError, confirm } = useUI();
+  const { data, loading, reload } = useLoad(async () => {
     const [q, r, t, p] = await Promise.all([
-      api.get('/quran/qiraat'), api.get('/quran/riwayat'),
-      api.get('/quran/turuq'), api.get('/persons')
+      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/persons'),
     ]);
-    setQiraat(q.data); setRiwayat(r.data); setTuruq(t.data); setPersons(p.data);
+    return { qiraat: q.data, riwayat: r.data, turuq: t.data, persons: p.data };
+  }, [], { qiraat: [], riwayat: [], turuq: [], persons: [] });
+  const { qiraat, riwayat, turuq, persons } = data;
+
+  const [tab, setTab]       = useState('qiraat');
+  const [form, setForm]     = useState(null);
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const pOpts = useMemo(() => personOptions(persons), [persons]);
+
+  // riwayat grouped under their qiraa; turuq grouped under their riwaya
+  const groups = useMemo(() => {
+    if (tab === 'qiraat') return [[null, qiraat]];
+    const rows = tab === 'riwayat' ? riwayat : turuq;
+    const key  = tab === 'riwayat' ? 'qiraa_name' : 'riwaya_name';
+    const g = new Map();
+    rows.forEach(r => { const k = r[key] || 'غير مصنّف'; if (!g.has(k)) g.set(k, []); g.get(k).push(r); });
+    return [...g.entries()];
+  }, [tab, qiraat, riwayat, turuq]);
+
+  const subtitle = row => {
+    if (tab === 'qiraat')  return row.imam_name && `الإمام ${row.imam_name}`;
+    if (tab === 'riwayat') return row.rawi_name && `الراوي ${row.rawi_name}`;
+    return row.parent_name && `متفرّع من طريق ${row.parent_name}`;
   };
-  useEffect(() => { load(); }, []);
 
   const save = async () => {
-    setLoading(true);
+    const { type, id, ...payload } = form;
+    if (!payload.name_ar?.trim()) return toast('الاسم مطلوب', 'error');
+    if (type === 'riwayat' && !payload.qiraa_id) return toast('اختر القراءة', 'error');
+    setSaving(true);
     try {
-      const { type, id, ...payload } = form;
       if (id) await api.put(`/quran/${type}/${id}`, payload);
       else await api.post(`/quran/${type}`, payload);
-      load(); setModal(null);
-    } finally { setLoading(false); }
+      toast(id ? 'تم حفظ التعديلات' : 'تمت الإضافة');
+      setForm(null); reload();
+    } catch (e) { notifyError(e); } finally { setSaving(false); }
   };
 
-  const del = async (type, id) => {
-    if (!confirm('حذف؟')) return;
-    await api.delete(`/quran/${type}/${id}`); load();
+  const del = async row => {
+    const ok = await confirm({ title: `حذف ${TYPES[tab].one}`, message: `سيُحذف «${row.name_ar}».`, danger: true, confirmLabel: 'حذف' });
+    if (!ok) return;
+    try { await api.delete(`/quran/${tab}/${row.id}`); toast('تم الحذف'); reload(); } catch (e) { notifyError(e); }
   };
 
-  const openAdd = (type) => { setForm({ type }); setModal('form'); };
-  const openEdit = (type, item) => { setForm({ type, ...item }); setModal('form'); };
+  const clean = row => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, v ?? '']));
+  const openAdd  = () => setForm({ type: tab, name_ar: '', description: '' });
+  const openEdit = row => setForm({ type: tab, ...clean(row) });
+  const rows = tab === 'qiraat' ? qiraat : tab === 'riwayat' ? riwayat : turuq;
 
   return (
-    <div>
-      <div className="tabs">
-        {[['qiraat','القراءات'],['riwayat','الروايات'],['turuq','الطرق']].map(([k,l]) => (
-          <button key={k} className={`tab-btn ${tab===k?'active':''}`} onClick={() => setTab(k)}>{l}</button>
-        ))}
+    <>
+      <div className="toolbar">
+        <Segmented value={tab} onChange={setTab} options={[
+          { value: 'qiraat', label: 'القراءات', count: qiraat.length },
+          { value: 'riwayat', label: 'الروايات', count: riwayat.length },
+          { value: 'turuq', label: 'الطرق', count: turuq.length },
+        ]} />
+        <div className="spacer" />
+        <button className="btn btn-primary" onClick={openAdd}><Icon name="plus" size={16} /> {TYPES[tab].one} جديدة</button>
       </div>
 
-      {tab === 'qiraat' && (
-        <>
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
-            <button className="btn btn-primary" onClick={() => openAdd('qiraat')}>+ قراءة جديدة</button>
-          </div>
-          {qiraat.length === 0 ? <EmptyState icon="📖" title="لا توجد قراءات" /> : qiraat.map(q => (
-            <div key={q.id} className="card"><div className="card-row">
-              <div><div className="card-title">{q.name_ar}</div>
-                <div className="card-sub">{q.imam_name && `الإمام: ${q.imam_name}`}</div></div>
-              <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit('qiraat', q)}>تعديل</button>
-                <button className="btn btn-danger btn-sm" onClick={() => del('qiraat', q.id)}>حذف</button>
+      {loading && !rows.length ? <SkeletonList /> : rows.length === 0 ? (
+        <EmptyState icon={TYPES[tab].icon} title={`لا توجد ${TYPES[tab].label}`}
+          action={<button className="btn btn-primary" onClick={openAdd}><Icon name="plus" size={16} /> إضافة</button>} />
+      ) : groups.map(([label, items]) => (
+        <section key={label || 'all'}>
+          {label && <div className="group-head">{label}<span className="badge">{items.length}</span><span className="line" /></div>}
+          <div className="list">
+            {items.map(row => (
+              <div key={row.id} className="list-item">
+                <div className="list-main">
+                  <div className="list-title display" style={{ fontSize: 17 }}>{row.name_ar}</div>
+                  {(subtitle(row) || row.description) && (
+                    <div className="list-sub">{[subtitle(row), row.description].filter(Boolean).join(' — ')}</div>
+                  )}
+                </div>
+                <div className="actions">
+                  <button className="icon-btn" onClick={() => openEdit(row)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
+                  <button className="icon-btn danger" onClick={() => del(row)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+                </div>
               </div>
-            </div></div>
-          ))}
-        </>
-      )}
-
-      {tab === 'riwayat' && (
-        <>
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
-            <button className="btn btn-primary" onClick={() => openAdd('riwayat')}>+ رواية جديدة</button>
+            ))}
           </div>
-          {riwayat.length === 0 ? <EmptyState icon="📜" title="لا توجد روايات" /> : riwayat.map(r => (
-            <div key={r.id} className="card"><div className="card-row">
-              <div><div className="card-title">{r.name_ar}</div>
-                <div className="card-sub">{r.qiraa_name} {r.rawi_name && `· الراوي: ${r.rawi_name}`}</div></div>
-              <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit('riwayat', r)}>تعديل</button>
-                <button className="btn btn-danger btn-sm" onClick={() => del('riwayat', r.id)}>حذف</button>
-              </div>
-            </div></div>
-          ))}
-        </>
-      )}
+        </section>
+      ))}
 
-      {tab === 'turuq' && (
-        <>
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
-            <button className="btn btn-primary" onClick={() => openAdd('turuq')}>+ طريق جديد</button>
-          </div>
-          {turuq.length === 0 ? <EmptyState icon="🔀" title="لا توجد طرق" /> : turuq.map(t => (
-            <div key={t.id} className="card"><div className="card-row">
-              <div><div className="card-title">{t.name_ar}</div>
-                <div className="card-sub">{t.riwaya_name} {t.parent_name && `· من: ${t.parent_name}`}</div></div>
-              <div style={{display:'flex',gap:6}}>
-                <button className="btn btn-ghost btn-sm" onClick={() => openEdit('turuq', t)}>تعديل</button>
-                <button className="btn btn-danger btn-sm" onClick={() => del('turuq', t.id)}>حذف</button>
-              </div>
-            </div></div>
-          ))}
-        </>
-      )}
-
-      {modal === 'form' && (
-        <Modal title={form.id ? '✏️ تعديل' : '➕ إضافة جديدة'} onClose={() => setModal(null)}
-          footer={<><button className="btn btn-secondary" onClick={() => setModal(null)}>إلغاء</button>
-            <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? '...' : 'حفظ'}</button></>}>
-          <F label="الاسم *" field="name_ar" form={form} setForm={setForm} />
-          {form.type === 'qiraat' && <SL label="الإمام" field="imam_id" opts={persons.map(p => ({ id: p.id, label: p.name_ar }))} form={form} setForm={setForm} />}
+      {form && (
+        <FormModal title={`${form.id ? 'تعديل' : 'إضافة'} ${TYPES[form.type].one}`} onClose={() => setForm(null)} onSubmit={save} saving={saving}>
+          <Field label="الاسم" required><TextInput form={form} set={set} name="name_ar" /></Field>
+          {form.type === 'qiraat' && (
+            <Field label="الإمام"><Combobox value={form.imam_id ?? ''} opts={pOpts} onChange={v => set('imam_id', v)} /></Field>
+          )}
           {form.type === 'riwayat' && <>
-            <SL label="القراءة *" field="qiraa_id" opts={qiraat.map(q => ({ id: q.id, label: q.name_ar }))} form={form} setForm={setForm} />
-            <SL label="الراوي" field="rawi_id" opts={persons.map(p => ({ id: p.id, label: p.name_ar }))} form={form} setForm={setForm} />
+            <Field label="القراءة" required><Select form={form} set={set} name="qiraa_id" options={rowOptions(qiraat)} placeholder="— اختر —" /></Field>
+            <Field label="الراوي"><Combobox value={form.rawi_id ?? ''} opts={pOpts} onChange={v => set('rawi_id', v)} /></Field>
           </>}
           {form.type === 'turuq' && <>
-            <SL label="الرواية" field="riwaya_id" opts={riwayat.map(r => ({ id: r.id, label: r.name_ar }))} form={form} setForm={setForm} />
-            <SL label="الطريق الأصل" field="parent_id" opts={turuq.filter(t => t.id !== form.id).map(t => ({ id: t.id, label: t.name_ar }))} form={form} setForm={setForm} />
+            <Field label="الرواية"><Select form={form} set={set} name="riwaya_id" options={rowOptions(riwayat)} /></Field>
+            <Field label="الطريق الأصل" hint="للطرق المتفرّعة من طريق آخر">
+              <Select form={form} set={set} name="parent_id"
+                options={rowOptions(turuq.filter(t => t.id !== form.id && (!form.riwaya_id || String(t.riwaya_id) === String(form.riwaya_id))))} />
+            </Field>
           </>}
-          <div className="form-group"><label className="form-label">وصف</label>
-            <textarea className="form-textarea" value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
-        </Modal>
+          <Field label="وصف"><TextArea form={form} set={set} name="description" /></Field>
+        </FormModal>
       )}
-    </div>
+    </>
   );
 }

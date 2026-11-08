@@ -6,7 +6,9 @@ api.interceptors.request.use(cfg => {
   return cfg;
 });
 api.interceptors.response.use(r => r, err => {
-  if (err.response?.status === 401) {
+  // A 401 from /auth/login is a wrong password, not an expired session — let the form show it.
+  const isAuthCall = err.config?.url?.startsWith('/auth/');
+  if (err.response?.status === 401 && !isAuthCall) {
     sessionStorage.removeItem('token');
     window.location.href = '/login';
   }

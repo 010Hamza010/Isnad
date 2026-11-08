@@ -1,78 +1,80 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import api from '../../utils/api';
-import Modal from '../../components/shared/Modal';
-import EmptyState from '../../components/shared/EmptyState';
-import AutocompleteSelect from '../../components/shared/AutoCompleteSelect';
+import useLoad from '../../hooks/useLoad';
+import { useUI } from '../../components/ui/UIProvider';
+import { FormModal } from '../../components/ui/Modal';
+import { Field, TextInput, TextArea, Select } from '../../components/ui/Field';
+import Combobox from '../../components/ui/Combobox';
+import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
+import SearchInput from '../../components/ui/SearchInput';
+import Icon from '../../components/ui/Icon';
+import { matches, isMe } from '../../utils/text';
+import { personOptions, rowOptions } from '../../utils/options';
 
-const EMPTY_CONN = {
-  from_person_id: '0', to_person_id: '',
-  transmission_type_id: '', khatmat_count: 1,
-  ijaza_date: '', meeting_mode: 'حضوراً',
-  notes: '', description: '',
-  items: [],  // [{qiraa_id, riwaya_id, tariq_id}]
+const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
+const EMPTY = {
+  from_person_id: 0, to_person_id: '', transmission_type_id: '', khatmat_count: 1,
+  ijaza_date: '', meeting_mode: 'حضوراً', notes: '', description: '', items: [],
 };
 const EMPTY_ITEM = { qiraa_id: '', riwaya_id: '', tariq_id: '' };
 
 export default function QuranConnections() {
-  const [conns, setConns]     = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [qiraat, setQiraat]   = useState([]);
-  const [riwayat, setRiwayat] = useState([]);
-  const [turuq, setTuruq]     = useState([]);
-  const [txTypes, setTxTypes] = useState([]);
-  const [modal, setModal]     = useState(null);
-  const [form, setForm]       = useState(EMPTY_CONN);
-  const [loading, setLoading] = useState(false);
-  const [filterQ, setFilterQ] = useState('');
-
-  const load = async () => {
+  const { toast, notifyError, confirm } = useUI();
+  const { data, loading, reload } = useLoad(async () => {
     const [c, p, q, r, t, tx] = await Promise.all([
       api.get('/quran-connections'), api.get('/persons'),
       api.get('/quran/qiraat'), api.get('/quran/riwayat'),
-      api.get('/quran/turuq'), api.get('/tx-types?applies_to=quran')
+      api.get('/quran/turuq'), api.get('/tx-types?applies_to=quran'),
     ]);
-    setConns(c.data); setPersons(p.data); setQiraat(q.data);
-    setRiwayat(r.data); setTuruq(t.data); setTxTypes(tx.data);
-  };
-  useEffect(() => { load(); }, []);
+    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data };
+  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [], txTypes: [] });
+  const { conns, persons, qiraat, riwayat, turuq, txTypes } = data;
 
-  // ── item helpers ──
-  const addItem = () => setForm(f => ({ ...f, items: [...f.items, { ...EMPTY_ITEM }] }));
+  const [filterQ, setFilterQ] = useState('');
+  const [query, setQuery]     = useState('');
+  const [form, setForm]       = useState(null);
+  const [saving, setSaving]   = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const pOpts = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
+
+  const byId = (rows, id) => rows.find(x => String(x.id) === String(id));
+  const itemQiraa = it => it.qiraa_id || byId(riwayat, it.riwaya_id)?.qiraa_id;
+  const scopeLabel = it => [byId(qiraat, itemQiraa(it))?.name_ar, byId(riwayat, it.riwaya_id)?.name_ar, byId(turuq, it.tariq_id)?.name_ar].filter(Boolean).join(' · ');
+
+  // ── scope item editing (cascading qiraa → riwaya → tariq) ──
+  const addItem    = () => setForm(f => ({ ...f, items: [...f.items, { ...EMPTY_ITEM }] }));
   const removeItem = i => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
   const updateItem = (i, field, val) => setForm(f => {
     const items = [...f.items];
     items[i] = { ...items[i], [field]: val };
-    // cascade clear
     if (field === 'qiraa_id')  { items[i].riwaya_id = ''; items[i].tariq_id = ''; }
     if (field === 'riwaya_id') { items[i].tariq_id = ''; }
     return { ...f, items };
   });
 
-  const filteredR = (qiraa_id) => riwayat.filter(r => !qiraa_id || String(r.qiraa_id) === qiraa_id);
-  const filteredT = (riwaya_id) => turuq.filter(t => !riwaya_id || String(t.riwaya_id) === riwaya_id);
+  const visible = conns
+    .filter(c => !filterQ || !c.items?.length || c.items.some(it => String(itemQiraa(it)) === filterQ))
+    .filter(c => matches(query, c.from_name, c.to_name, isMe(c.from_person_id) ? 'أنا' : ''));
 
-  // ── item label for display ──
-  const itemLabel = (item) => {
-    const q = qiraat.find(x => x.id === item.qiraa_id || String(x.id) === item.qiraa_id);
-    const r = riwayat.find(x => x.id === item.riwaya_id || String(x.id) === item.riwaya_id);
-    const t = turuq.find(x => x.id === item.tariq_id || String(x.id) === item.tariq_id);
-    if (!q && !r && !t) return 'مطلق';
-    return [q?.name_ar, r?.name_ar, t?.name_ar].filter(Boolean).join(' · ');
-  };
+  const openEdit = c => setForm({
+    ...EMPTY, id: c.id,
+    from_person_id: c.from_person_id, to_person_id: c.to_person_id,
+    transmission_type_id: c.transmission_type_id ?? '', khatmat_count: c.khatmat_count ?? 1,
+    ijaza_date: c.ijaza_date ?? '', meeting_mode: c.meeting_mode || 'حضوراً',
+    notes: c.notes ?? '', description: c.description ?? '',
+    items: (c.items || []).map(it => ({
+      qiraa_id: String(it.qiraa_id || ''), riwaya_id: String(it.riwaya_id || ''), tariq_id: String(it.tariq_id || ''),
+    })),
+  });
 
-  // ── connection scope summary for list ──
-  const connScope = (c) => {
-    if (!c.items || c.items.length === 0) return [{ label: 'مطلق', key: 'all' }];
-    return c.items.map((it, i) => ({ label: itemLabel(it), key: i }));
-  };
-
-  // ── save ──
   const save = async () => {
-    setLoading(true);
+    if (form.from_person_id === '' || form.to_person_id === '') return toast('اختر الطرفين', 'error');
+    if (String(form.from_person_id) === String(form.to_person_id)) return toast('لا يمكن أن يتصل الشخص بنفسه', 'error');
+    setSaving(true);
     try {
       const payload = {
-        from_person_id:       parseInt(form.from_person_id) ?? 0,
-        to_person_id:         parseInt(form.to_person_id),
+        from_person_id:       Number(form.from_person_id) || 0,
+        to_person_id:         Number(form.to_person_id),
         transmission_type_id: form.transmission_type_id || null,
         khatmat_count:        parseInt(form.khatmat_count) || 1,
         ijaza_date:           form.ijaza_date || null,
@@ -81,194 +83,123 @@ export default function QuranConnections() {
         description:          form.description || null,
         items: form.items
           .filter(it => it.qiraa_id || it.riwaya_id || it.tariq_id)
-          .map(it => ({
-            qiraa_id:  it.qiraa_id  || null,
-            riwaya_id: it.riwaya_id || null,
-            tariq_id:  it.tariq_id  || null,
-          })),
+          .map(it => ({ qiraa_id: it.qiraa_id || null, riwaya_id: it.riwaya_id || null, tariq_id: it.tariq_id || null })),
       };
-      if (modal === 'add') await api.post('/quran-connections', payload);
-      else await api.put(`/quran-connections/${form.id}`, payload);
-      load(); setModal(null);
-    } finally { setLoading(false); }
+      if (form.id) await api.put(`/quran-connections/${form.id}`, payload);
+      else await api.post('/quran-connections', payload);
+      toast(form.id ? 'تم حفظ التعديلات' : 'تمت إضافة الاتصال');
+      setForm(null); reload();
+    } catch (e) { notifyError(e); } finally { setSaving(false); }
   };
 
-  const del = async id => { if (!confirm('حذف؟')) return; await api.delete(`/quran-connections/${id}`); load(); };
-
-  const allP   = [{ id: 0, name_ar: 'أنا' }, ...persons];
-  const pName  = id => id === 0 ? 'أنا' : (persons.find(p => p.id === id)?.name_ar || `#${id}`);
-
-  // filter by qiraa: connection is visible if any item matches OR items empty (مطلق)
-  const visibleConns = filterQ
-    ? conns.filter(c => !c.items?.length || c.items.some(it => String(it.qiraa_id) === filterQ))
-    : conns;
-
-  const openAdd  = () => { setForm({ ...EMPTY_CONN, items: [] }); setModal('add'); };
-  const openEdit = c => {
-    setForm({
-      ...EMPTY_CONN, ...c,
-      from_person_id:       String(c.from_person_id),
-      to_person_id:         String(c.to_person_id),
-      transmission_type_id: c.transmission_type_id || '',
-      khatmat_count:        c.khatmat_count ?? 1,
-      ijaza_date:           c.ijaza_date    || '',
-      meeting_mode:         c.meeting_mode  || 'حضوراً',
-      notes:                c.notes         || '',
-      items: (c.items || []).map(it => ({
-        qiraa_id:  String(it.qiraa_id  || ''),
-        riwaya_id: String(it.riwaya_id || ''),
-        tariq_id:  String(it.tariq_id  || ''),
-      })),
-    });
-    setModal('edit');
+  const del = async c => {
+    const ok = await confirm({ title: 'حذف اتصال', message: `${c.from_name || 'أنا'} ← ${c.to_name}`, danger: true, confirmLabel: 'حذف' });
+    if (!ok) return;
+    try { await api.delete(`/quran-connections/${c.id}`); toast('تم الحذف'); reload(); } catch (e) { notifyError(e); }
   };
-
-  const SL = ({ label, field, opts, opt0 = '—', onCh }) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      <AutocompleteSelect
-        value={form[field] || ''}
-        opts={opts}
-        placeholder={opt0}
-        onChange={val => {
-          setForm(f => ({ ...f, [field]: val }));
-          onCh && onCh(val);
-        }}
-      />
-    </div>
-  );
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <select className="form-select" style={{ width: 200 }} value={filterQ} onChange={e => setFilterQ(e.target.value)}>
+    <>
+      <div className="toolbar">
+        <SearchInput className="search" value={query} onChange={setQuery} placeholder="ابحث باسم الشيخ…" />
+        <select className="select" style={{ width: 'auto', minWidth: 180 }} value={filterQ} onChange={e => setFilterQ(e.target.value)}>
           <option value="">كل القراءات</option>
           {qiraat.map(q => <option key={q.id} value={q.id}>{q.name_ar}</option>)}
         </select>
-        <button className="btn btn-primary" style={{ marginRight: 'auto' }} onClick={openAdd}>+ اتصال قرآني</button>
+        <button className="btn btn-primary" onClick={() => setForm({ ...EMPTY, items: [] })}><Icon name="plus" size={16} /> اتصال قرآني</button>
       </div>
 
-      {visibleConns.length === 0
-        ? <EmptyState icon="🔗" title="لا توجد اتصالات قرآنية" subtitle="أضف أول اتصال" />
-        : visibleConns.map(c => (
-          <div key={c.id} className="conn-row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ fontWeight: 700 }}>{pName(c.from_person_id)}</span>
-            <span className="conn-arrow">←</span>
-            <span style={{ fontWeight: 700 }}>{c.to_name || `#${c.to_person_id}`}</span>
-
-            {/* scope items */}
-            <div style={{ flex: 1, display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-              {connScope(c).map(s => (
-                <span key={s.key} className={`badge ${s.label === 'مطلق' ? 'badge-gray' : 'badge-gold'}`}>{s.label}</span>
-              ))}
-              {c.tx_name       && <span className="badge badge-teal">{c.tx_name}</span>}
-              {c.meeting_mode && c.meeting_mode !== 'حضوراً' && <span className="badge badge-gray">💻 {c.meeting_mode}</span>}
-              {c.khatmat_count > 1 && <span className="badge badge-teal">🔁 {c.khatmat_count}</span>}
-              {c.ijaza_date    && <span className="badge badge-purple">📅 {c.ijaza_date}</span>}
-            </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>تعديل</button>
-            <button className="btn btn-danger btn-sm" onClick={() => del(c.id)}>حذف</button>
-          </div>
-        ))
-      }
-
-      {modal && (
-        <Modal title={modal === 'add' ? '📖 اتصال قرآني جديد' : '✏️ تعديل الاتصال'}
-          onClose={() => setModal(null)}
-          footer={<>
-            <button className="btn btn-secondary" onClick={() => setModal(null)}>إلغاء</button>
-            <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? '...' : 'حفظ'}</button>
-          </>}>
-
-          {/* from / to */}
-          <div className="form-row form-row-2">
-
-            <SL label="من" field="from_person_id" opts={allP.map(p => ({ value: p.id, label: p.name_ar }))} opt0="اختر" />
-            <SL label="أخذ عن" field="to_person_id" opts={persons.map(p => ({ value: p.id, label: p.name_ar }))} opt0="اختر" />
-          </div>
-
-          {/* scope items */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <label className="form-label" style={{ marginBottom: 0 }}>ما قُرئ في هذا الاتصال</label>
-              <button className="btn btn-ghost btn-sm" onClick={addItem}>+ إضافة رواية / قراءة</button>
-            </div>
-
-            {form.items.length === 0 && (
-              <div className="hint">لا يوجد تحديد — الاتصال مطلق (يشمل كل ما قُرئ)</div>
-            )}
-
-            {form.items.map((item, i) => (
-              <div key={i} style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto',
-                gap: 8, alignItems: 'end', marginBottom: 8,
-                padding: '10px 12px', background: 'var(--surface-offset)',
-                borderRadius: 'var(--radius)', border: '1px solid var(--border)'
-              }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">القراءة</label>
-                  <select className="form-select" value={item.qiraa_id}
-                    onChange={e => updateItem(i, 'qiraa_id', e.target.value)}>
-                    <option value="">— مطلق —</option>
-                    {qiraat.map(q => <option key={q.id} value={q.id}>{q.name_ar}</option>)}
-                  </select>
+      {loading && !conns.length ? <SkeletonList /> : visible.length === 0 ? (
+        <EmptyState icon="quran" title="لا توجد اتصالات قرآنية" subtitle="سجّل من قرأتَ عليه القرآن، وبأي رواية"
+          action={<button className="btn btn-primary" onClick={() => setForm({ ...EMPTY, items: [] })}><Icon name="plus" size={16} /> إضافة</button>} />
+      ) : (
+        <div className="list">
+          {visible.map(c => (
+            <div key={c.id} className="list-item">
+              <div className="list-main">
+                <div className="conn">
+                  <span className={`from${isMe(c.from_person_id) ? ' me' : ''}`}>{isMe(c.from_person_id) ? 'أنا' : c.from_name || `#${c.from_person_id}`}</span>
+                  <span className="arrow"><Icon name="arrow" size={14} /></span>
+                  <span className="to">{c.to_name || `#${c.to_person_id}`}</span>
+                  {c.tx_name && <span className="badge badge-primary">{c.tx_name}</span>}
                 </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">الرواية</label>
-                  <select className="form-select" value={item.riwaya_id}
-                    onChange={e => updateItem(i, 'riwaya_id', e.target.value)}>
-                    <option value="">— مطلق —</option>
-                    {filteredR(item.qiraa_id).map(r => <option key={r.id} value={r.id}>{r.name_ar}</option>)}
-                  </select>
+                <div className="chips" style={{ marginTop: 6, gap: 5 }}>
+                  {c.items?.length
+                    ? c.items.map((it, i) => <span key={i} className="badge badge-accent">{scopeLabel(it) || 'مطلق'}</span>)
+                    : <span className="badge badge-outline">مطلق — كل ما قُرئ</span>}
+                  {c.meeting_mode && c.meeting_mode !== 'حضوراً' && <span className="badge badge-info"><Icon name="globe" size={12} /> {c.meeting_mode}</span>}
+                  {c.khatmat_count > 1 && <span className="badge"><Icon name="repeat" size={12} /> {c.khatmat_count} ختمات</span>}
+                  {c.ijaza_date && <span className="badge badge-purple"><Icon name="calendar" size={12} /> {c.ijaza_date}</span>}
                 </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">الطريق</label>
-                  <select className="form-select" value={item.tariq_id}
-                    onChange={e => updateItem(i, 'tariq_id', e.target.value)}>
-                    <option value="">— مطلق —</option>
-                    {filteredT(item.riwaya_id).map(t => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
-                  </select>
-                </div>
-                <button className="btn btn-danger btn-sm" style={{ height: 36 }} onClick={() => removeItem(i)}>✕</button>
               </div>
-            ))}
-          </div>
-
-          {/* tx / meeting */}
-          <div className="form-row form-row-2">
-            <div className="form-group"><label className="form-label">طريقة التحمل</label>
-              <select className="form-select" value={form.transmission_type_id}
-                onChange={e => setForm(f => ({ ...f, transmission_type_id: e.target.value }))}>
-                <option value="">—</option>
-                {txTypes.map(t => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
-              </select></div>
-            <div className="form-group"><label className="form-label">الوسيلة</label>
-              <select className="form-select" value={form.meeting_mode}
-                onChange={e => setForm(f => ({ ...f, meeting_mode: e.target.value }))}>
-                <option>حضوراً</option><option>عن بُعد</option><option>مختلط</option>
-              </select></div>
-          </div>
-
-          {/* khatmat / ijaza */}
-          <div className="form-row form-row-2">
-            <div className="form-group"><label className="form-label">عدد الختمات</label>
-              <input className="form-input" type="number" value={form.khatmat_count}
-                onChange={e => setForm(f => ({ ...f, khatmat_count: e.target.value }))} /></div>
-            <div className="form-group"><label className="form-label">تاريخ الإجازة (هجري)</label>
-              <input className="form-input" value={form.ijaza_date} placeholder="مثال: 1444هـ"
-                onChange={e => setForm(f => ({ ...f, ijaza_date: e.target.value }))} /></div>
-          </div>
-
-          <div className="form-group"><label className="form-label">ملاحظات التلاوة</label>
-            <textarea className="form-textarea" rows={2} value={form.notes || ''}
-              placeholder="مثال: أجازني بالغنة والتحقيق فقط..."
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">وصف عام</label>
-            <textarea className="form-textarea" rows={2} value={form.description || ''}
-              placeholder="مثال: ختمت عليه في رمضان 1444هـ بمنزله..."
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
-        </Modal>
+              <div className="actions">
+                <button className="icon-btn" onClick={() => openEdit(c)} aria-label="تعديل"><Icon name="edit" size={16} /></button>
+                <button className="icon-btn danger" onClick={() => del(c)} aria-label="حذف"><Icon name="trash" size={16} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-    </div>
+
+      {form && (
+        <FormModal size="lg" title={form.id ? 'تعديل الاتصال' : 'اتصال قرآني جديد'} onClose={() => setForm(null)} onSubmit={save} saving={saving}>
+          <div className="form-grid">
+            <Field label="القارئ (من)" required>
+              <Combobox value={form.from_person_id} opts={pOpts} onChange={v => set('from_person_id', v)} />
+            </Field>
+            <Field label="قرأ على" required>
+              <Combobox value={form.to_person_id} opts={pOpts} onChange={v => set('to_person_id', v)} />
+            </Field>
+          </div>
+
+          <div className="section-label">ما قُرئ في هذا الاتصال</div>
+          {form.items.length === 0 && <div className="callout" style={{ marginBottom: 8 }}>بلا تحديد — الاتصال مطلق ويشمل كل القراءات.</div>}
+          {form.items.map((item, i) => (
+            <div key={i} className="scope-row">
+              <Field label="القراءة">
+                <select className="select" value={item.qiraa_id} onChange={e => updateItem(i, 'qiraa_id', e.target.value)}>
+                  <option value="">— الكل —</option>
+                  {qiraat.map(q => <option key={q.id} value={q.id}>{q.name_ar}</option>)}
+                </select>
+              </Field>
+              <Field label="الرواية">
+                <select className="select" value={item.riwaya_id} onChange={e => updateItem(i, 'riwaya_id', e.target.value)}>
+                  <option value="">— الكل —</option>
+                  {riwayat.filter(r => !item.qiraa_id || String(r.qiraa_id) === item.qiraa_id).map(r => <option key={r.id} value={r.id}>{r.name_ar}</option>)}
+                </select>
+              </Field>
+              <Field label="الطريق">
+                <select className="select" value={item.tariq_id} onChange={e => updateItem(i, 'tariq_id', e.target.value)} disabled={!item.riwaya_id}>
+                  <option value="">— الكل —</option>
+                  {turuq.filter(t => String(t.riwaya_id) === item.riwaya_id).map(t => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
+                </select>
+              </Field>
+              <button type="button" className="icon-btn danger" onClick={() => removeItem(i)} aria-label="إزالة"><Icon name="x" size={16} /></button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={addItem} style={{ marginBottom: 14 }}>
+            <Icon name="plus" size={14} /> إضافة قراءة / رواية
+          </button>
+
+          <div className="section-label">تفاصيل الإجازة</div>
+          <div className="form-grid">
+            <Field label="طريقة التحمل"><Select form={form} set={set} name="transmission_type_id" options={rowOptions(txTypes)} /></Field>
+            <div className="field">
+              <span className="field-label">الوسيلة</span>
+              <div className="segmented" style={{ width: '100%' }}>
+                {MODES.map(m => (
+                  <button type="button" key={m} className={form.meeting_mode === m ? 'active' : ''} style={{ flex: 1 }}
+                    onClick={() => set('meeting_mode', m)}>{m}</button>
+                ))}
+              </div>
+            </div>
+            <Field label="عدد الختمات"><TextInput form={form} set={set} name="khatmat_count" type="number" min="1" /></Field>
+            <Field label="تاريخ الإجازة (هجري)"><TextInput form={form} set={set} name="ijaza_date" placeholder="1444هـ" /></Field>
+          </div>
+          <Field label="ملاحظات التلاوة"><TextArea form={form} set={set} name="notes" rows={2} placeholder="أجازني بالغنة والتحقيق…" /></Field>
+          <Field label="وصف عام"><TextArea form={form} set={set} name="description" rows={2} placeholder="ختمت عليه في رمضان 1444هـ بمنزله…" /></Field>
+        </FormModal>
+      )}
+    </>
   );
 }
