@@ -516,10 +516,15 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     assert.match(TT.renderChains([long, other], { style: { clear: true, longRestart: '', longRestartWords: 15 } }), / ح وقرأتُ على شيخنا D/);
   });
 
-  test('a long route restarting part-way up: «ح ⏎ وأرويه أيضاً عن فلان، …»', () => {
+  test('a long route restarting part-way up: «ح ⏎ ويرويه أيضاً فلان، …» (never «وأرويه»), «وترويه» for a woman', () => {
     const head = ['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'H'];
     const t = TT.renderChains([chain([...head, 'X', 'Z']), chain([...head, 'Y', 'W'])], { style: { clear: true, longRestartWords: 5 } });
-    assert.match(t, /، عن Z ح\n\nوأرويه أيضاً عن H، عن Y، عن W$/, t);
+    assert.match(t, /، عن Z ح\n\nويرويه أيضاً H، عن Y، عن W$/, t);
+    const fem = c => c.map(e => (e.to_person_id === id('H') ? { ...e, to_gender: 'F' } : e));
+    const tf = TT.renderChains([fem(chain([...head, 'X', 'Z'])), fem(chain([...head, 'Y', 'W']))], { style: { clear: true, longRestartWords: 5 } });
+    assert.match(tf, /ح\n\nوترويه أيضاً H، عن Y، عن W$/, tf);
+    // short: «ح وعن H» on the same line
+    assert.match(TT.renderChains([chain(['A', 'H', 'X']), chain(['A', 'H', 'Y'])], clear), /عن X ح وعن H، عن Y$/);
   });
 
   test('both forms are read back by the parser', () => {
@@ -529,6 +534,8 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     assert.equal(r.chains[0].links[1].tx_kind, 'qiraa');
     const p = TT.parseIsnad('قرأتُ على أ، عن ب ح\n\nوأرويه أيضاً: قرأتُ على ج، عن ب', null);
     assert.deepEqual(p.chains.map(c => c.links.map(l => l.name)), [['أ', 'ب'], ['ج', 'ب']]);
+    const q = TT.parseIsnad('قرأتُ على أ، عن ب، عن ج ح\n\nويرويه أيضاً ب، عن د', null);
+    assert.deepEqual(q.chains.map(c => c.links.map(l => l.name)), [['أ', 'ب', 'ج'], ['ب', 'د']]); // one level, as «ح وعن ب»
     // «، وهو قرأ على» is still a link, not a second name
     assert.deepEqual(TT.parseIsnad('قرأتُ على أ، وهو قرأ على ب', null).chains.map(c => c.links.map(l => l.name)), [['أ', 'ب']]);
   });
