@@ -35,7 +35,10 @@ const ANAN = new Set(['عن']);
  * Render context shared by all chains of one text, so a person gets a note marker only
  * at their first mention.
  */
-const newContext = () => ({ noted: new Set(), names: new Set() });
+// noted: persons given a note marker; names / authorNames: names as written (for colouring);
+// written: links already in the text («from>to»), so a later branch says «وقرأ فلان أيضاً على…»
+const newContext = ({ authorId = null } = {}) => ({ noted: new Set(), names: new Set(), authorNames: new Set(), written: new Set(), authorId });
+const linkKey = e => `${e.from_person_id}>${e.to_person_id}`;
 
 // the two people of an edge as { id, name, kunya, nisba, death, desc }
 const toP = e => ({ id: e.to_person_id, name: e.to_name, kunya: e.to_kunya, nisba: e.to_nisba, death: e.to_death_year, desc: e.to_description });
@@ -52,6 +55,11 @@ function nameOf(p, s, ctx, kase) {
 function personLabel(p, s, ctx, kase = 'nom') {
   const { id, death, desc } = p;
   let out = nameOf(p, s, ctx, kase);
+  // the author of the matn at the end of the isnad: «عن المؤلف فلان»
+  if (ctx.authorId != null && Number(id) === Number(ctx.authorId) && Number(id) > 0) {
+    ctx.authorNames.add(out);
+    if (s.style.authorTitle) { out = `${s.style.authorTitle} ${out}`; ctx.authorNames.add(out); }
+  }
   if (s.style.deathYears && death) out += ` ${deathLabel(death)}`;
   const n = Number(id);
   if (s.style.noteMarkers && desc && n > 0 && !ctx.noted.has(n)) { ctx.noted.add(n); out += `[[${n}]]`; }
@@ -73,9 +81,34 @@ function phraseFor(e, mine, s) {
 const fromGender = (e, s) => (isMe(e.from_person_id) ? s.style.myGender : e.from_gender) === 'F' ? 'F' : 'M';
 const toGender = e => (e.to_gender === 'F' ? 'F' : 'M');
 
+const ALSO_SLOT = '{الراوي}';
+
+// «قرأ شيخنا فلان أيضاً على {الاسم}» — a branch that starts from someone already in the text
+function renderAlso(e, via, s, ctx) {
+  const genders = { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) };
+  const viaTitleWord = isMe(via.from_person_id) ? (toGender(via) === 'F' ? s.style.firstTitleF : s.style.firstTitle) : '';
+  const viaTitle = viaTitleWord ? `${viaTitleWord} ` : '';
+  const phrase = s.style.clear ? (s.phrases.also?.[txKey(edgeKind(e))] || s.phrases.also?.null) : null;
+  ctx.written.add(linkKey(e));
+  if (phrase) {
+    const text = applyGender(phrase, genders).replace(ALSO_SLOT, `${viaTitle}${nameOf(toP(via), s, ctx, 'nom')}`);
+    return text.replace(NAME_SLOT, personLabel(toP(e), s, ctx, caseAfter(text.split(NAME_SLOT)[0])));
+  }
+  // keyword form: the classical restart «ح وعن فلان، عن …»
+  const kw = keywordFor(edgeKind(e), s);
+  return `عن ${viaTitle}${nameOf(toP(via), s, ctx, 'gen')}${s.style.separator}${kw} ${personLabel(toP(e), s, ctx, caseAfter(kw))}`;
+}
+
 // one phrase per edge; `opening` marks the first link of the whole isnad
 function renderLinks(edges, s, ctx, { opening = true } = {}) {
+  // a new branch whose first links are already written starts from the last of them, with «أيضاً»
+  let skip = 0;
+  if (opening) while (skip < edges.length - 1 && ctx.written.has(linkKey(edges[skip]))) skip++;
+  if (skip) {
+    return [renderAlso(edges[skip], edges[skip - 1], s, ctx), ...renderLinks(edges.slice(skip + 1), s, ctx, { opening: false })];
+  }
   return edges.map((e, i) => {
+    ctx.written.add(linkKey(e));
     const first = opening && i === 0;
     const mine = first && isMe(e.from_person_id);
     const genders = { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) };
@@ -147,6 +180,12 @@ const joinWord = (count, allF) => (count === 2 ? (allF ? 'كلتاهما' : 'ك�
  */
 const MAX_DEPTH = 40; // safety net: never recurse without end, whatever the data
 
+// «ح وعن فلان، …» after a shared beginning, else «ح و…»
+const restartWith = (t, s, scope, ctx) => (scope.restart
+  ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${t ? s.style.separator + t : ''}`
+  : `${s.style.tahwil} و${t}`);
+const joinBranchTexts = (texts, s, scope, ctx) => texts.map((t, i) => (i === 0 ? t : restartWith(t, s, scope, ctx))).join(' ');
+
 function renderSet(chains, s, ctx, scope) {
   const sep = s.style.separator;
   const depth = (scope.depth || 0) + 1;
@@ -156,8 +195,8 @@ function renderSet(chains, s, ctx, scope) {
   const live = list.filter(c => c.length);
   if (!live.length) return '';
   if (list.length === 1) return linear(list[0]);
-  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
-  const joinBranches = texts => texts.map((t, i) => (i === 0 ? t : restartText(t))).join(' ');
+  const restartText = t => restartWith(t, s, scope, ctx);
+  const joinBranches = texts => joinBranchTexts(texts, s, scope, ctx);
   if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
 
   // 1. shared beginning
@@ -170,10 +209,23 @@ function renderSet(chains, s, ctx, scope) {
 
   // a chain that already ended here: its last person (the restart) narrates straight on
   const ended = list.length !== live.length;
-  const branches = live.length === 1 ? [linear(live[0])] : null;
 
   // 2. shared ending: group the heads by the narrator who reaches the meeting point
-  const k = branches || ended ? 0 : sharedTail(live);
+  const k = live.length === 1 || ended ? 0 : sharedTail(live);
+  const narrators = new Map(k ? live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]) : []);
+  if (narrators.size > 1 && s.style.tahwilMeet !== 'joined') {
+    // every branch names the meeting person X: «A عن B عن X ح وD عن E عن X، عن G».
+    // Branches are grouped by who reaches X, each group factored the same way (smaller sets: no loop).
+    const groups = new Map();
+    live.forEach(c => {
+      const key = pid(c[c.length - k - 1]);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c.slice(0, c.length - k + 1));
+    });
+    const meet = joinBranches([...groups.values()].map(g => renderSet(g, s, ctx, { ...scope, depth })));
+    return [meet, ...renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false })].join(sep);
+  }
+  const branches = live.length === 1 ? [linear(live[0])] : null;
   const heads = k ? live.map(c => c.slice(0, c.length - k)) : live;
   let texts = branches;
   if (!texts) {
@@ -195,7 +247,6 @@ function renderSet(chains, s, ctx, scope) {
   if (!k) return text;
 
   const tail = live[0].slice(live[0].length - k);
-  const narrators = new Map(live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]));
   // all routes reach the same narrator first: no «كلاهما», just carry on from him
   if (narrators.size === 1) return [text, ...renderLinks(tail, s, ctx, { opening: false })].join(sep);
   const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');

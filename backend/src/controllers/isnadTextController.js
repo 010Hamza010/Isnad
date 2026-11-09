@@ -44,15 +44,16 @@ exports.resetSettings = async (req, res) => {
 // body: { group } (a /graph/*/paths group) or { chains: [[edge]] }, optional { style } override
 // (e.g. the ijaza page turns on clear phrases, death years and note markers).
 exports.render = async (req, res) => {
-  const { group, chains, style } = req.body || {};
+  const { group, chains, style, authorId } = req.body || {};
   if (!group?.firstEdge && !Array.isArray(chains)) throw new HttpError(400, 'Missing fields: group or chains');
   let s = await settingsFor(req);
   if (style && typeof style === 'object') s = validate({ ...s, style: { ...s.style, ...style } }, await TxType.kindMap());
   const list = group ? T.groupChains(group) : chains;
-  const ctx = T.newContext();
+  // authorId: the matn's author, written «المؤلف فلان» at the end of the isnad
+  const ctx = T.newContext({ authorId: Number.isInteger(Number(authorId)) && authorId != null ? Number(authorId) : null });
   const text = T.renderChains(list, s, ctx);
-  // names: every name as written (full names differ from name_ar), so the certificate can colour them
-  res.json({ text, persons: T.collectPersons(list), names: [...ctx.names] });
+  // names / authorNames: every name as written (full names differ from name_ar), so the certificate can colour them
+  res.json({ text, persons: T.collectPersons(list), names: [...ctx.names], authorNames: [...ctx.authorNames] });
 };
 
 // body: { text } → parsed chains with each name resolved against persons, plus the text re-rendered

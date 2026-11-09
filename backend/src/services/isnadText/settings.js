@@ -60,21 +60,24 @@ function mergeSettings(stored, idKinds) {
     if (s.style.heartWord === 'حفظاً') s.style.heartWord = DEFAULTS.style.heartWord;
   }
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
-  ['first', 'others', 'joined'].forEach(k => {
+  ['first', 'others', 'joined', 'also'].forEach(k => {
     if (!stored.phrases?.[k] || typeof stored.phrases[k] !== 'object') return;
     Object.assign(s.phrases[k], upgradePhrases(k, stored.phrases[k], idKinds));
   });
   return s;
 }
 
-const phraseMap = (m, field) => {
+// also-phrases name the narrator too: {الراوي} once
+const phraseMap = (m, field, withNarrator = false) => {
   if (!m || typeof m !== 'object' || Array.isArray(m)) throw new SettingsError(`${field}: invalid`);
   return Object.fromEntries(Object.entries(m).map(([k, v]) => {
     if (k !== 'null' && !KINDS.has(k)) throw new SettingsError(`${field}: invalid key ${k}`);
     const v2 = str(v, 160, `${field}.${k}`);
     const plain = stripAlternations(v2);
     if (v2 && (plain.match(/\{الاسم\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الاسم} once`);
-    if (/[{}]/.test(plain.replace(/\{الاسم\}/g, ''))) throw new SettingsError(`${field}.${k}: use {الراوي:مذكر|مؤنث} or {الشيخ:مذكر|مؤنث}`);
+    if (withNarrator && v2 && (plain.match(/\{الراوي\}/g) || []).length !== 1) throw new SettingsError(`${field}.${k}: must contain {الراوي} once`);
+    const rest = plain.replace(/\{الاسم\}/g, '');
+    if (/[{}]/.test(withNarrator ? rest.replace(/\{الراوي\}/g, '') : rest)) throw new SettingsError(`${field}.${k}: use {الراوي:مذكر|مؤنث} or {الشيخ:مذكر|مؤنث}`);
     return [k, v2];
   }));
 };
@@ -146,8 +149,10 @@ function validateSettings(input, idKinds) {
     lookingWord: str(st.lookingWord, 30, 'style.lookingWord'),
     hideMyReadingMode: !!st.hideMyReadingMode,
     fullNames: !!st.fullNames,
+    tahwilMeet: st.tahwilMeet === 'joined' ? 'joined' : 'repeat',
+    authorTitle: str(st.authorTitle, 30, 'style.authorTitle'),
   };
-  const phrases = Object.fromEntries(['first', 'others', 'joined'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`)]));
+  const phrases = Object.fromEntries(['first', 'others', 'joined', 'also'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`, k === 'also')]));
 
   const out = { keywords, style, phrases };
   LIST_KEYS.forEach(k => { out[k] = strList(merged[k], k); });
