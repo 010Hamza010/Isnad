@@ -38,3 +38,9 @@ test('designVars exposes colors, fonts, sizes and page metrics', () => {
   assert.match(v['--f-body'], /^"Amiri"/);
   assert.equal(v['--page-margin'], '9mm');
 });
+
+test('the author is its own role, in its own colour, wherever the name appears', () => {
+  const m2 = roleMatcher({ author: ['المؤلف ابن آجروم', 'ابن آجروم'], names: ['ابن آجروم', 'إدريس'] });
+  const atoms = toAtoms('متن ابن آجروم … عن إدريس، عن المؤلف ابن آجروم', m2);
+  assert.deepEqual(brief(atoms).filter(x => x.includes(':')), ['author:ابن آجروم', 'name:إدريس', 'author:المؤلف ابن آجروم']);
+});

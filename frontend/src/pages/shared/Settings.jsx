@@ -201,6 +201,16 @@ export default function Settings() {
               <Field label="رمز التحويل"><input className="input" value={draft.style.tahwil} onChange={e => setStyle('tahwil', e.target.value)} /></Field>
             </div>
             <div className="field">
+              <span className="field-label">عند التقاء الأسانيد بعد «ح»</span>
+              <Segmented value={draft.style.tahwilMeet ?? 'repeat'} onChange={v => setStyle('tahwilMeet', v)} options={[
+                { value: 'repeat', label: 'يُذكر الملتقى في كل طريق: «… عن ج ح … عن ج»' },
+                { value: 'joined', label: '«كلاهما عن ج»' },
+              ]} />
+            </div>
+            <Field label="لقب مؤلف المتن في آخر السند" hint="«عن المؤلف فلان» — اتركه فارغاً لحذفه">
+              <input className="input" value={draft.style.authorTitle ?? ''} onChange={e => setStyle('authorTitle', e.target.value)} />
+            </Field>
+            <div className="field">
               <span className="field-label">الفاصل بين الحلقات</span>
               <Segmented value={draft.style.separator} onChange={v => setStyle('separator', v)}
                 options={[{ value: '، ', label: 'فاصلة «،»' }, { value: ' ', label: 'مسافة' }, { value: ' - ', label: 'شَرطة' }]} />
@@ -224,10 +234,11 @@ export default function Settings() {
           <span className="muted">
             تحلّ محل الصيغة عند تفعيلها — ضع {'{الاسم}'} مكان اسم الشيخ، واتركها فارغة لاستعمال الصيغة.
             للمذكر والمؤنث: {'{الراوي:وهو قرأ|وهي قرأت}'} حسب الراوي، و{'{الشيخ:أجاز|أجازت}'} حسب الشيخ.
+            في العمود الأخير ضع {'{الراوي}'} مكان اسم الشيخ المذكور قبلُ: «ح وقرأ شيخنا فلان أيضاً على…».
           </span>
         </div>
         <div className="kw-head phrase-grid">
-          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span>
+          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span><span>طريق آخر لشيخ مذكور</span>
         </div>
         {KIND_ROWS.map(t => (
           <div key={t.key} className="kw-row phrase-grid">
@@ -238,6 +249,9 @@ export default function Settings() {
               onChange={e => setPhrase('others', t.key, e.target.value)} />
             <input className="input" value={draft.phrases.joined?.[t.key] ?? ''} placeholder="عن {الاسم}" aria-label={`${t.label} — بعد كلاهما`}
               onChange={e => setPhrase('joined', t.key, e.target.value)} />
+            <input className="input" value={draft.phrases.also?.[t.key] ?? ''} placeholder="قرأ {الراوي} أيضاً على {الاسم}" aria-label={`${t.label} — طريق آخر`}
+              title="بعد «ح» إذا بدأ الطريق من شيخ ذُكر قبل: {الراوي} هو الشيخ المذكور"
+              onChange={e => setPhrase('also', t.key, e.target.value)} />
           </div>
         ))}
         <div style={{ height: 10 }} />

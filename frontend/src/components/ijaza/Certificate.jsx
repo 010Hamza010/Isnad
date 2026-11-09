@@ -188,7 +188,7 @@ function useZoom(ref) {
  * fitOnePage: shrink the text (never below 55%) until everything fits on a single page — for the
  * printed normal version. onFit({ fit, pages }) reports the result (pages > 1 = too long even so).
  */
-export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered, fitOnePage = false, onFit }) {
+export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered, fitOnePage = false, onFit, scale = 1 }) {
   const detailed = variant === 'detailed';
   const measureRef = useRef(null);
   const wrapRef = useRef(null);
@@ -196,10 +196,10 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
   const [pages, setPages] = useState([]);
   const [fit, setFit] = useState(1);
 
-  const namesKey = (people.names || []).join('|');
+  const namesKey = [...(people.names || []), '|', ...(people.author || [])].join('|');
   const matcher = useMemo(() => {
     const fromChains = chainNames(chains);
-    return roleMatcher({ ...people, ...fromChains, names: [...fromChains.names, ...(people.names || [])] });
+    return roleMatcher({ ...people, ...fromChains, author: people.author || [], names: [...fromChains.names, ...(people.names || [])] });
   }, [people.student, people.shaykh, namesKey, chains]);
   const paragraphs = useMemo(() => bodyToParagraphs(body, matcher), [body, matcher]);
   const numbers = useMemo(() => (detailed ? numberNotes(paragraphs, notes) : new Map()), [detailed, paragraphs, notes]);
@@ -232,10 +232,12 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
       if (!alive || !measureRef.current) return;
       const root = measureRef.current;
       const run = f => { root.style.setProperty('--fit', f); return paginate(root, { paragraphs, numbers, notes, title, ornament: d.frame.ornament, verify }); };
-      let f = 1, out = run(1);
+      // scale: this ijaza's own text size (e.g. 0.95 to save a page); fitting never goes above it
+      const top = Math.min(1.3, Math.max(0.5, Number(scale) || 1));
+      let f = top, out = run(top);
       if (fitOnePage && out.length > 1) {
         // largest text size that still fits on one page (binary search, 7 steps)
-        let lo = 0.55, hi = 1, best = null;
+        let lo = Math.min(0.55, top), hi = top, best = null;
         for (let i = 0; i < 7; i++) {
           const mid = (lo + hi) / 2;
           const p = run(mid);
@@ -247,7 +249,7 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
       onFit?.({ fit: f, pages: out.length });
     }, 120);
     return () => { alive = false; clearTimeout(t); };
-  }, [paragraphs, numbers, notes, title, d, verify, fitOnePage]);
+  }, [paragraphs, numbers, notes, title, d, verify, fitOnePage, scale]);
 
   // tell the parent once the pages (and QR) are laid out, so it can archive them exactly as shown
   const sheetsRef = useRef(null);

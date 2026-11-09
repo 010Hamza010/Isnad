@@ -438,7 +438,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .star { color: var(--faint); }
 .star.on { color: var(--accent); }
 .kw-head.tx-grid, .kw-row.tx-grid { grid-template-columns: 1fr 1.4fr 1fr; }
-.kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: .9fr 1.3fr 1.3fr 1.1fr; }
+.kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: .9fr 1.3fr 1.3fr 1.1fr 1.3fr; }
 @media (max-width: 860px) {
   .kw-head { display: none; }
   .kw-row { grid-template-columns: 1fr 1fr; padding: 12px 18px; border-bottom: 1px solid var(--border); }
@@ -490,6 +490,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .r-shaykh  { color: var(--c-shaykh);  font-weight: var(--names-weight); }
 .r-name    { color: var(--c-names);   font-weight: var(--names-weight); }
 .r-sacred  { color: var(--c-sacred);  font-weight: 700; }
+.r-author  { color: var(--c-author, var(--c-names)); font-weight: var(--names-weight); }
 .r-death   { color: var(--c-death); font-size: .82em; }
 .tahwil { color: var(--c-tahwil, #b42318); font-weight: 700; padding: 0 2px; }
 .cert-flow .ph, .isnad-text .ph { background: #fde7c4; color: #8a4b00; border-radius: 4px; padding: 0 4px; font-family: var(--font); font-size: .8em; }
@@ -525,7 +526,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .designer-group { margin-bottom: 4px; }
 .swatches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-bottom: 8px; }
 .swatch { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-.swatch input[type="color"] { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 6px; background: none; cursor: pointer; flex-shrink: 0; }
+.swatch input[type="color"], .color-input { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 6px; background: none; cursor: pointer; flex-shrink: 0; }
 .swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
 .swatch input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
 .font-row { display: grid; grid-template-columns: 70px 1fr 80px; gap: 8px; align-items: center; margin-bottom: 8px; }
