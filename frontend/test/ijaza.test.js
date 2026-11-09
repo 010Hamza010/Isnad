@@ -172,3 +172,8 @@ test('teacher order: key per matn / riwaya; saved order first, the rest after in
   assert.deepEqual(moveId(people, 2, -1), [30, 10, 20]);
   assert.deepEqual(moveId(people, 0, -1), [30, 20, 10]); // already first
 });
+
+test('a title template keeps its line breaks (long matn names on their own line)', async () => {
+  const { titleFromTemplate } = await import('../src/utils/ijaza.js');
+  assert.equal(titleFromTemplate({ text: 'إجازة في متن  \n «{المتن}»\n' }, 'mutoon', { 'المتن': 'المنظومة' }), 'إجازة في متن\n«المنظومة»');
+});

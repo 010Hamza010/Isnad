@@ -91,12 +91,16 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   useEffect(() => { setOrders(refs.orders || {}); }, [refs.orders]);
   const orderKey = teacherOrderKey(module, { matnId, quranKey });
   const orderIds = (orderKey && orders[orderKey]) || [];
+  // teachers I left out of the teachers paragraph (also saved per matn / riwaya)
+  const hiddenIds = (orderKey && orders[`${orderKey}.hidden`]) || [];
+  const isHidden = id => hiddenIds.some(h => String(h) === String(id));
 
   // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
   const teachersRaw = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
     matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
   }), [module, matnId, quranOpt?.key, refs]);
-  const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds), [teachersRaw, orderIds.join(',')]);
+  const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds).filter(t => !isHidden(t.id)),
+    [teachersRaw, orderIds.join(','), hiddenIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
     { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord },
     { M: settings.teachers_title ?? 'الشيخ', F: settings.teachers_title_f ?? 'الشيخة' });
@@ -128,12 +132,16 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const chosenKey = useDebounced(`${[...chosen].sort().join(',')}|${routeOrder.join(',')}`, 200);
   const chains = useMemo(() => groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i])), [groups, chosenKey]);
 
-  const moveTeacher = (i, dir) => {
-    if (!orderKey) return;
-    const ids = moveId(shuyukh, i, dir);
-    setOrders(o => ({ ...o, [orderKey]: ids }));
+  const saveOrder = (key, ids) => {
+    setOrders(o => ({ ...o, [key]: ids }));
     resetText();
-    api.put(`/ijazat/teacher-orders/${encodeURIComponent(orderKey)}`, { ids }).catch(notifyError);
+    api.put(`/ijazat/teacher-orders/${encodeURIComponent(key)}`, { ids }).catch(notifyError);
+  };
+  const moveTeacher = (i, dir) => { if (orderKey) saveOrder(orderKey, moveId(shuyukh, i, dir)); };
+  const toggleInParagraph = (id, on) => {
+    if (!orderKey) return;
+    const rest = hiddenIds.filter(h => String(h) !== String(id));
+    saveOrder(`${orderKey}.hidden`, on ? rest : [...rest, Number(id)]);
   };
   useEffect(() => {
     if (!chains.length) { setIsnadText(''); setIsnadFull({ text: '', names: [] }); setAuthorNames([]); setNotes({}); return; }
@@ -287,7 +295,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           <div className="field">
             <span className="field-label">شيوخي في هذه الإجازة — رتّبهم</span>
             <span className="field-hint" style={{ marginTop: 0, marginBottom: 6 }}>
-              يُحفظ الترتيب لهذا {module === 'quran' ? 'الطريق' : 'المتن'} ويُستعمل في الإجازات القادمة: في فقرة الشيوخ وفي ترتيب الأسانيد.
+              يُحفظ الترتيب ومن في فقرة الشيوخ لهذا {module === 'quran' ? 'الطريق' : 'المتن'} ويُستعمل في الإجازات القادمة. فقرة الشيوخ تظهر إذا اخترتَ شيخين أو أكثر.
             </span>
             {pathsLoading ? <div className="skeleton" style={{ height: 40 }} /> : (
               <div className="order-list">
@@ -299,7 +307,13 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
                     </div>
                     <div className="spacer">
                       <strong>{p.name}</strong>
-                      {p.reads && <span className="badge" style={{ marginInlineStart: 6 }} title="يُذكر في فقرة الشيوخ">قرأتُ عليه</span>}
+                      {p.reads && <span className="badge" style={{ marginInlineStart: 6 }}>قرأتُ عليه</span>}
+                      {p.reads && (
+                        <label className="check small" style={{ marginTop: 2 }}>
+                          <input type="checkbox" checked={!isHidden(p.id)} onChange={e => toggleInParagraph(p.id, e.target.checked)} />
+                          <span>في فقرة الشيوخ</span>
+                        </label>
+                      )}
                       {p.routes.map(gi => (
                         <label key={gi} className="check small" style={{ marginTop: 2 }}>
                           <input type="checkbox" checked={chosen.has(gi)} onChange={e => setChosen(s => {
@@ -383,9 +397,10 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
 
         {customOpen && (
           <div className="card card-pad">
-            <Field label="العنوان" hint={titleText != null ? undefined : 'من قالب العنوان — اكتب لتغييره لهذه الإجازة فقط'}>
+            <Field label="العنوان" hint={titleText != null ? undefined : 'من قالب العنوان — اكتب لتغييره لهذه الإجازة فقط، واضغط Enter لبدء سطر جديد'}>
               <div className="row">
-                <input className="input" value={title} onChange={e => setTitleText(e.target.value)} />
+                <textarea className="textarea" rows={Math.min(4, title.split('\n').length + 1)} style={{ minHeight: 0, textAlign: 'center' }}
+                  value={title} onChange={e => setTitleText(e.target.value)} />
                 {titleText != null && <button className="btn btn-ghost btn-sm" onClick={() => setTitleText(null)} title="من القالب"><Icon name="reset" size={14} /></button>}
               </div>
             </Field>
