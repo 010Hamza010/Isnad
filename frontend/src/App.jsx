@@ -13,6 +13,7 @@ import QuranIsnads from './pages/quran/QuranIsnads';
 import QuranConnections from './pages/quran/QuranConnections';
 import QuranMasterData from './pages/quran/QuranMasterData';
 import Settings from './pages/shared/Settings';
+import FastEntry from './pages/shared/FastEntry';
 import Profile from './pages/shared/Profile';
 import Ijazat from './pages/ijazat/Ijazat';
 import VerifyIjaza from './pages/ijazat/VerifyIjaza';
@@ -63,6 +64,7 @@ function Layout() {
             <Suspense fallback={<div className="skeleton" style={{ height: 400 }} />}>
             <Routes>
               <Route path="/"                   element={<Home stats={stats} />} />
+              <Route path="/fast-entry"         element={<FastEntry />} />
               <Route path="/mutoon/isnads"      element={<MatnIsnads />} />
               <Route path="/mutoon/connections" element={<MatnConnections />} />
               <Route path="/mutoon/list"        element={<MatnList />} />
