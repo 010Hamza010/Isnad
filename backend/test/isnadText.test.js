@@ -506,20 +506,20 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     assert.equal(t, 'قرأتُ على شيخنا A، وشيخنا B، كلاهما عن C ح وقرأتُ على شيخنا D، عن E، عن C، عن G');
   });
 
-  test('after a long route the next starts a paragraph «وأرويه أيضاً»; short routes keep ح', () => {
+  test('after a long route: «ح» ends the line, the next route starts a paragraph «وأرويه أيضاً»; short routes keep «ح و…»', () => {
     const long = chain(['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'Z'], ['sama']);
     const other = chain(['D', 'E', 'Y']);
     const t = TT.renderChains([long, other], { style: { clear: true, longRestartWords: 15 } });
-    assert.match(t, /\n\nوأرويه أيضاً: قرأتُ على شيخنا D، عن E، عن Y$/);
-    assert.doesNotMatch(t, / ح /);
+    assert.match(t, /، عن Z ح\n\nوأرويه أيضاً: قرأتُ على شيخنا D، عن E، عن Y$/);
+    assert.doesNotMatch(t, / ح و/);
     assert.match(TT.renderChains([chain(['A', 'Z'], ['sama']), other], clear), / ح وقرأتُ على شيخنا D/);
     assert.match(TT.renderChains([long, other], { style: { clear: true, longRestart: '', longRestartWords: 15 } }), / ح وقرأتُ على شيخنا D/);
   });
 
-  test('a long route restarting from a shared beginning: «وأرويه أيضاً بالسند المتقدم إلى فلان»', () => {
+  test('a long route restarting part-way up: «ح ⏎ وأرويه أيضاً عن فلان، …»', () => {
     const head = ['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'H'];
     const t = TT.renderChains([chain([...head, 'X', 'Z']), chain([...head, 'Y', 'W'])], { style: { clear: true, longRestartWords: 5 } });
-    assert.match(t, /\n\nوأرويه أيضاً بالسند المتقدم إلى H، عن Y، عن W$/, t);
+    assert.match(t, /، عن Z ح\n\nوأرويه أيضاً عن H، عن Y، عن W$/, t);
   });
 
   test('both forms are read back by the parser', () => {
@@ -527,7 +527,7 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     assert.deepEqual(r.chains.map(c => c.links.map(l => l.name)), [['محمد', 'زيد', 'عمرو'], ['أحمد', 'زيد', 'عمرو']]);
     assert.equal(r.chains[1].links[0].death_year, '1300هـ');
     assert.equal(r.chains[0].links[1].tx_kind, 'qiraa');
-    const p = TT.parseIsnad('قرأتُ على أ، عن ب\n\nوأرويه أيضاً: قرأتُ على ج، عن ب', null);
+    const p = TT.parseIsnad('قرأتُ على أ، عن ب ح\n\nوأرويه أيضاً: قرأتُ على ج، عن ب', null);
     assert.deepEqual(p.chains.map(c => c.links.map(l => l.name)), [['أ', 'ب'], ['ج', 'ب']]);
     // «، وهو قرأ على» is still a link, not a second name
     assert.deepEqual(TT.parseIsnad('قرأتُ على أ، وهو قرأ على ب', null).chains.map(c => c.links.map(l => l.name)), [['أ', 'ب']]);

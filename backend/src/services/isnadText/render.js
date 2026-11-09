@@ -184,9 +184,9 @@ const MAX_DEPTH = 40; // safety net: never recurse without end, whatever the dat
 const wordCount = t => String(t).replace(/\[\[-?\d+\]\]/g, '').split(/\s+/).filter(Boolean).length;
 
 /*
- * The next branch after `prev`: «ح وعن فلان، …» after a shared beginning, else «ح و…».
- * After a long branch (style.longRestartWords) a new paragraph starts instead, so the reader sees
- * where the new route begins: «وأرويه أيضاً: قرأتُ على …» / «وأرويه أيضاً بالسند المتقدم إلى فلان، وهو …».
+ * The next branch: «ح وعن فلان، …» after a shared beginning, else «ح و…».
+ * After a long branch (style.longRestartWords) «ح» ends the line and the new route starts a paragraph,
+ * so the reader sees where it begins: «… ح ⏎ وأرويه أيضاً: قرأتُ على …» / «… ح ⏎ وأرويه أيضاً عن فلان، وهو …».
  */
 // prevWords: length of the route the reader has just read (since the last restart)
 function restartWith(t, s, scope, ctx, prevWords = 0) {
@@ -194,9 +194,10 @@ function restartWith(t, s, scope, ctx, prevWords = 0) {
   const body = also ? t.slice(ALSO_MARK.length) : t;
   const long = s.style.longRestart && s.style.longRestartWords > 0 && prevWords >= s.style.longRestartWords;
   if (long) {
-    if (also) return `\n\nو${body}`;                       // «وقرأ شيخنا فلان أيضاً على …» says it already
-    if (scope.restart) return `\n\n${s.style.longRestart} بالسند المتقدم إلى ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`;
-    return `\n\n${s.style.longRestart}: ${body}`;
+    const br = `${s.style.tahwil}\n\n`;
+    if (also) return `${br}و${body}`;                       // «وقرأ شيخنا فلان أيضاً على …» says it already
+    if (scope.restart) return `${br}${s.style.longRestart} عن ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`;
+    return `${br}${s.style.longRestart}: ${body}`;
   }
   return scope.restart
     ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`

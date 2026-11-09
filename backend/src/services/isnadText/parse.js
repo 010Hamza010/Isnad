@@ -146,9 +146,9 @@ function prepare(text, s) {
   const deaths = [];
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   let src = String(text ?? '');
-  // a new paragraph «وأرويه أيضاً: …» is a تحويل; «… بالسند المتقدم إلى فلان» restarts from فلان («وعن فلان»)
+  // «ح ⏎ وأرويه أيضاً: …» / «وأرويه أيضاً عن فلان، …» start a new route like «ح و…» (a doubled ح is harmless)
   if (s.style.longRestart) src = src.replace(new RegExp(`(^|\\n)\\s*${esc(s.style.longRestart)}\\s*:?`, 'g'), ` ${s.style.tahwil} `);
-  src = src.replace(/بالسند المتقدم إلى/g, 'عن').replace(/،\s*(?=و\S)/g, ` ${AND_TOKEN} `);
+  src = src.replace(/،\s*(?=و\S)/g, ` ${AND_TOKEN} `);
   const out = src
     .replace(/\[\[-?\d+\]\]/g, ' ')
     .replace(/\(([^()]*)\)/g, (_, inner) => {
