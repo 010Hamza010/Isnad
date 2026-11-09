@@ -32,3 +32,9 @@ test('controller: saves under its own settings key for the user', async () => {
   assert.deepEqual((await c.getTeacherOrders({ user: { id: 5 } }, res())).orders, {});
   await assert.rejects(c.setTeacherOrder({ user: { id: 4 }, params: { key: 'bad' }, body: { ids: [] } }, res()), e => e.status === 400);
 });
+
+test('«<key>.hidden» holds the teachers left out of the teachers paragraph', () => {
+  assert.deepEqual(validateOrder('m:52.hidden', [4]), [4]);
+  assert.deepEqual(validateOrder('q:q1-r2-tnull.hidden', []), []);
+  assert.throws(() => validateOrder('m:52.other', [4]), e => e.status === 400);
+});
