@@ -241,6 +241,36 @@ function renderTogether(firsts, s, ctx) {
   return lead.replace(NAME_SLOT, mode ? `${names} ${mode}` : names);
 }
 
+/*
+ * A shaykh (not me) who took from several shaykhs, all of whom took from one person:
+ *   same way:       «وهو قرأ على B، وعلى C» / «عن B، وعن C»
+ *   different ways: «وهو قرأ على B، وسمع من C» — each with its own verb
+ * (followed by «كلاهما … D» from meetText). firsts: the links from that shaykh, in order.
+ */
+function renderSiblings(firsts, s, ctx) {
+  firsts.forEach(e => ctx.written.add(linkKey(e)));
+  const same = new Set(firsts.map(sameWay)).size === 1;
+  const lastWord = t => String(t).trim().split(/\s+/).pop() || '';
+  let tail = '';
+  const parts = firsts.map((e, i) => {
+    const genders = { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) };
+    const mode = { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
+    const phrase = phraseFor(e, false, s);
+    const [pre, post = ''] = phrase ? applyGender(phrase, genders).split(NAME_SLOT) : [keywordFor(edgeKind(e), s), ''];
+    const who = `${personLabel(toP(e), s, ctx, caseAfter(pre))}${mode ? ` ${mode}` : ''}`;
+    const prep = caseAfter(pre) === 'gen' ? lastWord(pre) : '';     // على / من / عن
+    if (i === 0) {
+      if (same) tail = post.trim();                                // «… وهو يسمع» once, after the last name
+      return `${pre.trim()} ${who}${same ? '' : post}`.trim();
+    }
+    if (same) return prep ? `و${prep} ${who}` : `و${who}`;
+    // its own verb without repeating the subject: «وهو سمع من» → «وسمع من»
+    const verb = pre.trim().replace(/^(?:وهو|وهي)\s+/, '');
+    return `${verb.startsWith('و') ? verb : `و${verb}`} ${who}${post}`.trim();
+  });
+  return `${parts.join(s.style.separator)}${tail ? ` ${tail}` : ''}`;
+}
+
 // chains (sliced to end at the meeting person) whose only link before it is mine, bucketed by how I took:
 // a bucket of two or more is written together, without ح
 const sameWay = e => `${txKey(edgeKind(e))}|${e.reading_mode || ''}`;
@@ -283,12 +313,20 @@ function renderSet(chains, s, ctx, scope) {
   const narrators = new Map(k ? live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]) : []);
   const tailAfter = () => renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false });
 
-  // I took from each of my teachers the same way and they all meet: «قرأتُ على A، وB، كلاهما قرأ على X» — no ح
-  if (narrators.size > 1 && scope.opening) {
+  if (narrators.size > 1) {
     const toMeet = live.map(c => c.slice(0, c.length - k + 1));
-    const [bucket] = togetherBuckets(toMeet, ctx);
-    if (bucket && bucket.length === live.length) {
-      return [renderTogether(bucket.map(c => c[0]), s, ctx), meetText(bucket.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
+    const from = String(toMeet[0][0].from_person_id);
+    const siblings = toMeet.every(c => c.length === 2 && String(c[0].from_person_id) === from && !ctx.written.has(linkKey(c[0])));
+    // I took from each of my teachers the same way and they all meet: «قرأتُ على A، وB، كلاهما قرأ على X» — no ح
+    if (siblings && isMe(from)) {
+      const [bucket] = togetherBuckets(toMeet, ctx);
+      if (bucket && bucket.length === live.length) {
+        return [renderTogether(bucket.map(c => c[0]), s, ctx), meetText(bucket.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
+      }
+    }
+    // a shaykh's own teachers who all meet: «… عن A، عن B، وعن C، كلاهما عن D» — no ح
+    if (siblings && !isMe(from)) {
+      return [renderSiblings(toMeet.map(c => c[0]), s, ctx), meetText(toMeet.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
     }
   }
 

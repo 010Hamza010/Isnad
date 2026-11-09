@@ -345,7 +345,8 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
     const t = T.renderChains([A, B, C, D], st);
     assert.equal(t,
       'أخبرنا عمار، وزياد، كلاهما عن وهب، عن سهل، عن عبد الكريم'
-      + ' ح وأخبرنا هند، عن عبد الملك، عن ابن الوليد، عن الأنصاري ح وعن ابن الوليد، عن الخزرجي، كلاهما عن البصري، عن ابن عطية'
+      // ابن الوليد took from الأنصاري and الخزرجي, both from البصري: «عن الأنصاري، وعن الخزرجي، كلاهما عن البصري», no ح
+      + ' ح وأخبرنا هند، عن عبد الملك، عن ابن الوليد، عن الأنصاري، وعن الخزرجي، كلاهما عن البصري، عن ابن عطية'
       + '، كلاهما عن ابن قاسم، عن ابن سالم');
     for (const name of ['وهب', 'سهل', 'عبد الملك', 'البصري', 'ابن قاسم']) assert.equal(t.split(name).length - 1, 1, name);
   });
@@ -538,5 +539,55 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     assert.deepEqual(q.chains.map(c => c.links.map(l => l.name)), [['أ', 'ب', 'ج'], ['ب', 'د']]); // one level, as «ح وعن ب»
     // «، وهو قرأ على» is still a link, not a second name
     assert.deepEqual(TT.parseIsnad('قرأتُ على أ، وهو قرأ على ب', null).chains.map(c => c.links.map(l => l.name)), [['أ', 'ب']]);
+  });
+});
+
+describe('a shaykh\'s own teachers who meet again: «عن B، وعن C، كلاهما عن D» without ح', () => {
+  let ids = {}, next = 900;
+  const id = name => (ids[name] ??= next++);
+  const chain = (names, kinds = []) => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, from_name: '', to_person_id: id(nm), to_name: nm, tx_kind: kinds[i] ?? null }; prev = e.to_person_id; return e; });
+  };
+  const clear = { style: { clear: true } };
+  const Q = ['qiraa', 'qiraa', 'qiraa', 'qiraa'];
+
+  test('same way: «وهو قرأ على B، وعلى C، كلاهما قرأ على D»', () => {
+    assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D', 'G'], Q), chain(['Z', 'A', 'C', 'D', 'G'], Q)], clear),
+      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وعلى C، كلاهما قرأ على D، عن G');
+  });
+
+  test('keyword mode: «عن B، وعن C، كلاهما عن D»', () => {
+    assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D']), chain(['Z', 'A', 'C', 'D'])], { style: { firstTitle: '' } }),
+      'عن Z، عن A، عن B، وعن C، كلاهما عن D');
+  });
+
+  test('different ways: each its own verb; D taken differently: «كلاهما عن D»', () => {
+    assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'D'], ['qiraa', 'qiraa', 'sama', 'qiraa'])], clear),
+      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وسمع من C، كلاهما قرأ على D');
+    assert.match(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'D'], ['qiraa', 'qiraa', 'qiraa', 'sama'])], clear),
+      /وهو قرأ على B، وعلى C، كلاهما عن D$/);
+  });
+
+  test('a woman narrator: «وهي قرأت على B، وسمعت من C»', () => {
+    const f = c => c.map(e => (e.from_person_id === id('A') ? { ...e, from_gender: 'F' } : e));
+    assert.match(TT.renderChains([f(chain(['Z', 'A', 'B', 'D'], Q)), f(chain(['Z', 'A', 'C', 'D'], ['qiraa', 'qiraa', 'sama', 'qiraa']))], clear),
+      /وهي قرأت على B، وسمعت من C، كلاهما قرأ على D$/);
+  });
+
+  test('one of them reaches D through someone else: stays a ح route', () => {
+    assert.match(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'E', 'D'], Q)], clear), / ح /);
+  });
+
+  test('read back by the parser: two chains', () => {
+    const r = TT.parseIsnad('قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وعلى C، كلاهما قرأ على D', null);
+    assert.deepEqual(r.chains.map(c => c.links.map(l => l.name)), [['Z', 'A', 'B', 'D'], ['Z', 'A', 'C', 'D']]);
+    const v = TT.parseIsnad('قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وسمع من C، كلاهما قرأ على D', null);
+    assert.deepEqual(v.chains.map(c => c.links.map(l => `${l.name}:${l.tx_kind}`)),
+      [['Z:qiraa', 'A:qiraa', 'B:qiraa', 'D:qiraa'], ['Z:qiraa', 'A:qiraa', 'C:sama', 'D:qiraa']]);
+    const k = TT.parseIsnad('عن Z، عن A، عن B، وعن C، كلاهما عن D', null);
+    assert.deepEqual(k.chains.map(c => c.links.map(l => l.name)), [['Z', 'A', 'B', 'D'], ['Z', 'A', 'C', 'D']]);
+    // «، وأجاز لي بكر» stays the next link
+    assert.deepEqual(TT.parseIsnad('أخبرنا عمرو، وأجاز لي بكر', null).chains.map(c => c.links.map(l => l.name)), [['عمرو', 'بكر']]);
   });
 });

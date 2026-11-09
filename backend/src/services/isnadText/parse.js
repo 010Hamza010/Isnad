@@ -6,6 +6,7 @@ const { normalizeArabic, keyOf, tokenize } = require('./normalize');
 const JOINERS = new Set(['كلاهما', 'كلهما', 'كلهم', 'جميعا', 'كلاهم', 'كلتاهما', 'كلتيهما', 'كلهن'].map(normalizeArabic));
 const CONJ = /^[وف]/; // وأخبرنا، فحدثنا
 const AND_TOKEN = '⟨AND⟩'; // stands for «، و» in the text (see prepare / parseSegment)
+const PREPOSITIONS = new Set(['على', 'من', 'عن', 'الى']);
 
 const phrase = s => tokenize(s).map(t => t.norm);
 const keys = s => tokenize(s).map(t => t.key);       // strict form for keywords / manners
@@ -44,7 +45,8 @@ function buildMatcher(s) {
         const t = tokens[i + j].key;
         return t === w || (j === 0 && CONJ.test(t) && t.slice(1) === w);
       });
-      if (ok) return { keyword, length: seq.length };
+      // conj: the first word carried a و/ف prefix («وعن», «وسمع من»)
+      if (ok) return { keyword, length: seq.length, conj: tokens[i].key !== seq[0], form: seq.join(' ') };
     }
     return null;
   };
@@ -84,16 +86,26 @@ function parseSegment(tokens, s, match, warnings, ctx) {
       if (cur) cur.death_year = year; else startDeath = year;
       i++; continue;
     }
-    // «قرأتُ على شيخنا A، وشيخنا B» — «، و» before a name (not «، وهو قرأ…» nor «، وعن…»): a second
-    // person in the same link; each one becomes its own chain
+    // «، و…» right after a name may add another shaykh at the same level (each becomes its own chain):
+    //   «قرأتُ على شيخنا A، وشيخنا B»  «وهو قرأ على B، وعلى C»  «عن B، وعن C»  «وهو قرأ على B، وسمع من C»
+    // but «، وهو قرأ على…» (a full sentence) and «، وأنا أسمع» (a sentence ending) are the next link / an ending.
     if (tokens[i].raw === AND_TOKEN) {
       const next = tokens[i + 1];
-      if (cur && cur.words.length && next && /^و./.test(next.raw) && !match(tokens, i + 1) && !ctx.suffixAt(tokens, i + 1)
-          && !JOINERS.has(next.norm)) {
-        cur.alts.push({ words: cur.words, death_year: cur.death_year });
-        cur.words = []; cur.death_year = undefined;
-        const raw = next.raw.slice(1);
-        tokens[i + 1] = { raw, norm: normalizeArabic(raw), key: keyOf(raw) };
+      if (cur && cur.words.length && next && /^و./.test(next.raw) && !ctx.suffixAt(tokens, i + 1) && !JOINERS.has(next.norm)) {
+        const m = match(tokens, i + 1);
+        const prepOnly = PREPOSITIONS.has(keyOf(next.raw.slice(1)));
+        const ownVerb = m && m.conj && (m.form === 'عن' || ctx.siblingForms.has(m.form));
+        if (!m || ownVerb || prepOnly) {
+          cur.alts.push({ words: cur.words, death_year: cur.death_year, keyword: cur.keyword, tx_kind: cur.tx_kind, reading_mode: cur.reading_mode });
+          cur.words = []; cur.death_year = undefined; cur.reading_mode = undefined;
+          if (ownVerb && !prepOnly) {              // its own verb / keyword
+            cur.keyword = m.keyword.word; cur.tx_kind = m.keyword.kind ?? null;
+            i += 1 + m.length; continue;
+          }
+          if (prepOnly) { i += 2; continue; }      // «وعلى C»: same way as the previous one
+          const raw = next.raw.slice(1);            // «وشيخنا B»
+          tokens[i + 1] = { raw, norm: normalizeArabic(raw), key: keyOf(raw) };
+        }
       }
       i++; continue;
     }
@@ -121,7 +133,10 @@ function parseSegment(tokens, s, match, warnings, ctx) {
   const named = links
     .map(l => ({
       keyword: l.keyword, tx_kind: l.tx_kind, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null,
-      ...(l.alts.length ? { alternatives: [...l.alts.map(a => ({ name: cleanName(a.words, s.titles), death_year: a.death_year || null })), null] } : {}),
+      ...(l.alts.length ? { alternatives: [...l.alts.map(a => ({
+        name: cleanName(a.words, s.titles), death_year: a.death_year || null,
+        keyword: a.keyword, tx_kind: a.tx_kind, reading_mode: a.reading_mode || null,
+      })), null] } : {}),
     }))
     .filter(l => {
       if (l.name) return true;
@@ -180,7 +195,7 @@ function expandAlternatives(seg) {
   const { alternatives, ...link } = seg.links[i];
   return alternatives.flatMap(alt => expandAlternatives({
     ...seg,
-    links: seg.links.map((l, j) => (j !== i ? l : alt ? { ...link, name: alt.name, death_year: alt.death_year } : link)),
+    links: seg.links.map((l, j) => (j !== i ? l : alt ? { ...link, ...alt } : link)),
   }));
 }
 
@@ -189,7 +204,10 @@ function parseIsnad(text, settings) {
   const match = buildMatcher(s);
   const warnings = [];
   const prepared = prepare(text, s);
-  const ctx = { deaths: prepared.deaths, suffixAt: buildSuffixMatcher(s) };
+  // the verbs written for a second teacher with its own way: «وهو سمع من {الاسم}» → «، وسمع من C»
+  const siblingForms = new Set(phraseParts(s).map(p => keys(p.prefix))
+    .filter(seq => seq.length > 1 && ['وهو', 'وهي'].includes(seq[0])).map(seq => seq.slice(1).join(' ')));
+  const ctx = { deaths: prepared.deaths, suffixAt: buildSuffixMatcher(s), siblingForms };
   const tokens = stripPhrases(tokenize(prepared.text), s.honorifics);
   const tahwil = normalizeArabic(s.style.tahwil);
 
