@@ -145,3 +145,30 @@ test('title style overrides only what is set', async () => {
   assert.equal(s.colors.text, '#000000');
   assert.equal(d.colors.title, '#111111'); // not mutated
 });
+
+test('teacher order: key per matn / riwaya; saved order first, the rest after in their own order', async () => {
+  const { teacherOrderKey, sortByOrder, orderablePeople, moveId } = await import('../src/utils/ijaza.js');
+  assert.equal(teacherOrderKey('mutoon', { matnId: 52 }), 'm:52');
+  assert.equal(teacherOrderKey('quran', { quranKey: 'q1-r2-tnull' }), 'q:q1-r2-tnull');
+  assert.equal(teacherOrderKey('mutoon', {}), null);
+  assert.equal(teacherOrderKey('general', { matnId: 1 }), null);
+
+  const items = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+  assert.deepEqual(sortByOrder(items, [3, '1']).map(x => x.id), [3, 1, 2, 4]);
+  assert.deepEqual(sortByOrder(items, [9]).map(x => x.id), [1, 2, 3, 4]); // unknown ids are ignored
+
+  const groups = [
+    { firstEdge: { to_person_id: 10, to_name: 'أ' } },
+    { firstEdge: { to_person_id: 20, to_name: 'ب' } },
+    { firstEdge: { to_person_id: 10, to_name: 'أ' } },
+  ];
+  const teachers = [{ id: 20, name: 'ب' }, { id: 30, name: 'ج' }]; // ج: read on him, but no connected route
+  const people = orderablePeople(groups, teachers, [30, 20]);
+  assert.deepEqual(people, [
+    { id: 30, name: 'ج', routes: [], reads: true },
+    { id: 20, name: 'ب', routes: [1], reads: true },
+    { id: 10, name: 'أ', routes: [0, 2], reads: false },
+  ]);
+  assert.deepEqual(moveId(people, 2, -1), [30, 10, 20]);
+  assert.deepEqual(moveId(people, 0, -1), [30, 20, 10]); // already first
+});

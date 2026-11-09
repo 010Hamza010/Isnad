@@ -9,7 +9,7 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, teachersParagraph } from '../../utils/ijaza';
+import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
 import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
@@ -35,13 +35,13 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const c0 = correction;
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
-    const [m, c, q, r, t, tx, mc, is] = await Promise.all([
+    const [m, c, q, r, t, tx, mc, is, to] = await Promise.all([
       api.get('/mutoon?connected=1'), api.get('/quran-connections'),
       api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/tx-types'),
-      api.get('/matn-connections'), api.get('/isnad-text/settings'),
+      api.get('/matn-connections'), api.get('/isnad-text/settings'), api.get('/ijazat/teacher-orders'),
     ]);
-    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style };
-  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {} });
+    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style, orders: to.data.orders || {} };
+  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {}, orders: {} });
 
   const [module, setModule]   = useState(c0?.module || 'mutoon');
   // every ijaza is issued in two versions; this only picks which one the preview shows
@@ -85,10 +85,18 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const quranOpt = qOpts.flatMap(([, o]) => o).find(o => o.key === quranKey);
   const matn = refs.mutoon.find(m => String(m.id) === String(matnId));
 
+  // my teachers' order for this matn / riwaya (saved, reused by later ijazat): the teachers paragraph
+  // and the routes of the isnad follow it
+  const [orders, setOrders] = useState({});
+  useEffect(() => { setOrders(refs.orders || {}); }, [refs.orders]);
+  const orderKey = teacherOrderKey(module, { matnId, quranKey });
+  const orderIds = (orderKey && orders[orderKey]) || [];
+
   // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
-  const teachers = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
+  const teachersRaw = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
     matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
   }), [module, matnId, quranOpt?.key, refs]);
+  const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds), [teachersRaw, orderIds.join(',')]);
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
     { heart: refs.isnadStyle.heartWord, looking: refs.isnadStyle.lookingWord },
     { M: settings.teachers_title ?? 'الشيخ', F: settings.teachers_title_f ?? 'الشيخة' });
@@ -115,8 +123,18 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   }, [module, matnId, quranKey]);
 
   // render the chosen chains to prose with the user's keyword settings + this ijaza's style
-  const chosenKey = useDebounced([...chosen].sort().join(','), 200);
-  const chains = useMemo(() => groupsToChains(groups.filter((_, i) => chosen.has(i))), [groups, chosenKey]);
+  const shuyukh = useMemo(() => orderablePeople(groups, teachersRaw, orderIds), [groups, teachersRaw, orderIds.join(',')]);
+  const routeOrder = shuyukh.flatMap(p => p.routes);               // group indices in my order
+  const chosenKey = useDebounced(`${[...chosen].sort().join(',')}|${routeOrder.join(',')}`, 200);
+  const chains = useMemo(() => groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i])), [groups, chosenKey]);
+
+  const moveTeacher = (i, dir) => {
+    if (!orderKey) return;
+    const ids = moveId(shuyukh, i, dir);
+    setOrders(o => ({ ...o, [orderKey]: ids }));
+    resetText();
+    api.put(`/ijazat/teacher-orders/${encodeURIComponent(orderKey)}`, { ids }).catch(notifyError);
+  };
   useEffect(() => {
     if (!chains.length) { setIsnadText(''); setIsnadFull({ text: '', names: [] }); setAuthorNames([]); setNotes({}); return; }
     let alive = true;
@@ -265,18 +283,34 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           </Field>
         )}
 
-        {module !== 'general' && (groups.length > 0 || pathsLoading) && (
+        {module !== 'general' && (shuyukh.length > 0 || pathsLoading) && (
           <div className="field">
-            <span className="field-label">الأسانيد المضمّنة</span>
+            <span className="field-label">شيوخي في هذه الإجازة — رتّبهم</span>
+            <span className="field-hint" style={{ marginTop: 0, marginBottom: 6 }}>
+              يُحفظ الترتيب لهذا {module === 'quran' ? 'الطريق' : 'المتن'} ويُستعمل في الإجازات القادمة: في فقرة الشيوخ وفي ترتيب الأسانيد.
+            </span>
             {pathsLoading ? <div className="skeleton" style={{ height: 40 }} /> : (
-              <div className="check-list">
-                {groups.map((g, i) => (
-                  <label key={i} className="check">
-                    <input type="checkbox" checked={chosen.has(i)} onChange={e => setChosen(s => {
-                      const n = new Set(s); if (e.target.checked) n.add(i); else n.delete(i); return n;
-                    })} />
-                    <span>من طريق <strong>{g.firstEdge.to_name}</strong>{g.chains.length > 1 && <span className="muted small"> · {g.chains.length} طرق</span>}</span>
-                  </label>
+              <div className="order-list">
+                {shuyukh.map((p, i) => (
+                  <div key={p.id} className="order-row">
+                    <div className="order-btns">
+                      <button type="button" className="icon-btn" disabled={i === 0} onClick={() => moveTeacher(i, -1)} aria-label="أعلى" title="أعلى">▲</button>
+                      <button type="button" className="icon-btn" disabled={i === shuyukh.length - 1} onClick={() => moveTeacher(i, 1)} aria-label="أسفل" title="أسفل">▼</button>
+                    </div>
+                    <div className="spacer">
+                      <strong>{p.name}</strong>
+                      {p.reads && <span className="badge" style={{ marginInlineStart: 6 }} title="يُذكر في فقرة الشيوخ">قرأتُ عليه</span>}
+                      {p.routes.map(gi => (
+                        <label key={gi} className="check small" style={{ marginTop: 2 }}>
+                          <input type="checkbox" checked={chosen.has(gi)} onChange={e => setChosen(s => {
+                            const n = new Set(s); if (e.target.checked) n.add(gi); else n.delete(gi); return n;
+                          })} />
+                          <span>في الإسناد{groups[gi].chains.length > 1 && <span className="muted"> · {groups[gi].chains.length} طرق</span>}</span>
+                        </label>
+                      ))}
+                      {!p.routes.length && <div className="tiny muted">لا سند متصل من طريقه</div>}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
