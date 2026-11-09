@@ -7,4 +7,5 @@ r.put('/settings',    auth, w(c.saveSettings));
 r.delete('/settings', auth, w(c.resetSettings));
 r.post('/render',     auth, w(c.render));
 r.post('/parse',      auth, w(c.parse));
+r.post('/import',     auth, w(c.import));
 module.exports = r;

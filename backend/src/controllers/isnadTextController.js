@@ -2,6 +2,8 @@ const Settings = require('../models/SettingsModel');
 const Person   = require('../models/PersonModel');
 const TxType   = require('../models/TxTypeModel');
 const T        = require('../services/isnadText');
+const Import   = require('../models/ImportModel');
+const { planImport, ImportError } = require('../services/isnadImport');
 const { HttpError } = require('../utils/httpError');
 
 const KEY = 'isnad_text';
@@ -63,4 +65,19 @@ exports.parse = async (req, res) => {
     warnings: parsed.warnings,
     rendered: T.renderChains(chains.map(c => T.toEdges({ ...c, start: c.start?.name ?? null, start_death_year: c.start?.death_year })), s),
   });
+};
+
+// body: { target: 'matn'|'quran', matn_id?, items?: [{ qiraa_id, riwaya_id, tariq_id }], chains, dry_run? }
+// chains are the reviewed parse output (see services/isnadImport). dry_run returns the plan without writing.
+exports.import = async (req, res) => {
+  const { target = 'matn', matn_id = null, items = [], chains, dry_run } = req.body || {};
+  if (!['matn', 'quran'].includes(target)) throw new HttpError(400, 'Invalid target');
+  if (!Array.isArray(items)) throw new HttpError(400, 'Invalid items');
+  const opts = { target, matn_id, items, userId: req.user.id };
+  const [types, existing] = await Promise.all([TxType.findAll(), Import.existingPairs(opts)]);
+  let plan;
+  try { plan = planImport(chains, { types, target, existing }); }
+  catch (e) { if (e instanceof ImportError) throw new HttpError(400, e.message); throw e; }
+  if (dry_run) return res.json({ plan });
+  return res.json({ plan, result: await Import.apply(plan, opts) });
 };
