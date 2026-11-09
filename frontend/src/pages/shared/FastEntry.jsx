@@ -42,7 +42,7 @@ export default function FastEntry() {
 
   const left = review ? unresolved(review) : [];
   const scope = () => ({
-    target,
+    target: target === 'quran' ? 'quran' : 'matn',               // 'general' = matn connections valid for every matn
     matn_id: target === 'matn' ? Number(matnId) || null : null,
     items: target === 'quran' && (item.qiraa_id || item.riwaya_id || item.tariq_id)
       ? [{ qiraa_id: item.qiraa_id || null, riwaya_id: item.riwaya_id || null, tariq_id: item.tariq_id || null }] : [],
@@ -102,10 +102,12 @@ export default function FastEntry() {
       <section className="card">
         <div className="card-head">
           <div className="card-title spacer">١. الصق الإسناد</div>
-          <Segmented value={target} onChange={setTarget} options={[{ value: 'matn', label: 'متن' }, { value: 'quran', label: 'قرآن' }]} />
+          <Segmented value={target} onChange={setTarget} options={[{ value: 'matn', label: 'متن' }, { value: 'general', label: 'عام — لكل المتون' }, { value: 'quran', label: 'قرآن' }]} />
         </div>
         <div className="card-pad">
-          {target === 'matn' ? (
+          {target === 'general' ? (
+            <div className="callout" style={{ marginBottom: 12 }}>تُحفظ الاتصالات بلا متن، فتصلح لكل المتون.</div>
+          ) : target === 'matn' ? (
             <Field label="المتن" required>
               <Combobox value={matnId} onChange={v => setMatnId(v ?? '')} opts={rowOptions(mutoon, 'title')} placeholder="اختر المتن…" />
             </Field>
