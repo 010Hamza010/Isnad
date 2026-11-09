@@ -479,8 +479,8 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .cert-inner { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
 .cert-head { text-align: center; padding-bottom: calc(5mm * var(--fit, 1)); }
 .cert-ornament { color: var(--c-ornament); font-size: calc(var(--s-title) * .55 * var(--fit, 1)); letter-spacing: .3em; line-height: 1.6; }
-.cert-title { font-family: var(--f-title); font-size: calc(var(--s-title) * var(--fit, 1)); color: var(--c-title); font-weight: 700; line-height: 1.5; }
-.cert-sub { font-family: var(--f-body); font-size: calc(var(--s-body) * var(--fit, 1)); color: var(--c-death); }
+.cert-title { font-family: var(--f-title); font-size: calc(var(--s-title) * var(--fit, 1)); color: var(--c-title); font-weight: 700; line-height: 1.5; white-space: pre-line; }
+.cert-sub { font-family: var(--f-body); font-size: calc(var(--s-body) * var(--fit, 1)); color: var(--c-death); white-space: pre-line; }
 .cert-flow { display: flow-root; font-family: var(--f-body); font-size: calc(var(--s-body) * var(--fit, 1)); line-height: 2.05; text-align: justify; }
 .cert-flow p { margin: 0; padding-bottom: .55em; }
 .cert-flow p.p-first { text-align: center; }

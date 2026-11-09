@@ -56,9 +56,9 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
           ]} />
         </div>
         <div className="card-pad">
-          <Field label="العنوان" hint="كيف تُكتب «إجازة» في رأس الصفحة لهذا النوع. يمكن تغييره أيضاً لكل إجازة على حدة.">
-            <input className="input" value={title.text} onChange={e => setTitle({ text: e.target.value })}
-              style={{ fontFamily: `"${title.family || defaultDesign.fonts.title.family}"`, color: title.color || defaultDesign.colors.title, fontSize: 20 }} />
+          <Field label="العنوان" hint="كيف تُكتب «إجازة» في رأس الصفحة لهذا النوع — اضغط Enter لبدء سطر جديد. يمكن تغييره أيضاً لكل إجازة على حدة.">
+            <textarea className="textarea" rows={2} style={{ minHeight: 0 }} value={title.text} onChange={e => setTitle({ text: e.target.value })}
+              style={{ fontFamily: `"${title.family || defaultDesign.fonts.title.family}"`, color: title.color || defaultDesign.colors.title, fontSize: 20, textAlign: 'center', minHeight: 0 }} />
           </Field>
           <div className="ph-chips" style={{ marginBottom: 10 }}>
             {(which === 'general' ? TITLE_PLACEHOLDERS.filter(p => p.key === 'الطالب') : TITLE_PLACEHOLDERS).map(p => (

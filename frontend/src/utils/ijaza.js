@@ -155,7 +155,8 @@ export function titleFromTemplate(tpl, module, values) {
   const fallback = ijazaTitle(module, { matn: values['المتن'], reading: values['القراءة_والرواية'] });
   if (!tpl?.text) return fallback;
   const f = fillTemplate(tpl.text, values, { optional: ['القراءة_والرواية'] });
-  return f.missing.length ? fallback : f.text.replace(/\s+/g, ' ').trim();
+  // line breaks are kept (a long matn name on its own line); spaces inside a line are tidied
+  return f.missing.length ? fallback : f.text.split('\n').map(l => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n');
 }
 
 /** A design with the title's own colour / font / size applied (empty values keep the design's). */
