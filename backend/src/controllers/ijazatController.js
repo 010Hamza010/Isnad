@@ -29,6 +29,17 @@ exports.saveSettings = async (req, res) => {
   res.json({ settings: withProfile(settings, await profileOf(req.user.id)) });
 };
 
+// my teachers' order per matn / riwaya (teachers paragraph + order of the routes)
+const ORDERS_KEY = 'ijaza_teacher_orders';
+const TO = require('../services/ijaza/teacherOrders');
+exports.getTeacherOrders = async (req, res) => res.json({ orders: (await Settings.get(req.user.id, ORDERS_KEY)) || {} });
+exports.setTeacherOrder = async (req, res) => {
+  const ids = TO.validateOrder(req.params.key, req.body?.ids);
+  const orders = TO.setOrder(await Settings.get(req.user.id, ORDERS_KEY), req.params.key, ids);
+  await Settings.set(req.user.id, ORDERS_KEY, orders);
+  return res.json({ orders });
+};
+
 exports.resetSettings = async (req, res) => {
   await Settings.remove(req.user.id, KEY);
   res.json({ settings: withProfile(IS.mergeSettings(null), await profileOf(req.user.id)) });
