@@ -485,7 +485,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .cert-flow p { margin: 0; padding-bottom: .55em; }
 .cert-flow p.p-first { text-align: center; }
 .cert-flow p.p-last { text-align: left; padding-top: .9em; }
-.cert-flow p.split-next { text-align-last: justify; padding-bottom: 0; }
+.cert-flow p.split-next { padding-bottom: 0; } /* last line before a page break stays natural, never stretched */
 .r-student { color: var(--c-student); font-weight: var(--names-weight); }
 .r-shaykh  { color: var(--c-shaykh);  font-weight: var(--names-weight); }
 .r-name    { color: var(--c-names);   font-weight: var(--names-weight); }
