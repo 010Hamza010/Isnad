@@ -3,7 +3,7 @@
  * Atoms are the smallest units a page may break between; a name is never split.
  *   { type: 'word', text }            plain word
  * Every atom also has `space`: true when followed by whitespace.
- *   { type: 'role', role, text }      student | shaykh | name | sacred | death
+ *   { type: 'role', role, text }      student | shaykh | author | name | sacred | death
  *   { type: 'tahwil' }                «ح»
  *   { type: 'note', id }              footnote reference [[id]] (attached to the previous atom)
  *   { type: 'placeholder', text }     unfilled {key}
@@ -11,13 +11,14 @@
 
 const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Build the role matcher once per certificate. names: { student, shaykh, names[], sacred[] } */
-export function roleMatcher({ student, shaykh, names = [], sacred = [] } = {}) {
+/** Build the role matcher once per certificate. names: { student, shaykh, author[], names[], sacred[] } */
+export function roleMatcher({ student, shaykh, author = [], names = [], sacred = [] } = {}) {
   const entries = [];
   const add = (text, role) => { const t = String(text ?? '').trim(); if (t.length > 1) entries.push({ text: t, role }); };
   add(student, 'student');
   add(shaykh, 'shaykh');
   sacred.forEach(n => add(n, 'sacred'));
+  author.forEach(n => add(n, 'author')); // «المؤلف فلان» and the author's name wherever it appears
   names.forEach(n => add(n, 'name'));
   // longest first so «محمد بن جعفر الكتاني» wins over «جعفر الكتاني»; first role wins on duplicates
   const byText = new Map();

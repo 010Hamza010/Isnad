@@ -9,7 +9,8 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, ijazaTitle, PLACEHOLDERS, readingTeachers, teachersParagraph } from '../../utils/ijaza';
+import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, teachersParagraph } from '../../utils/ijaza';
+import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
 import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
 
@@ -30,7 +31,7 @@ const MODULES = [
  * correction: an issued ijaza being corrected — the form starts from its data, and saving issues a
  * new ijaza that replaces it (the old one is revoked and linked, never edited).
  */
-export default function NewIjaza({ settings, profile = {}, onSaved, onEditTemplates, correction = null, onCancelCorrection }) {
+export default function NewIjaza({ settings, options, profile = {}, onSaved, onEditTemplates, correction = null, onCancelCorrection }) {
   const c0 = correction;
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
@@ -46,6 +47,7 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   // every ijaza is issued in two versions; this only picks which one the preview shows
   const [preview, setPreview] = useState('normal');
   const [fitInfo, setFitInfo] = useState(null);  // { fit, pages } of the normal version
+  const [pages, setPages] = useState({ normal: 0, detailed: 0 }); // page count of each version's preview
   const [clearWords, setClearWords] = useState(true);
   const [deathYears, setDeathYears] = useState(true);
   const [notes, setNotes]     = useState({});
@@ -69,7 +71,14 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   const [pathsLoading, setPathsLoading] = useState(false);
   const [isnadText, setIsnadText] = useState('');
   const [isnadFull, setIsnadFull] = useState({ text: '', names: [] }); // detailed version: kunya + nisba
-  const [manualBody, setManualBody] = useState(null);
+  const [authorNames, setAuthorNames] = useState([]);
+  // hand edits of this ijaza, per version (null = generated from the template)
+  const [manual, setManual] = useState({ normal: null, detailed: null });
+  const resetText = () => setManual({ normal: null, detailed: null });
+  const [titleText, setTitleText] = useState(c0?.title ?? null); // null = from the type's title template
+  const [titleStyle, setTitleStyle] = useState(c0?.details?.titleStyle ?? null); // null = the template's
+  const [scale, setScale] = useState({ normal: 1, detailed: 1, ...(c0?.details?.scale || {}) });
+  const [customOpen, setCustomOpen] = useState(false);
   const [saving, setSaving]   = useState(false);
 
   const qOpts = useMemo(() => quranOptions(refs.conns, refs), [refs]);
@@ -109,24 +118,27 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   const chosenKey = useDebounced([...chosen].sort().join(','), 200);
   const chains = useMemo(() => groupsToChains(groups.filter((_, i) => chosen.has(i))), [groups, chosenKey]);
   useEffect(() => {
-    if (!chains.length) { setIsnadText(''); setIsnadFull({ text: '', names: [] }); setNotes({}); return; }
+    if (!chains.length) { setIsnadText(''); setIsnadFull({ text: '', names: [] }); setAuthorNames([]); setNotes({}); return; }
     let alive = true;
     // «غيباً من حفظي» is stated once: in the teachers paragraph when there is one, else in the isnad
     // markers [[id]] are invisible in the normal version and become footnotes in the detailed one
     const renderStyle = { clear: clearWords, deathYears, noteMarkers: true, hideMyReadingMode: listsTeachers };
+    // the matn's author is written «المؤلف فلان» in his own colour
+    const authorId = module === 'mutoon' ? matn?.author_id ?? null : null;
     Promise.all([
-      api.post('/isnad-text/render', { chains, style: renderStyle }),
-      api.post('/isnad-text/render', { chains, style: { ...renderStyle, fullNames: true } }),
+      api.post('/isnad-text/render', { chains, style: renderStyle, authorId }),
+      api.post('/isnad-text/render', { chains, style: { ...renderStyle, fullNames: true }, authorId }),
     ])
       .then(([r, full]) => {
         if (!alive) return;
         setIsnadText(r.data.text);
         setIsnadFull({ text: full.data.text, names: full.data.names || [] });
+        setAuthorNames([...new Set([...(r.data.authorNames || []), ...(full.data.authorNames || [])])]);
         setNotes(Object.fromEntries(r.data.persons.filter(p => p.description).map(p => [p.id, p])));
       })
       .catch(e => alive && notifyError(e));
     return () => { alive = false; };
-  }, [chains, clearWords, deathYears, listsTeachers]);
+  }, [chains, clearWords, deathYears, listsTeachers, matn?.author_id]);
 
   const reading = quranOpt ? readingPhrase({
     qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
@@ -149,14 +161,18 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
     genders: { 'المجاز': studentGender, 'المجيز': settings.shaykh_gender || 'M' },
   };
   const filled = fillTemplate(settings.templates[module], values, fillOpts);
-  const body = manualBody ?? filled.text;
-  // the detailed version names everyone in full (kunya + nisba); a hand-edited text is used as is
-  const bodyDetailed = manualBody ?? fillTemplate(settings.templates[module], { ...values, 'الإسناد': isnadFull.text || isnadText }, fillOpts).text;
-  const title = ijazaTitle(module, { matn: matn?.title, reading });
-  const missing = manualBody == null ? filled.missing : [];
+  const body = manual.normal ?? filled.text;
+  // the detailed version names everyone in full (kunya + nisba); each version can be edited by hand
+  const generatedDetailed = fillTemplate(settings.templates[module], { ...values, 'الإسناد': isnadFull.text || isnadText }, fillOpts).text;
+  const bodyDetailed = manual.detailed ?? generatedDetailed;
+  const generatedTitle = titleFromTemplate(settings.titles?.[module], module, { ...values, 'القراءة_والرواية': reading });
+  const title = titleText ?? generatedTitle;
+  const effTitleStyle = titleStyle ?? settings.titles?.[module] ?? {};
+  const designFinal = useMemo(() => withTitleStyle(design, effTitleStyle), [design, effTitleStyle.color, effTitleStyle.family, effTitleStyle.size]);
+  const missing = manual.normal == null ? filled.missing : [];
   const hint = key => PLACEHOLDERS.find(p => p.key === key)?.hint || key;
 
-  const reset = () => { setStudent(''); setManualBody(null); };
+  const reset = () => { setStudent(''); resetText(); setTitleText(null); };
 
   const save = async () => {
     if (!student.trim()) return toast('اكتب اسم المجاز', 'error');
@@ -176,8 +192,10 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         // snapshot: reprints look the same even if the design or biographies change later
         // dual: issued as a normal (printed, one page) and a detailed (footnotes + tree) version
         details: {
-          notes, chains: chains.map(slimChain), design, people, dual: module !== 'general',
+          notes, chains: chains.map(slimChain), design: designFinal, people, dual: module !== 'general',
           ...(module !== 'general' && bodyDetailed !== body ? { body_detailed: bodyDetailed } : {}),
+          ...(titleStyle ? { titleStyle } : {}),
+          scale,
         },
       });
       toast('حُفظت الإجازة — يمكنك طباعتها الآن مع رمز التحقق');
@@ -187,8 +205,11 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
 
   const hasDetailed = module !== 'general';
   const detailed = hasDetailed && preview === 'detailed';
+  const ver = detailed ? 'detailed' : 'normal';
+  const verLabel = !hasDetailed ? '' : detailed ? 'المفصّلة' : 'العادية';
+  const editing = manual[ver];
   // shaykh = full name (signature), me = short name (tree)
-  const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: [...teachers.map(t => t.name), ...isnadFull.names] };
+  const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: [...teachers.map(t => t.name), ...isnadFull.names], author: authorNames };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (
@@ -208,25 +229,25 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
       <div className="card card-pad">
         <div className="field">
           <span className="field-label">نوع الإجازة</span>
-          <Segmented value={module} onChange={v => { setModule(v); setManualBody(null); }} options={MODULES} />
+          <Segmented value={module} onChange={v => { setModule(v); resetText(); }} options={MODULES} />
         </div>
         <Field label="اسم المجاز" required>
           <input className="input" value={student} onChange={e => setStudent(e.target.value)}
             placeholder={studentGender === 'F' ? 'الأخت الفاضلة فلانة بنت فلان' : 'الأخ الفاضل فلان بن فلان'} />
         </Field>
         <div className="field">
-          <Segmented value={studentGender} onChange={v => { setStudentGender(v); setManualBody(null); }} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
+          <Segmented value={studentGender} onChange={v => { setStudentGender(v); resetText(); }} options={[{ value: 'M', label: 'ذكر' }, { value: 'F', label: 'أنثى' }]} />
         </div>
 
         {module === 'mutoon' && (
           <Field label="المتن" required hint={!refs.mutoon.length ? 'لا توجد متون متصلة الإسناد بعد' : undefined}>
-            <Combobox value={matnId} onChange={v => { setMatnId(v); setManualBody(null); }}
+            <Combobox value={matnId} onChange={v => { setMatnId(v); resetText(); }}
               opts={refs.mutoon.map(m => ({ value: m.id, label: m.title, sub: m.author_name }))} placeholder="ابحث عن متن…" />
           </Field>
         )}
         {module === 'quran' && (
           <Field label="القراءة / الرواية" hint={!qOpts.length ? 'سجّل قراءتك على شيوخك أولاً' : undefined}>
-            <select className="select" value={quranKey} onChange={e => { setQuranKey(e.target.value); setManualBody(null); }}>
+            <select className="select" value={quranKey} onChange={e => { setQuranKey(e.target.value); resetText(); }}>
               <option value="">— اختر —</option>
               {qOpts.map(([label, opts]) => (
                 <optgroup key={label} label={label}>
@@ -273,11 +294,11 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         {module !== 'general' && (
           <div className="field">
             <label className="check">
-              <input type="checkbox" checked={clearWords} onChange={e => { setClearWords(e.target.checked); setManualBody(null); }} />
+              <input type="checkbox" checked={clearWords} onChange={e => { setClearWords(e.target.checked); resetText(); }} />
               عبارات صريحة (قرأتُ على فلان، وهو سمع من فلان…)
             </label>
             <label className="check">
-              <input type="checkbox" checked={deathYears} onChange={e => { setDeathYears(e.target.checked); setManualBody(null); }} />
+              <input type="checkbox" checked={deathYears} onChange={e => { setDeathYears(e.target.checked); resetText(); }} />
               تاريخ الوفاة بعد كل اسم (ت …هـ)
             </label>
           </div>
@@ -303,16 +324,21 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
             {missing.includes('المجيز') && <> <button className="strong" style={{ color: 'inherit', textDecoration: 'underline' }} onClick={onEditTemplates}>أضف اسمك في القوالب</button></>}
           </div>
         )}
-        {manualBody != null && (
+        {editing != null && (
           <div className="alert alert-success row">
-            <span className="spacer">عدّلت النص يدوياً — تغييرات النموذج لن تُطبّق عليه.</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setManualBody(null)}><Icon name="reset" size={14} /> إعادة التوليد</button>
+            <span className="spacer">عدّلت نص النسخة {verLabel} يدوياً — تغييرات النموذج لن تُطبّق عليه.</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setManual(m => ({ ...m, [ver]: null }))}><Icon name="reset" size={14} /> إعادة التوليد</button>
           </div>
         )}
 
         <div className="row row-wrap">
-          <button className={`btn btn-sm ${manualBody != null ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setManualBody(manualBody ?? filled.text)}>
-            <Icon name="edit" size={14} /> تعديل النص
+          <button className={`btn btn-sm ${editing != null ? 'btn-secondary' : 'btn-ghost'}`}
+            onClick={() => setManual(m => ({ ...m, [ver]: m[ver] ?? (ver === 'detailed' ? generatedDetailed : filled.text) }))}
+            title="يخص النسخة المعروضة فقط">
+            <Icon name="edit" size={14} /> تعديل نص النسخة {verLabel}
+          </button>
+          <button className={`btn btn-sm ${customOpen ? 'btn-secondary' : 'btn-ghost'}`} onClick={() => setCustomOpen(o => !o)}>
+            <Icon name="settings" size={14} /> العنوان والحجم
           </button>
           <div className="spacer" />
           <button className="btn btn-primary" onClick={save} disabled={saving}
@@ -321,9 +347,30 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
           </button>
         </div>
 
-        {manualBody != null && (
+        {customOpen && (
+          <div className="card card-pad">
+            <Field label="العنوان" hint={titleText != null ? undefined : 'من قالب العنوان — اكتب لتغييره لهذه الإجازة فقط'}>
+              <div className="row">
+                <input className="input" value={title} onChange={e => setTitleText(e.target.value)} />
+                {titleText != null && <button className="btn btn-ghost btn-sm" onClick={() => setTitleText(null)} title="من القالب"><Icon name="reset" size={14} /></button>}
+              </div>
+            </Field>
+            <TitleStyleFields value={effTitleStyle} onChange={setTitleStyle} options={options} design={design} />
+            <Field label={`حجم نص النسخة ${verLabel}: ${Math.round(scale[ver] * 100)}%`}
+              hint={ver === 'normal' ? 'الحد الأعلى؛ يُصغَّر تلقائياً إن لم يتسع في صفحة واحدة' : 'صغّره قليلاً ليقلّ عدد الصفحات'}>
+              <div className="row">
+                <input type="range" min="0.7" max="1.15" step="0.01" value={scale[ver]} style={{ flex: 1 }}
+                  onChange={e => setScale(sc => ({ ...sc, [ver]: Number(e.target.value) }))} />
+                {scale[ver] !== 1 && <button className="btn btn-ghost btn-sm" onClick={() => setScale(sc => ({ ...sc, [ver]: 1 }))}>100%</button>}
+              </div>
+            </Field>
+            {pages[ver] > 0 && <p className="small muted">عدد الصفحات الآن: {pages[ver]}</p>}
+          </div>
+        )}
+
+        {editing != null && (
           <>
-            <textarea className="textarea cert-editor" value={manualBody} onChange={e => setManualBody(e.target.value)} />
+            <textarea className="textarea cert-editor" value={editing} onChange={e => setManual(m => ({ ...m, [ver]: e.target.value }))} />
             {hasDetailed && <p className="small muted">العلامات مثل [[12]] تربط الاسم بحاشيته في النسخة المفصّلة (لا تظهر في العادية) — احذفها لإخفاء الحاشية.</p>}
           </>
         )}
@@ -346,8 +393,8 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
           <div className="small muted">صُغّر الخط إلى {Math.round(fitInfo.fit * 100)}% ليتّسع في صفحة واحدة.</div>
         )}
         <Certificate key={detailed ? 'd' : 'n'} title={title} body={detailed ? bodyDetailed : body} variant={detailed ? 'detailed' : 'normal'}
-          notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }}
-          fitOnePage={!detailed} onFit={detailed ? undefined : setFitInfo} />
+          notes={notes} chains={chains} design={designFinal} people={people} verification={{ placeholder: true }} scale={scale[ver]}
+          fitOnePage={!detailed} onFit={info => { setPages(pg => ({ ...pg, [ver]: info.pages })); if (!detailed) setFitInfo(info); }} />
         <p className="small muted">
           الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمزها (QR) للطباعة أو الحفظ كـ PDF.
         </p>

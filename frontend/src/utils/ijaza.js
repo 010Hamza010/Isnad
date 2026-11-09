@@ -138,3 +138,31 @@ export function ijazaTitle(module, { matn, reading } = {}) {
   if (module === 'quran') return `إجازة في القرآن الكريم${reading ? ` ${reading}` : ''}`;
   return 'إجازة عامة';
 }
+
+// placeholders a title may use (filled from the same values as the body)
+export const TITLE_PLACEHOLDERS = [
+  { key: 'المتن', hint: 'عنوان المتن' }, { key: 'المؤلف', hint: 'مؤلف المتن' },
+  { key: 'القراءة_والرواية', hint: 'برواية … من طريق … (فارغ إن لم تُحدَّد)' },
+  { key: 'القراءة', hint: 'اسم القراءة' }, { key: 'الرواية', hint: 'اسم الرواية' }, { key: 'الطريق', hint: 'اسم الطريق' },
+  { key: 'الطالب', hint: 'اسم المجاز' },
+];
+
+/**
+ * The title from the type's title template. Optional parts (القراءة_والرواية) vanish when empty;
+ * while something required is not chosen yet (no matn), the built-in title stands in.
+ */
+export function titleFromTemplate(tpl, module, values) {
+  const fallback = ijazaTitle(module, { matn: values['المتن'], reading: values['القراءة_والرواية'] });
+  if (!tpl?.text) return fallback;
+  const f = fillTemplate(tpl.text, values, { optional: ['القراءة_والرواية'] });
+  return f.missing.length ? fallback : f.text.replace(/\s+/g, ' ').trim();
+}
+
+/** A design with the title's own colour / font / size applied (empty values keep the design's). */
+export function withTitleStyle(design, st = {}) {
+  return {
+    ...design,
+    colors: { ...design.colors, ...(st.color ? { title: st.color } : {}) },
+    fonts: { ...design.fonts, title: { family: st.family || design.fonts.title.family, size: Number(st.size) || design.fonts.title.size } },
+  };
+}

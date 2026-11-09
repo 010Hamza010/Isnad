@@ -5,9 +5,10 @@ import { useUI } from '../../components/ui/UIProvider';
 import { Field } from '../../components/ui/Field';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
-import { PLACEHOLDERS } from '../../utils/ijaza';
+import { PLACEHOLDERS, TITLE_PLACEHOLDERS } from '../../utils/ijaza';
+import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
 
-export default function IjazaTemplates({ settings, onSaved }) {
+export default function IjazaTemplates({ settings, options, onSaved }) {
   const { toast, notifyError, confirm } = useUI();
   const [draft, setDraft] = useState(settings);
   const [which, setWhich] = useState('mutoon');
@@ -16,6 +17,9 @@ export default function IjazaTemplates({ settings, onSaved }) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
 
   const setTpl = v => setDraft(d => ({ ...d, templates: { ...d.templates, [which]: v } }));
+  const title = draft.titles?.[which] || { text: '' };
+  const setTitle = v => setDraft(d => ({ ...d, titles: { ...d.titles, [which]: { ...title, ...v } } }));
+  const defaultDesign = draft.designs.find(x => x.id === draft.default_design) || draft.designs[0];
 
   // insert {key} at the cursor
   const insert = key => {
@@ -52,6 +56,17 @@ export default function IjazaTemplates({ settings, onSaved }) {
           ]} />
         </div>
         <div className="card-pad">
+          <Field label="العنوان" hint="كيف تُكتب «إجازة» في رأس الصفحة لهذا النوع. يمكن تغييره أيضاً لكل إجازة على حدة.">
+            <input className="input" value={title.text} onChange={e => setTitle({ text: e.target.value })}
+              style={{ fontFamily: `"${title.family || defaultDesign.fonts.title.family}"`, color: title.color || defaultDesign.colors.title, fontSize: 20 }} />
+          </Field>
+          <div className="ph-chips" style={{ marginBottom: 10 }}>
+            {(which === 'general' ? TITLE_PLACEHOLDERS.filter(p => p.key === 'الطالب') : TITLE_PLACEHOLDERS).map(p => (
+              <button key={p.key} type="button" title={p.hint} onClick={() => setTitle({ text: `${title.text}{${p.key}}` })}>{`{${p.key}}`}</button>
+            ))}
+          </div>
+          <TitleStyleFields value={title} onChange={setTitle} options={options} design={defaultDesign} />
+          <div className="section-label">نص الإجازة</div>
           <div className="ph-chips">
             {PLACEHOLDERS.map(p => <button key={p.key} type="button" title={p.hint} onClick={() => insert(p.key)}>{`{${p.key}}`}</button>)}
           </div>

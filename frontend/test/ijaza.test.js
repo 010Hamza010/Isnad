@@ -125,3 +125,23 @@ test('teachers paragraph uses «الشيخة» for women', () => {
   const p = teachersParagraph([{ name: 'نزهة', gender: 'F' }, { name: 'زيد', gender: 'M' }], 'منهم: {الشيوخ}.', {}, { M: 'الشيخ', F: 'الشيخة' });
   assert.equal(p, 'منهم: الشيخة نزهة، والشيخ زيد.');
 });
+
+test('title from the type template: optional reading, fallback while the matn is not chosen', async () => {
+  const { titleFromTemplate } = await import('../src/utils/ijaza.js');
+  assert.equal(titleFromTemplate({ text: 'إجازة بمتن «{المتن}» لـ{المؤلف}' }, 'mutoon', { 'المتن': 'الآجرومية', 'المؤلف': 'ابن آجروم' }),
+    'إجازة بمتن «الآجرومية» لـابن آجروم');
+  assert.equal(titleFromTemplate({ text: 'إجازة بمتن «{المتن}»' }, 'mutoon', {}), 'إجازة');
+  assert.equal(titleFromTemplate({ text: 'إجازة في القرآن الكريم {القراءة_والرواية}' }, 'quran', { 'القراءة_والرواية': '' }), 'إجازة في القرآن الكريم');
+  assert.equal(titleFromTemplate(null, 'general', {}), 'إجازة عامة');
+});
+
+test('title style overrides only what is set', async () => {
+  const { withTitleStyle } = await import('../src/utils/ijaza.js');
+  const d = { colors: { title: '#111111', text: '#000000' }, fonts: { title: { family: 'Amiri', size: 30 }, body: { family: 'Amiri', size: 15 } } };
+  assert.deepEqual(withTitleStyle(d, {}).fonts.title, { family: 'Amiri', size: 30 });
+  const s = withTitleStyle(d, { color: '#aa0000', family: 'Aref Ruqaa', size: 40 });
+  assert.equal(s.colors.title, '#aa0000');
+  assert.deepEqual(s.fonts.title, { family: 'Aref Ruqaa', size: 40 });
+  assert.equal(s.colors.text, '#000000');
+  assert.equal(d.colors.title, '#111111'); // not mutated
+});

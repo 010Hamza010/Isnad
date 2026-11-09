@@ -156,7 +156,7 @@ function VersionArchive({ row, settings, profile, variant, renderAs, fitOnePage,
           notes={row.details?.notes || {}} chains={row.details?.chains || []} design={design}
           people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name }}
           verification={{ payload: row.qr_payload, code: row.short_code }}
-          fitOnePage={fitOnePage} onRendered={freeze} />
+          fitOnePage={fitOnePage} scale={row.details?.scale?.[renderAs] ?? 1} onRendered={freeze} />
       )}
     </div>
   );
