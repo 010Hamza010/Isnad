@@ -7,6 +7,8 @@ r.get('/settings',    auth, w(c.getSettings));
 r.post('/verify',     auth, w(require('../controllers/verifyController').verify)); // scanned QR
 r.put('/settings',    auth, w(c.saveSettings));
 r.delete('/settings', auth, w(c.resetSettings));
+r.get('/teacher-orders',      auth, w(c.getTeacherOrders));
+r.put('/teacher-orders/:key', auth, w(c.setTeacherOrder));
 r.get('/',            auth, w(c.list));
 r.get('/:id',         auth, w(c.get));
 r.post('/',           auth, w(c.create));
