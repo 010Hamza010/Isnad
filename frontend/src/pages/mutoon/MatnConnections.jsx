@@ -66,11 +66,14 @@ export default function MatnConnections() {
   const counts = Object.fromEntries(TABS.map(t => [t.value, conns.filter(inMatn).filter(t.test).length]));
   const shown  = groups.reduce((n, g) => n + g.items.length, 0);
 
-  const openAdd = () => setForm({ ...EMPTY, ...(tab === 'others' ? { from_person_id: '' } : {}), matn_id: filterMatn !== 'general' ? filterMatn : '' });
+  const openAdd = () => {
+    const matn_id = filterMatn !== 'general' ? filterMatn : '';
+    setForm({ ...EMPTY, ...(tab === 'others' ? { from_person_id: '' } : {}), matn_id, is_general_ijaza: !matn_id });
+  };
   const openEdit = c => setForm({
     id: c.id, from_person_id: c.from_person_id, to_person_id: c.to_person_id,
     matn_id: c.matn_id ?? '', transmission_type_id: c.transmission_type_id ?? '',
-    is_general_ijaza: !!c.is_general_ijaza, reading_mode: c.reading_mode ?? '', description: c.description ?? '',
+    is_general_ijaza: !!c.is_general_ijaza || !c.matn_id, reading_mode: c.reading_mode ?? '', description: c.description ?? '',
   });
 
   const save = async () => {
@@ -111,7 +114,7 @@ export default function MatnConnections() {
         <SearchInput className="search" value={query} onChange={setQuery} placeholder="ابحث باسم الشيخ أو المتن…" />
         <select className="select" style={{ width: 'auto', minWidth: 200 }} value={filterMatn} onChange={e => setFilter(e.target.value)}>
           <option value="">كل المتون</option>
-          <option value="general">إجازة عامة (بلا متن)</option>
+          <option value="general">عام — لكل المتون</option>
           {mutoon.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
         </select>
         {(query || filterMatn) && <span className="small muted">{shown} من {counts[tab]}</span>}
@@ -142,7 +145,6 @@ export default function MatnConnections() {
                         <span className="arrow"><Icon name="arrow" size={14} /></span>
                         <span className="to">{pName(c.to_person_id)}</span>
                         {c.tx_name && <span className="badge badge-primary">{c.tx_name}</span>}
-                        {c.is_general_ijaza ? <span className="badge badge-accent">إجازة عامة</span> : null}
                         {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
                         <span className={`badge ${c.matn_title ? 'badge-info' : 'badge-outline'}`}>{c.matn_title || 'كل المتون'}</span>
                       </div>
@@ -173,17 +175,21 @@ export default function MatnConnections() {
               <Combobox value={form.to_person_id} opts={shaykhOpts} onChange={v => set('to_person_id', v)} />
             </Field>
           </div>
-          <Field label="المتن" hint="اتركه فارغاً إن كانت إجازة عامة بكل مروياته">
-            <Combobox value={form.matn_id} opts={rowOptions(mutoon, 'title')} onChange={v => set('matn_id', v)} placeholder="كل المتون" />
-          </Field>
-          <Field label="طريقة التحمل" hint="عند تعدد الاتصالات بين شخصين يُقدَّم الأعلى: السماع ثم القراءة ثم الإجازة…">
+          {/* «عام» and an empty matn are the same: the connection is valid for every matn */}
+          <label className="check" style={{ marginBottom: 8 }}>
+            <input type="checkbox" checked={form.is_general_ijaza}
+              onChange={e => setForm(f => ({ ...f, is_general_ijaza: e.target.checked, ...(e.target.checked ? { matn_id: '' } : {}) }))} />
+            عام — لكل المتون
+          </label>
+          {!form.is_general_ijaza && (
+            <Field label="المتن" hint="اتركه فارغاً ليكون الاتصال عاماً لكل المتون">
+              <Combobox value={form.matn_id} opts={rowOptions(mutoon, 'title')} onChange={v => set('matn_id', v ?? '')} placeholder="اختر المتن…" />
+            </Field>
+          )}
+          <Field label="طريقة التحمل" hint="عند تعدد الاتصالات بين شخصين يُقدَّم الأعلى: السماع ثم القراءة ثم الإجازة… — للإجازة العامة اختر نوعها هنا">
             <Select form={form} set={set} name="transmission_type_id" options={rowOptions(txTypes)} />
           </Field>
           <ReadingModeField kind={kindOfType(txTypes, form.transmission_type_id)} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
-          <label className="check" style={{ marginBottom: 14 }}>
-            <input type="checkbox" checked={form.is_general_ijaza} onChange={e => set('is_general_ijaza', e.target.checked)} />
-            إجازة عامة
-          </label>
           <Field label="ملاحظات"><TextArea form={form} set={set} name="description" placeholder="المكان، التاريخ، ما قُرئ…" /></Field>
         </FormModal>
       )}

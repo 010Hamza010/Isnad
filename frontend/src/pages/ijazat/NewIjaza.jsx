@@ -257,6 +257,13 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           <span className="field-label">نوع الإجازة</span>
           <Segmented value={module} onChange={v => { setModule(v); resetText(); }} options={MODULES} />
         </div>
+
+        <Field label="التصميم" hint="عدّل التصاميم أو أنشئ تصميمك من تبويب «التصميم»">
+          <select className="select" value={design.id} onChange={e => setDesignId(e.target.value)}>
+            {settings.designs.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </Field>
+        
         <Field label="اسم المجاز" required>
           <input className="input" value={student} onChange={e => setStudent(e.target.value)}
             placeholder={studentGender === 'F' ? 'الأخت الفاضلة فلانة بنت فلان' : 'الأخ الفاضل فلان بن فلان'} />
@@ -309,18 +316,24 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
                       <strong>{p.name}</strong>
                       {p.reads && <span className="badge" style={{ marginInlineStart: 6 }}>قرأتُ عليه</span>}
                       {p.reads && (
-                        <label className="check small" style={{ marginTop: 2 }}>
-                          <input type="checkbox" checked={!isHidden(p.id)} onChange={e => toggleInParagraph(p.id, e.target.checked)} />
-                          <span>في فقرة الشيوخ</span>
-                        </label>
+                        <>
+                          <br />
+                          <label className="check small" style={{ marginTop: 2 }}>
+                            <input type="checkbox" checked={!isHidden(p.id)} onChange={e => toggleInParagraph(p.id, e.target.checked)} />
+                            <span>في فقرة الشيوخ</span>
+                          </label>
+                        </>
                       )}
                       {p.routes.map(gi => (
-                        <label key={gi} className="check small" style={{ marginTop: 2 }}>
-                          <input type="checkbox" checked={chosen.has(gi)} onChange={e => setChosen(s => {
-                            const n = new Set(s); if (e.target.checked) n.add(gi); else n.delete(gi); return n;
-                          })} />
-                          <span>في الإسناد{groups[gi].chains.length > 1 && <span className="muted"> · {groups[gi].chains.length} طرق</span>}</span>
-                        </label>
+                        <>
+                          <br />
+                          <label key={gi} className="check small" style={{ marginTop: 2 }}>
+                            <input type="checkbox" checked={chosen.has(gi)} onChange={e => setChosen(s => {
+                              const n = new Set(s); if (e.target.checked) n.add(gi); else n.delete(gi); return n;
+                            })} />
+                            <span>في الإسناد{groups[gi].chains.length > 1 && <span className="muted"> · {groups[gi].chains.length} طرق</span>}</span>
+                          </label>
+                        </>
                       ))}
                       {!p.routes.length && <div className="tiny muted">لا سند متصل من طريقه</div>}
                     </div>
@@ -351,12 +364,6 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
             </label>
           </div>
         )}
-
-        <Field label="التصميم" hint="عدّل التصاميم أو أنشئ تصميمك من تبويب «التصميم»">
-          <select className="select" value={design.id} onChange={e => setDesignId(e.target.value)}>
-            {settings.designs.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
-        </Field>
 
         <div className="form-grid">
           <Field label="التاريخ"><input className="input" type="date" value={date} onChange={e => changeDate(e.target.value)} /></Field>
