@@ -331,12 +331,12 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
   const st = { style: { firstTitle: '' } };
 
   test('two chains meeting early', () => {
-    assert.equal(T.renderChains([A, B], st), 'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي، عن ابن بري');
+    assert.equal(T.renderChains([A, B], st), 'أخبرنا حسين، وخالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي، عن ابن بري');
   });
 
   test('a third chain: the first two stay grouped, all meet at ابن غازي', () => {
     assert.equal(T.renderChains([A, B, C], st),
-      'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
+      'أخبرنا حسين، وخالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
       + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي، عن بناني، عن ابن مجبر'
       + '، كلاهما عن ابن غازي، عن ابن بري');
   });
@@ -344,7 +344,7 @@ describe('تحويل with three or more chains is factored recursively (eg.txt)'
   test('four chains: shared beginning written once, nested meeting points, every name once', () => {
     const t = T.renderChains([A, B, C, D], st);
     assert.equal(t,
-      'أخبرنا حسين ح وأخبرنا خالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
+      'أخبرنا حسين، وخالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان'
       + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي ح وعن ابن الأمين، عن السقاط، كلاهما عن بناني، عن ابن مجبر'
       + '، كلاهما عن ابن غازي، عن ابن بري');
     for (const name of ['طاهر', 'السعيد', 'عبد الحي', 'بناني', 'ابن غازي']) assert.equal(t.split(name).length - 1, 1, name);
@@ -441,16 +441,17 @@ describe('تحويل, default «repeat»: every branch names the meeting person'
       chain(['حسين', ...mid, ...top]), chain(['خالد', ...mid, ...top]),
       chain(['نزهة', 'عبد الحي', 'ابن الأمين', 'التاودي', 'بناني', 'ابن مجبر', ...top]),
     ], st);
-    assert.equal(t, 'أخبرنا حسين، عن طاهر ح وأخبرنا خالد، عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي'
+    // حسين and خالد are my teachers, taken the same way: one sentence, no ح
+    assert.equal(t, 'أخبرنا حسين، وخالد، كلاهما عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي'
       + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي، عن بناني، عن ابن مجبر، عن ابن غازي، عن ابن بري');
-    assert.doesNotMatch(t, /كلاهما|كلهم/);
   });
 
   test('a shaykh already named starts his other route with «أيضاً»', () => {
     // me → A → C → G, me → B → C → G, me → B → X → Y
-    const chains = [chain(['A', 'C', 'G']), chain(['B', 'C', 'G']), chain(['B', 'X', 'Y'], ['qiraa', 'qiraa'])];
+    // A heard, B read: taken differently, so they stay separate branches
+    const chains = [chain(['A', 'C', 'G'], ['sama']), chain(['B', 'C', 'G']), chain(['B', 'X', 'Y'], ['qiraa', 'qiraa'])];
     assert.equal(TT.renderChains(chains, clear),
-      'قرأتُ على شيخنا A، عن C ح وقرأتُ على شيخنا B، عن C، عن G ح وقرأ شيخنا B أيضاً على X، عن Y');
+      'سمعتُ من شيخنا A، عن C ح وقرأتُ على شيخنا B، عن C، عن G ح وقرأ شيخنا B أيضاً على X، عن Y');
     // keyword mode: the classical restart
     assert.match(TT.renderChains(chains, { style: { firstTitle: '' } }), / ح وعن B، أخبرنا X، عن Y$/);
   });
@@ -473,5 +474,62 @@ describe('تحويل, default «repeat»: every branch names the meeting person'
   test('also-sentences are validated: {الاسم} and {الراوي} once each', () => {
     assert.throws(() => TT.validateSettings({ phrases: { also: { qiraa: 'قرأ أيضاً على {الاسم}' } } }), /الراوي/);
     assert.ok(TT.validateSettings({ phrases: { also: { qiraa: 'وقرأ {الراوي} كذلك على {الاسم}' } } }));
+  });
+});
+
+describe('my teachers together, and long routes restarting on a new paragraph', () => {
+  let ids = {}, next = 500;
+  const id = name => (ids[name] ??= next++);
+  const chain = (names, kinds = []) => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, from_name: '', to_person_id: id(nm), to_name: nm, tx_kind: kinds[i] ?? (i === 0 ? 'qiraa' : null) }; prev = e.to_person_id; return e; });
+  };
+  const clear = { style: { clear: true } };
+
+  test('read on two teachers the same way, both on one shaykh: «قرأتُ على A، وB، كلاهما قرأ على C»', () => {
+    const t = TT.renderChains([chain(['A', 'C', 'G'], ['qiraa', 'qiraa']), chain(['B', 'C', 'G'], ['qiraa', 'qiraa'])], clear);
+    assert.equal(t, 'قرأتُ على شيخنا A، وشيخنا B، كلاهما قرأ على C، عن G');
+    // the same in «كلاهما» mode
+    assert.equal(TT.renderChains([chain(['A', 'C']), chain(['B', 'C'])], { style: { clear: true, tahwilMeet: 'joined' } }),
+      'قرأتُ على شيخنا A، وشيخنا B، كلاهما عن C');
+  });
+
+  test('a woman teacher keeps her own title; reading mode differs → separate branches', () => {
+    const f = chain(['B', 'C']); f[0] = { ...f[0], to_gender: 'F' };
+    assert.equal(TT.renderChains([chain(['A', 'C']), f], clear), 'قرأتُ على شيخنا A، وشيختنا B، كلاهما عن C');
+    const h = chain(['B', 'C']); h[0] = { ...h[0], reading_mode: 'heart' };
+    assert.match(TT.renderChains([chain(['A', 'C']), h], clear), / ح /);
+  });
+
+  test('two of three teachers together, the third its own branch', () => {
+    const t = TT.renderChains([chain(['A', 'C', 'G']), chain(['B', 'C', 'G']), chain(['D', 'E', 'C', 'G'])], clear);
+    assert.equal(t, 'قرأتُ على شيخنا A، وشيخنا B، كلاهما عن C ح وقرأتُ على شيخنا D، عن E، عن C، عن G');
+  });
+
+  test('after a long route the next starts a paragraph «وأرويه أيضاً»; short routes keep ح', () => {
+    const long = chain(['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'Z'], ['sama']);
+    const other = chain(['D', 'E', 'Y']);
+    const t = TT.renderChains([long, other], { style: { clear: true, longRestartWords: 15 } });
+    assert.match(t, /\n\nوأرويه أيضاً: قرأتُ على شيخنا D، عن E، عن Y$/);
+    assert.doesNotMatch(t, / ح /);
+    assert.match(TT.renderChains([chain(['A', 'Z'], ['sama']), other], clear), / ح وقرأتُ على شيخنا D/);
+    assert.match(TT.renderChains([long, other], { style: { clear: true, longRestart: '', longRestartWords: 15 } }), / ح وقرأتُ على شيخنا D/);
+  });
+
+  test('a long route restarting from a shared beginning: «وأرويه أيضاً بالسند المتقدم إلى فلان»', () => {
+    const head = ['A', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'H'];
+    const t = TT.renderChains([chain([...head, 'X', 'Z']), chain([...head, 'Y', 'W'])], { style: { clear: true, longRestartWords: 5 } });
+    assert.match(t, /\n\nوأرويه أيضاً بالسند المتقدم إلى H، عن Y، عن W$/, t);
+  });
+
+  test('both forms are read back by the parser', () => {
+    const r = TT.parseIsnad('قرأتُ على شيخنا محمد، وشيخنا أحمد (ت 1300هـ)، كلاهما قرأ على زيد، عن عمرو', null);
+    assert.deepEqual(r.chains.map(c => c.links.map(l => l.name)), [['محمد', 'زيد', 'عمرو'], ['أحمد', 'زيد', 'عمرو']]);
+    assert.equal(r.chains[1].links[0].death_year, '1300هـ');
+    assert.equal(r.chains[0].links[1].tx_kind, 'qiraa');
+    const p = TT.parseIsnad('قرأتُ على أ، عن ب\n\nوأرويه أيضاً: قرأتُ على ج، عن ب', null);
+    assert.deepEqual(p.chains.map(c => c.links.map(l => l.name)), [['أ', 'ب'], ['ج', 'ب']]);
+    // «، وهو قرأ على» is still a link, not a second name
+    assert.deepEqual(TT.parseIsnad('قرأتُ على أ، وهو قرأ على ب', null).chains.map(c => c.links.map(l => l.name)), [['أ', 'ب']]);
   });
 });

@@ -82,6 +82,7 @@ const fromGender = (e, s) => (isMe(e.from_person_id) ? s.style.myGender : e.from
 const toGender = e => (e.to_gender === 'F' ? 'F' : 'M');
 
 const ALSO_SLOT = '{الراوي}';
+const ALSO_MARK = '\u0001'; // prefixes a branch rendered by renderAlso (already says «أيضاً»); removed from the final text
 
 // «قرأ شيخنا فلان أيضاً على {الاسم}» — a branch that starts from someone already in the text
 function renderAlso(e, via, s, ctx) {
@@ -92,7 +93,7 @@ function renderAlso(e, via, s, ctx) {
   ctx.written.add(linkKey(e));
   if (phrase) {
     const text = applyGender(phrase, genders).replace(ALSO_SLOT, `${viaTitle}${nameOf(toP(via), s, ctx, 'nom')}`);
-    return text.replace(NAME_SLOT, personLabel(toP(e), s, ctx, caseAfter(text.split(NAME_SLOT)[0])));
+    return ALSO_MARK + text.replace(NAME_SLOT, personLabel(toP(e), s, ctx, caseAfter(text.split(NAME_SLOT)[0])));
   }
   // keyword form: the classical restart «ح وعن فلان، عن …»
   const kw = keywordFor(edgeKind(e), s);
@@ -180,11 +181,74 @@ const joinWord = (count, allF) => (count === 2 ? (allF ? 'كلتاهما' : 'ك�
  */
 const MAX_DEPTH = 40; // safety net: never recurse without end, whatever the data
 
-// «ح وعن فلان، …» after a shared beginning, else «ح و…»
-const restartWith = (t, s, scope, ctx) => (scope.restart
-  ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${t ? s.style.separator + t : ''}`
-  : `${s.style.tahwil} و${t}`);
-const joinBranchTexts = (texts, s, scope, ctx) => texts.map((t, i) => (i === 0 ? t : restartWith(t, s, scope, ctx))).join(' ');
+const wordCount = t => String(t).replace(/\[\[-?\d+\]\]/g, '').split(/\s+/).filter(Boolean).length;
+
+/*
+ * The next branch after `prev`: «ح وعن فلان، …» after a shared beginning, else «ح و…».
+ * After a long branch (style.longRestartWords) a new paragraph starts instead, so the reader sees
+ * where the new route begins: «وأرويه أيضاً: قرأتُ على …» / «وأرويه أيضاً بالسند المتقدم إلى فلان، وهو …».
+ */
+// prevWords: length of the route the reader has just read (since the last restart)
+function restartWith(t, s, scope, ctx, prevWords = 0) {
+  const also = t.startsWith(ALSO_MARK);
+  const body = also ? t.slice(ALSO_MARK.length) : t;
+  const long = s.style.longRestart && s.style.longRestartWords > 0 && prevWords >= s.style.longRestartWords;
+  if (long) {
+    if (also) return `\n\nو${body}`;                       // «وقرأ شيخنا فلان أيضاً على …» says it already
+    if (scope.restart) return `\n\n${s.style.longRestart} بالسند المتقدم إلى ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`;
+    return `\n\n${s.style.longRestart}: ${body}`;
+  }
+  return scope.restart
+    ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`
+    : `${s.style.tahwil} و${body}`;
+}
+// scope.before: words written before these branches on the same route (a shared beginning)
+const joinBranchTexts = (texts, s, scope, ctx) => texts
+  .map((t, i) => (i === 0 ? t : restartWith(t, s, scope, ctx, wordCount(texts[i - 1]) + (i === 1 ? scope.before || 0 : 0))))
+  .join(' ').replace(/ \n\n/g, '\n\n');
+
+// «كلاهما قرأ على X» when every narrator took from X the same way, else «كلاهما عن X».
+// meetEdges: one edge into X per narrator.
+function meetText(meetEdges, s, ctx) {
+  const allF = meetEdges.every(e => fromGender(e, s) === 'F');
+  const x = meetEdges[0];
+  const txs = new Set(meetEdges.map(e => txKey(edgeKind(e))));
+  const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
+  const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
+  meetEdges.forEach(e => ctx.written.add(linkKey(e)));
+  const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
+  return `${joinWord(meetEdges.length, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}`;
+}
+
+// «قرأتُ على شيخنا A، وشيخنا B» — my own teachers taken the same way, in one sentence
+function renderTogether(firsts, s, ctx) {
+  firsts.forEach(e => ctx.written.add(linkKey(e)));
+  const allF = firsts.every(e => toGender(e) === 'F');
+  const phrase = phraseFor(firsts[0], true, s);
+  const lead = phrase ? applyGender(phrase, { 'الراوي': fromGender(firsts[0], s), 'الشيخ': allF ? 'F' : 'M' }) : keywordFor(edgeKind(firsts[0]), s);
+  const kase = caseAfter(phrase ? lead.split(NAME_SLOT)[0] : lead);
+  const names = firsts.map(e => {
+    const tw = toGender(e) === 'F' ? s.style.firstTitleF : s.style.firstTitle;
+    return `${tw ? `${tw} ` : ''}${personLabel(toP(e), s, ctx, kase)}`;
+  }).join(`${s.style.separator}و`);
+  if (!phrase) return `${lead} ${names}`;
+  const mode = s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[firsts[0].reading_mode];
+  return lead.replace(NAME_SLOT, mode ? `${names} ${mode}` : names);
+}
+
+// chains (sliced to end at the meeting person) whose only link before it is mine, bucketed by how I took:
+// a bucket of two or more is written together, without ح
+const sameWay = e => `${txKey(edgeKind(e))}|${e.reading_mode || ''}`;
+function togetherBuckets(branches, ctx) {
+  const buckets = new Map();
+  branches.forEach(c => {
+    if (c.length !== 2 || !isMe(c[0].from_person_id) || ctx.written.has(linkKey(c[0]))) return;
+    const key = sameWay(c[0]);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(c);
+  });
+  return [...buckets.values()].filter(b => b.length > 1);
+}
 
 function renderSet(chains, s, ctx, scope) {
   const sep = s.style.separator;
@@ -195,7 +259,6 @@ function renderSet(chains, s, ctx, scope) {
   const live = list.filter(c => c.length);
   if (!live.length) return '';
   if (list.length === 1) return linear(list[0]);
-  const restartText = t => restartWith(t, s, scope, ctx);
   const joinBranches = texts => joinBranchTexts(texts, s, scope, ctx);
   if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
 
@@ -203,7 +266,7 @@ function renderSet(chains, s, ctx, scope) {
   const n = sharedHead(list);
   if (n > 0) {
     const head = renderLinks(list[0].slice(0, n), s, ctx, { opening: scope.opening }).join(sep);
-    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: toP(list[0][n - 1]), depth });
+    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: toP(list[0][n - 1]), before: (scope.before || 0) + wordCount(head), depth });
     return [head, rest].filter(Boolean).join(sep);
   }
 
@@ -213,6 +276,17 @@ function renderSet(chains, s, ctx, scope) {
   // 2. shared ending: group the heads by the narrator who reaches the meeting point
   const k = live.length === 1 || ended ? 0 : sharedTail(live);
   const narrators = new Map(k ? live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]) : []);
+  const tailAfter = () => renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false });
+
+  // I took from each of my teachers the same way and they all meet: «قرأتُ على A، وB، كلاهما قرأ على X» — no ح
+  if (narrators.size > 1 && scope.opening) {
+    const toMeet = live.map(c => c.slice(0, c.length - k + 1));
+    const [bucket] = togetherBuckets(toMeet, ctx);
+    if (bucket && bucket.length === live.length) {
+      return [renderTogether(bucket.map(c => c[0]), s, ctx), meetText(bucket.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
+    }
+  }
+
   if (narrators.size > 1 && s.style.tahwilMeet !== 'joined') {
     // every branch names the meeting person X: «A عن B عن X ح وD عن E عن X، عن G».
     // Branches are grouped by who reaches X, each group factored the same way (smaller sets: no loop).
@@ -222,8 +296,17 @@ function renderSet(chains, s, ctx, scope) {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(c.slice(0, c.length - k + 1));
     });
-    const meet = joinBranches([...groups.values()].map(g => renderSet(g, s, ctx, { ...scope, depth })));
-    return [meet, ...renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false })].join(sep);
+    // my teachers taken the same way go together in one branch: «قرأتُ على A، وB، كلاهما قرأ على X ح …»
+    const together = scope.opening ? togetherBuckets([...groups.values()].filter(g => g.length === 1).map(g => g[0]), ctx) : [];
+    const inBucket = new Map(together.flatMap(b => b.map(c => [c, b])));
+    const texts = [];
+    [...groups.values()].forEach(g => {
+      const b = g.length === 1 && inBucket.get(g[0]);
+      if (!b) { texts.push(renderSet(g, s, ctx, { ...scope, depth })); return; }
+      if (b[0] !== g[0]) return; // written with the first of its bucket
+      texts.push([renderTogether(b.map(c => c[0]), s, ctx), meetText(b.map(c => c[1]), s, ctx)].join(sep));
+    });
+    return [joinBranches(texts), ...tailAfter()].join(sep);
   }
   const branches = live.length === 1 ? [linear(live[0])] : null;
   const heads = k ? live.map(c => c.slice(0, c.length - k)) : live;
@@ -243,20 +326,13 @@ function renderSet(chains, s, ctx, scope) {
     }
   }
   let text = joinBranches(texts);
-  if (ended && scope.restart) text += ` ${restartText('')}`;
+  if (ended && scope.restart) text = `${text} ${restartWith('', s, scope, ctx, wordCount(text) + (scope.before || 0))}`.replace(/ \n\n/g, '\n\n');
   if (!k) return text;
 
   const tail = live[0].slice(live[0].length - k);
   // all routes reach the same narrator first: no «كلاهما», just carry on from him
   if (narrators.size === 1) return [text, ...renderLinks(tail, s, ctx, { opening: false })].join(sep);
-  const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');
-  const x = tail[0];
-  // «كلاهما سمع من فلان» when every narrator took from X the same way, else «كلاهما عن فلان»
-  const txs = new Set(live.map(c => txKey(edgeKind(c[c.length - k]))));
-  const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
-  const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
-  const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
-  const meet = `${joinWord(narrators.size, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}`;
+  const meet = meetText([...narrators.values()], s, ctx);
   const after = renderLinks(tail.slice(1), s, ctx, { opening: false });
   return [text, meet, ...after].join(sep);
 }
@@ -267,10 +343,11 @@ function renderChains(chains, settings, ctx = newContext()) {
   const list = (chains || []).filter(c => c?.length);
   if (!list.length) return '';
   const first = list[0][0];
-  if (isMe(first.from_person_id)) return renderSet(list, s, ctx, { opening: true, restart: null });
+  const clean = t => t.split(ALSO_MARK).join('');
+  if (isMe(first.from_person_id)) return clean(renderSet(list, s, ctx, { opening: true, restart: null }));
   // chains starting at a named narrator: name them once, restart from them after ح
   const start = personLabel(fromP(first), s, ctx);
-  return `${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first) })}`;
+  return clean(`${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first) })}`);
 }
 
 /** A path group as returned by /api/graph/*\/paths → text. */

@@ -36,6 +36,8 @@ module.exports = {
     heartWord: 'غيباً من حفظي', // written after the shaykh when I read from memory (clear mode)
     lookingWord: 'نظراً',   // … when I read from the text
     tahwilMeet: 'repeat', // after ح: 'repeat' names the meeting person in every branch, 'joined' writes «كلاهما عن …»
+    longRestart: 'وأرويه أيضاً', // after a long branch the next route starts a new paragraph with this ('' = always ح)
+    longRestartWords: 30,        // … «long» = at least this many words
     authorTitle: 'المؤلف', // before the matn's author at the end of the isnad: «عن المؤلف فلان» ('' to disable)
     fullNames: false,    // «أبو عبد الله محمد بن إسماعيل البخاري»: kunya (in case) + nisba — the detailed ijaza
     hideMyReadingMode: false, // omit it on my own link (the ijaza sets this when the teachers paragraph already says it)
