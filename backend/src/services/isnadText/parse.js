@@ -148,6 +148,8 @@ function prepare(text, s) {
   let src = String(text ?? '');
   // «ح ⏎ وأرويه أيضاً: …» / «وأرويه أيضاً عن فلان، …» start a new route like «ح و…» (a doubled ح is harmless)
   if (s.style.longRestart) src = src.replace(new RegExp(`(^|\\n)\\s*${esc(s.style.longRestart)}\\s*:?`, 'g'), ` ${s.style.tahwil} `);
+  // «ح ⏎ ويرويه أيضاً فلان، عن …» restarts from فلان, like «ح وعن فلان، عن …»
+  src = src.replace(/(^|\n)\s*و(?:يرويه|ترويه)\s+أيضاً?/g, ` ${s.style.tahwil} وعن `);
   src = src.replace(/،\s*(?=و\S)/g, ` ${AND_TOKEN} `);
   const out = src
     .replace(/\[\[-?\d+\]\]/g, ' ')

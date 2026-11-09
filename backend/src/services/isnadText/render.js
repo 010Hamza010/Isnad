@@ -41,8 +41,8 @@ const newContext = ({ authorId = null } = {}) => ({ noted: new Set(), names: new
 const linkKey = e => `${e.from_person_id}>${e.to_person_id}`;
 
 // the two people of an edge as { id, name, kunya, nisba, death, desc }
-const toP = e => ({ id: e.to_person_id, name: e.to_name, kunya: e.to_kunya, nisba: e.to_nisba, death: e.to_death_year, desc: e.to_description });
-const fromP = e => ({ id: e.from_person_id, name: e.from_name, kunya: e.from_kunya, nisba: e.from_nisba, death: e.from_death_year, desc: null });
+const toP = e => ({ id: e.to_person_id, name: e.to_name, kunya: e.to_kunya, nisba: e.to_nisba, death: e.to_death_year, desc: e.to_description, gender: e.to_gender });
+const fromP = e => ({ id: e.from_person_id, name: e.from_name, kunya: e.from_kunya, nisba: e.from_nisba, death: e.from_death_year, desc: null, gender: e.from_gender });
 
 // the name as written: full (kunya in the right case + nisba) when style.fullNames
 function nameOf(p, s, ctx, kase) {
@@ -186,7 +186,8 @@ const wordCount = t => String(t).replace(/\[\[-?\d+\]\]/g, '').split(/\s+/).filt
 /*
  * The next branch: «ح وعن فلان، …» after a shared beginning, else «ح و…».
  * After a long branch (style.longRestartWords) «ح» ends the line and the new route starts a paragraph,
- * so the reader sees where it begins: «… ح ⏎ وأرويه أيضاً: قرأتُ على …» / «… ح ⏎ وأرويه أيضاً عن فلان، وهو …».
+ * so the reader sees where it begins: from me «… ح ⏎ وأرويه أيضاً: قرأتُ على …»; part-way up, from
+ * فلان already in the text, «… ح ⏎ ويرويه أيضاً فلان، عن …» («وترويه» for a woman) — never «وأرويه».
  */
 // prevWords: length of the route the reader has just read (since the last restart)
 function restartWith(t, s, scope, ctx, prevWords = 0) {
@@ -196,7 +197,10 @@ function restartWith(t, s, scope, ctx, prevWords = 0) {
   if (long) {
     const br = `${s.style.tahwil}\n\n`;
     if (also) return `${br}و${body}`;                       // «وقرأ شيخنا فلان أيضاً على …» says it already
-    if (scope.restart) return `${br}${s.style.longRestart} عن ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`;
+    if (scope.restart) {
+      const verb = scope.restart.gender === 'F' ? 'وترويه' : 'ويرويه';
+      return `${br}${verb} أيضاً ${nameOf(scope.restart, s, ctx, 'nom')}${body ? s.style.separator + body : ''}`;
+    }
     return `${br}${s.style.longRestart}: ${body}`;
   }
   return scope.restart
