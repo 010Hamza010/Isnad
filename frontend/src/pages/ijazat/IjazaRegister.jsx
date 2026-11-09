@@ -25,7 +25,11 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
     if (r) { setView({ row: r }); onOpened?.(); }
   }, [openId, rows]);
 
-  const replace = row => { setData(list => list.map(x => (x.id === row.id ? row : x))); setView(v => (v?.row.id === row.id ? { ...v, row } : v)); };
+  // merge a full row or a patch ({ id, ...fields }) into the list and the open view
+  const replace = patch => {
+    setData(list => list.map(x => (x.id === patch.id ? { ...x, ...patch } : x)));
+    setView(v => (v?.row.id === patch.id ? { ...v, row: { ...v.row, ...patch } } : v));
+  };
 
   const copy = async r => {
     try { await navigator.clipboard.writeText(r.qr_payload); toast('نُسخت بيانات رمز الإجازة'); }
@@ -65,7 +69,7 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
                   <div className="row row-wrap" style={{ gap: 6 }}>
                     <span className="list-title display" style={{ fontSize: 17 }}>{r.student_name}</span>
                     <span className={`badge ${cls}`}>{label}</span>
-                    {r.style === 'detailed' && <span className="badge">مفصّلة</span>}
+                    {r.details?.dual ? <span className="badge">عادية + مفصّلة</span> : r.style === 'detailed' && <span className="badge">مفصّلة</span>}
                     {r.revoked_at && <span className="badge badge-danger">ملغاة</span>}
                     {r.replaced_by_code && <span className="badge">صدر بدلها {r.replaced_by_code}</span>}
                     {r.replaces_code && <span className="badge badge-info">تصحيح لـ {r.replaces_code}</span>}

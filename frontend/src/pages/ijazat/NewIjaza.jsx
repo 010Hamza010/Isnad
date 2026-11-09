@@ -13,10 +13,6 @@ import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, ij
 import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
 
-const STYLES = [
-  { value: 'normal', label: 'عادية' },
-  { value: 'detailed', label: 'مفصّلة' },
-];
 
 // keep only what the certificate needs (tree + notes) in the saved snapshot
 const slimChain = c => c.map(e => ({
@@ -47,7 +43,9 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {} });
 
   const [module, setModule]   = useState(c0?.module || 'mutoon');
-  const [style, setStyle]     = useState(c0?.style || 'normal');
+  // every ijaza is issued in two versions; this only picks which one the preview shows
+  const [preview, setPreview] = useState('normal');
+  const [fitInfo, setFitInfo] = useState(null);  // { fit, pages } of the normal version
   const [clearWords, setClearWords] = useState(true);
   const [deathYears, setDeathYears] = useState(true);
   const [notes, setNotes]     = useState({});
@@ -113,7 +111,8 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
     if (!chains.length) { setIsnadText(''); setNotes({}); return; }
     let alive = true;
     // «غيباً من حفظي» is stated once: in the teachers paragraph when there is one, else in the isnad
-    const renderStyle = { clear: clearWords, deathYears, noteMarkers: style === 'detailed', hideMyReadingMode: listsTeachers };
+    // markers [[id]] are invisible in the normal version and become footnotes in the detailed one
+    const renderStyle = { clear: clearWords, deathYears, noteMarkers: true, hideMyReadingMode: listsTeachers };
     api.post('/isnad-text/render', { chains, style: renderStyle })
       .then(r => {
         if (!alive) return;
@@ -122,7 +121,7 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
       })
       .catch(e => alive && notifyError(e));
     return () => { alive = false; };
-  }, [chains, style, clearWords, deathYears, listsTeachers]);
+  }, [chains, clearWords, deathYears, listsTeachers]);
 
   const reading = quranOpt ? readingPhrase({
     qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
@@ -164,17 +163,19 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         tariq_id: module === 'quran' ? quranOpt?.tariq_id : null,
         transmission_type_id: module === 'general' ? null : txId,
         issued_at: date, issued_hijri: hijri, place,
-        style: detailed ? 'detailed' : 'normal',
+        style: 'normal',
         ...(correction ? { replaces_id: correction.id, correction_reason: correctionReason } : {}),
         // snapshot: reprints look the same even if the design or biographies change later
-        details: { notes: detailed ? notes : {}, chains: chains.map(slimChain), design, people },
+        // dual: issued as a normal (printed, one page) and a detailed (footnotes + tree) version
+        details: { notes, chains: chains.map(slimChain), design, people, dual: module !== 'general' },
       });
       toast('حُفظت الإجازة — يمكنك طباعتها الآن مع رمز التحقق');
       reset(); onSaved(saved);
     } catch (e) { notifyError(e); } finally { setSaving(false); }
   };
 
-  const detailed = style === 'detailed' && module !== 'general';
+  const hasDetailed = module !== 'general';
+  const detailed = hasDetailed && preview === 'detailed';
   // shaykh = full name (signature), me = short name (tree)
   const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: teachers.map(t => t.name) };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
@@ -198,15 +199,6 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
           <span className="field-label">نوع الإجازة</span>
           <Segmented value={module} onChange={v => { setModule(v); setManualBody(null); }} options={MODULES} />
         </div>
-        {module !== 'general' && (
-          <div className="field">
-            <span className="field-label">الشكل</span>
-            <Segmented value={style} onChange={v => { setStyle(v); setManualBody(null); }} options={STYLES} />
-            <span className="field-hint">
-              {style === 'detailed' ? 'ترجمة كل علَم في الهامش + صفحة لشجرة الإسناد' : 'نص الإجازة والإسناد فقط'}
-            </span>
-          </div>
-        )}
         <Field label="اسم المجاز" required>
           <input className="input" value={student} onChange={e => setStudent(e.target.value)}
             placeholder={studentGender === 'F' ? 'الأخت الفاضلة فلانة بنت فلان' : 'الأخ الفاضل فلان بن فلان'} />
@@ -321,14 +313,30 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         {manualBody != null && (
           <>
             <textarea className="textarea cert-editor" value={manualBody} onChange={e => setManualBody(e.target.value)} />
-            {detailed && <p className="small muted">العلامات مثل [[12]] تربط الاسم بحاشيته أسفل الصفحة — احذفها لإخفاء الحاشية.</p>}
+            {hasDetailed && <p className="small muted">العلامات مثل [[12]] تربط الاسم بحاشيته في النسخة المفصّلة (لا تظهر في العادية) — احذفها لإخفاء الحاشية.</p>}
           </>
         )}
         {detailed && chains.length > 0 && Object.keys(notes).length === 0 && (
           <div className="callout">لا توجد تراجم للأعلام في هذا الإسناد — أضفها في صفحة <Link to="/persons">الأعلام</Link> لتظهر في الهامش.</div>
         )}
-        <Certificate title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
-          notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }} />
+        {hasDetailed && (
+          <div className="row row-wrap">
+            <Segmented value={preview} onChange={setPreview} options={[
+              { value: 'normal', label: 'العادية — للطباعة (صفحة واحدة)' },
+              { value: 'detailed', label: 'المفصّلة — PDF (حواشٍ وشجرة)' },
+            ]} />
+            <span className="small muted">تصدر النسختان معاً برمز واحد</span>
+          </div>
+        )}
+        {!detailed && fitInfo?.pages > 1 && (
+          <div className="alert alert-error">النص أطول من صفحة واحدة حتى بأصغر خط — اختصر القالب أو قلّل الأسانيد المضمّنة.</div>
+        )}
+        {!detailed && fitInfo && fitInfo.pages === 1 && fitInfo.fit < 0.999 && (
+          <div className="small muted">صُغّر الخط إلى {Math.round(fitInfo.fit * 100)}% ليتّسع في صفحة واحدة.</div>
+        )}
+        <Certificate key={detailed ? 'd' : 'n'} title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
+          notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }}
+          fitOnePage={!detailed} onFit={detailed ? undefined : setFitInfo} />
         <p className="small muted">
           الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمزها (QR) للطباعة أو الحفظ كـ PDF.
         </p>

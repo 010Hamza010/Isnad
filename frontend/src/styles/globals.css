@@ -477,11 +477,11 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .frame-double .cert-page::after  { inset: calc(var(--page-margin) + 2mm); border: 1px solid var(--c-frameInner); }
 .frame-single .cert-page::before { inset: var(--page-margin); border: 1.5px solid var(--c-frame); }
 .cert-inner { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
-.cert-head { text-align: center; padding-bottom: 5mm; }
-.cert-ornament { color: var(--c-ornament); font-size: calc(var(--s-title) * .55); letter-spacing: .3em; line-height: 1.6; }
-.cert-title { font-family: var(--f-title); font-size: var(--s-title); color: var(--c-title); font-weight: 700; line-height: 1.5; }
-.cert-sub { font-family: var(--f-body); font-size: var(--s-body); color: var(--c-death); }
-.cert-flow { display: flow-root; font-family: var(--f-body); font-size: var(--s-body); line-height: 2.05; text-align: justify; }
+.cert-head { text-align: center; padding-bottom: calc(5mm * var(--fit, 1)); }
+.cert-ornament { color: var(--c-ornament); font-size: calc(var(--s-title) * .55 * var(--fit, 1)); letter-spacing: .3em; line-height: 1.6; }
+.cert-title { font-family: var(--f-title); font-size: calc(var(--s-title) * var(--fit, 1)); color: var(--c-title); font-weight: 700; line-height: 1.5; }
+.cert-sub { font-family: var(--f-body); font-size: calc(var(--s-body) * var(--fit, 1)); color: var(--c-death); }
+.cert-flow { display: flow-root; font-family: var(--f-body); font-size: calc(var(--s-body) * var(--fit, 1)); line-height: 2.05; text-align: justify; }
 .cert-flow p { margin: 0; padding-bottom: .55em; }
 .cert-flow p.p-first { text-align: center; }
 .cert-flow p.p-last { text-align: left; padding-top: .9em; }

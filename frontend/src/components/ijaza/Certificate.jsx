@@ -184,12 +184,17 @@ function useZoom(ref) {
  * verification: { payload, code } of a saved ijaza — the QR encodes the signed payload text (student,
  * subject, date-time, code), verified in the dashboard — or { placeholder: true } before saving.
  */
-export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered }) {
+/**
+ * fitOnePage: shrink the text (never below 55%) until everything fits on a single page — for the
+ * printed normal version. onFit({ fit, pages }) reports the result (pages > 1 = too long even so).
+ */
+export default function Certificate({ title, body, variant = 'normal', notes = {}, chains = [], design: d, people = {}, verification = null, onRendered, fitOnePage = false, onFit }) {
   const detailed = variant === 'detailed';
   const measureRef = useRef(null);
   const wrapRef = useRef(null);
   const zoom = useZoom(wrapRef);
   const [pages, setPages] = useState([]);
+  const [fit, setFit] = useState(1);
 
   const namesKey = (people.names || []).join('|');
   const matcher = useMemo(() => {
@@ -225,10 +230,24 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
     const t = setTimeout(async () => {
       await fontsReady(d);
       if (!alive || !measureRef.current) return;
-      setPages(paginate(measureRef.current, { paragraphs, numbers, notes, title, ornament: d.frame.ornament, verify }));
+      const root = measureRef.current;
+      const run = f => { root.style.setProperty('--fit', f); return paginate(root, { paragraphs, numbers, notes, title, ornament: d.frame.ornament, verify }); };
+      let f = 1, out = run(1);
+      if (fitOnePage && out.length > 1) {
+        // largest text size that still fits on one page (binary search, 7 steps)
+        let lo = 0.55, hi = 1, best = null;
+        for (let i = 0; i < 7; i++) {
+          const mid = (lo + hi) / 2;
+          const p = run(mid);
+          if (p.length === 1) { best = { f: mid, p }; lo = mid; } else hi = mid;
+        }
+        if (best) { f = best.f; out = best.p; } else { f = lo; out = run(lo); }
+      }
+      setFit(f); setPages(out);
+      onFit?.({ fit: f, pages: out.length });
     }, 120);
     return () => { alive = false; clearTimeout(t); };
-  }, [paragraphs, numbers, notes, title, d, verify]);
+  }, [paragraphs, numbers, notes, title, d, verify, fitOnePage]);
 
   // tell the parent once the pages (and QR) are laid out, so it can archive them exactly as shown
   const sheetsRef = useRef(null);
@@ -265,10 +284,10 @@ export default function Certificate({ title, body, variant = 'normal', notes = {
       <div className={rootClass} style={vars}>
         <div ref={measureRef} className="cert-measure" aria-hidden="true" />
       </div>
-      <div ref={sheetsRef} className={`${rootClass} cert-sheets`} style={{ ...vars, zoom }} dir="rtl">
+      <div ref={sheetsRef} className={`${rootClass} cert-sheets`} style={{ ...vars, '--fit': fit, zoom }} dir="rtl">
         {pages.length ? sheets : <div className="cert-page"><div className="skeleton" style={{ height: '100%' }} /></div>}
       </div>
-      {printRoot && createPortal(<div className={`${rootClass} cert-sheets`} style={vars} dir="rtl">{sheets}</div>, printRoot)}
+      {printRoot && !onRendered && createPortal(<div className={`${rootClass} cert-sheets`} style={{ ...vars, '--fit': fit }} dir="rtl">{sheets}</div>, printRoot)}
     </div>
   );
 }
