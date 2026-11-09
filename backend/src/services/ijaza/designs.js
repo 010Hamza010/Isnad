@@ -16,7 +16,7 @@ const CLASSIC = {
   colors: {
     paper: '#fffdf6', text: '#1f2a2a', title: '#a87a22', ornament: '#a87a22',
     frame: '#a87a22', frameInner: '#e9d9b0',
-    student: '#0f5e5c', shaykh: '#0f5e5c', names: '#5b3a12', sacred: '#a87a22',
+    student: '#0f5e5c', shaykh: '#0f5e5c', names: '#5b3a12', sacred: '#a87a22', author: '#8b1a14',
     death: '#7a7974', tahwil: '#b42318', noteRef: '#a87a22', noteText: '#3d3d35', rule: '#a87a22',
     treeLine: '#b9a77a', treeNode: '#fffdf6', treeNodeBorder: '#cbbf9f', treeText: '#1f2a2a',
     treeMe: '#0f5e5c', treeSource: '#f7edd6', treeJoin: '#b42318',
@@ -37,7 +37,7 @@ const SIMPLE = {
   ...CLASSIC, id: 'simple', name: 'بسيط',
   colors: {
     ...CLASSIC.colors, title: '#111111', ornament: '#555555', frame: '#333333', frameInner: '#bbbbbb',
-    student: '#111111', shaykh: '#111111', names: '#222222', sacred: '#111111', death: '#666666',
+    student: '#111111', shaykh: '#111111', names: '#222222', sacred: '#111111', author: '#111111', death: '#666666',
     noteRef: '#333333', rule: '#999999', treeLine: '#999999', treeSource: '#eeeeee', treeMe: '#333333',
   },
   fonts: { ...CLASSIC.fonts, title: { family: 'Noto Naskh Arabic', size: 26 }, body: { family: 'Noto Naskh Arabic', size: 13 } },
@@ -48,7 +48,7 @@ const MANUSCRIPT = {
   ...CLASSIC, id: 'manuscript', name: 'مخطوط',
   colors: {
     ...CLASSIC.colors, paper: '#f6ecd6', text: '#2b1d0e', title: '#8b1a14', ornament: '#8b1a14',
-    frame: '#6b4a1e', frameInner: '#c9a96a', student: '#1d4d2b', shaykh: '#1d4d2b', names: '#2b1d0e',
+    frame: '#6b4a1e', frameInner: '#c9a96a', student: '#1d4d2b', shaykh: '#1d4d2b', names: '#2b1d0e', author: '#6b1d5c',
     sacred: '#8b1a14', death: '#7a5a32', tahwil: '#c0261b', noteRef: '#8b1a14', rule: '#6b4a1e',
     treeNode: '#fbf3e1', treeSource: '#eedbb0', treeMe: '#1d4d2b', treeLine: '#a08355',
   },

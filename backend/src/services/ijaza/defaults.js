@@ -37,6 +37,12 @@ module.exports = {
     mutoon: 'وقد قرأتُ هذا المتن على جماعة من شيوخي، منهم: {الشيوخ}.',
     quran: 'وقد قرأتُ القرآن الكريم على جماعة من شيوخي، منهم: {الشيوخ}.',
   },
+  // title per type: text with {placeholders}; color / font / size empty = the design's
+  titles: {
+    mutoon: { text: 'إجازة في متن «{المتن}»', color: '', family: '', size: null },
+    quran: { text: 'إجازة في القرآن الكريم {القراءة_والرواية}', color: '', family: '', size: null },
+    general: { text: 'إجازة عامة', color: '', family: '', size: null },
+  },
   designs: PRESETS,
   default_design: 'classic',
   shaykh_name: '',

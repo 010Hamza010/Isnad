@@ -26,6 +26,7 @@ function mergeSettings(stored) {
   if (typeof stored.place === 'string') s.place = stored.place;
   if (typeof stored.teachers_title === 'string') s.teachers_title = stored.teachers_title;
   MODULES.forEach(m => { if (typeof stored.templates?.[m] === 'string') s.templates[m] = stored.templates[m]; });
+  MODULES.forEach(m => { if (stored.titles?.[m] && typeof stored.titles[m] === 'object') s.titles[m] = { ...s.titles[m], ...stored.titles[m] }; });
   ['mutoon', 'quran'].forEach(m => {
     if (typeof stored.teachers_sentence?.[m] === 'string') s.teachers_sentence[m] = stored.teachers_sentence[m];
   });
@@ -36,6 +37,20 @@ function mergeSettings(stored) {
   if (typeof stored.default_design === 'string') s.default_design = stored.default_design;
   if (!s.designs.some(d => d.id === s.default_design)) s.default_design = s.designs[0].id;
   return s;
+}
+
+// { text, color, family, size }: empty color / family / size follow the design
+function validateTitle(t, m) {
+  const text = String(t.text ?? '').trim();
+  if (!text || text.length > 200) throw new HttpError(400, `عنوان «${m}»: مطلوب (200 حرف على الأكثر)`);
+  const color = String(t.color ?? '').trim();
+  if (color && !/^#[0-9a-f]{6}$/i.test(color)) throw new HttpError(400, `عنوان «${m}»: لون غير صالح`);
+  const family = String(t.family ?? '').trim();
+  if (family && !FONTS.includes(family)) throw new HttpError(400, `عنوان «${m}»: خط غير متاح`);
+  const size = t.size === '' || t.size == null ? null : Number(t.size);
+  const [min, max] = FONT_SIZES.title;
+  if (size != null && !(size >= min && size <= max)) throw new HttpError(400, `عنوان «${m}»: الحجم بين ${min} و${max}`);
+  return { text, color, family, size };
 }
 
 function validateSettings(input) {
@@ -54,12 +69,13 @@ function validateSettings(input) {
     if (t && !t.includes('{الشيوخ}')) throw new HttpError(400, 'جملة الشيوخ يجب أن تحتوي على {الشيوخ}');
     s.teachers_sentence[m] = t;
   });
+  const titles = Object.fromEntries(MODULES.map(m => [m, validateTitle(s.titles[m], m)]));
   const designs = validateDesigns(s.designs);
   const default_design = designs.some(d => d.id === s.default_design) ? s.default_design : designs[0].id;
   return {
     templates_version: DEFAULTS.templates_version, shaykh_name: s.shaykh_name.trim(), place: s.place.trim(),
     teachers_title: s.teachers_title.trim(), teachers_title_f: s.teachers_title_f.trim(), shaykh_gender: s.shaykh_gender,
-    templates: s.templates, teachers_sentence: s.teachers_sentence, designs, default_design,
+    templates: s.templates, titles, teachers_sentence: s.teachers_sentence, designs, default_design,
   };
 }
 

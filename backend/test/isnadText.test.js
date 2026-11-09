@@ -1,6 +1,9 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const T = require('../src/services/isnadText');
+const TT = require('../src/services/isnadText');
+// most tests below were written for the «كلاهما عن …» form; the default «repeat» form is tested at the end
+const joined = st => ({ ...(st || {}), style: { ...(st?.style || {}), tahwilMeet: 'joined' } });
+const T = { ...TT, renderChains: (c, st, ctx) => TT.renderChains(c, joined(st), ctx), renderGroup: (g, st) => TT.renderGroup(g, joined(st)) };
 const { SEED_KINDS: K } = require('../src/services/txKinds');
 // tests below name transmissions with the seed numbering (1 سماع، 2 قراءة، 3 إجازة…) for brevity
 const ID = Object.fromEntries(Object.entries(K).map(([id, kind]) => [kind, Number(id)]));
@@ -414,5 +417,61 @@ describe('تحويل when one route passes through a shaykh I also read on direc
     ], st);
     assert.match(t, /كلاهما (?:قرأ على|عن) X/, t);
     assert.equal((t.match(/ابن الجزري/g) || []).length, 1, t);
+  });
+});
+
+describe('تحويل, default «repeat»: every branch names the meeting person', () => {
+  let ids = {}, next = 1;
+  const id = name => (ids[name] ??= next++);
+  const chain = (names, kinds = []) => {
+    let prev = 0;
+    return names.map((nm, i) => { const e = { from_person_id: prev, from_name: '', to_person_id: id(nm), to_name: nm, tx_kind: kinds[i] ?? (i === 0 ? 'qiraa' : null) }; prev = e.to_person_id; return e; });
+  };
+  const st = { style: { firstTitle: '' } };
+  const clear = { style: { firstTitle: 'شيخنا', clear: true } };
+
+  test('A عن B عن C ح D عن E عن C عن G', () => {
+    assert.equal(TT.renderChains([chain(['A', 'B', 'C', 'G']), chain(['D', 'E', 'C', 'G'])], st),
+      'أخبرنا A، عن B، عن C ح وأخبرنا D، عن E، عن C، عن G');
+  });
+
+  test('nested meeting points: only the nearest one is repeated in each branch', () => {
+    const mid = ['طاهر', 'السعيد', 'عبد الرحمان'], top = ['ابن غازي', 'ابن بري'];
+    const t = TT.renderChains([
+      chain(['حسين', ...mid, ...top]), chain(['خالد', ...mid, ...top]),
+      chain(['نزهة', 'عبد الحي', 'ابن الأمين', 'التاودي', 'بناني', 'ابن مجبر', ...top]),
+    ], st);
+    assert.equal(t, 'أخبرنا حسين، عن طاهر ح وأخبرنا خالد، عن طاهر، عن السعيد، عن عبد الرحمان، عن ابن غازي'
+      + ' ح وأخبرنا نزهة، عن عبد الحي، عن ابن الأمين، عن التاودي، عن بناني، عن ابن مجبر، عن ابن غازي، عن ابن بري');
+    assert.doesNotMatch(t, /كلاهما|كلهم/);
+  });
+
+  test('a shaykh already named starts his other route with «أيضاً»', () => {
+    // me → A → C → G, me → B → C → G, me → B → X → Y
+    const chains = [chain(['A', 'C', 'G']), chain(['B', 'C', 'G']), chain(['B', 'X', 'Y'], ['qiraa', 'qiraa'])];
+    assert.equal(TT.renderChains(chains, clear),
+      'قرأتُ على شيخنا A، عن C ح وقرأتُ على شيخنا B، عن C، عن G ح وقرأ شيخنا B أيضاً على X، عن Y');
+    // keyword mode: the classical restart
+    assert.match(TT.renderChains(chains, { style: { firstTitle: '' } }), / ح وعن B، أخبرنا X، عن Y$/);
+  });
+
+  test('«أيضاً» follows the narrator\'s gender; untyped links «رواه … أيضاً عن»', () => {
+    const f = c => c.map((e, i) => (i === 1 ? { ...e, from_gender: 'F' } : i === 0 ? { ...e, to_gender: 'F' } : e));
+    const t = TT.renderChains([chain(['A', 'C']), f(chain(['B', 'C'])), f(chain(['B', 'X']))], clear);
+    assert.match(t, /ح وروته شيختنا B أيضاً عن X$/, t);
+  });
+
+  test('the author gets his title and is reported for colouring', () => {
+    const ctx = TT.newContext({ authorId: id('G') });
+    const t = TT.renderChains([chain(['A', 'C', 'G'])], st, ctx);
+    assert.match(t, /عن المؤلف G$/);
+    assert.deepEqual([...ctx.authorNames], ['G', 'المؤلف G']);
+    const none = TT.renderChains([chain(['A', 'C', 'G'])], { style: { firstTitle: '', authorTitle: '' } }, TT.newContext({ authorId: id('G') }));
+    assert.match(none, /عن G$/);
+  });
+
+  test('also-sentences are validated: {الاسم} and {الراوي} once each', () => {
+    assert.throws(() => TT.validateSettings({ phrases: { also: { qiraa: 'قرأ أيضاً على {الاسم}' } } }), /الراوي/);
+    assert.ok(TT.validateSettings({ phrases: { also: { qiraa: 'وقرأ {الراوي} كذلك على {الاسم}' } } }));
   });
 });

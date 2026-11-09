@@ -129,3 +129,22 @@ test('designs carry a verification QR setting (default shown, 20 mm) and validat
   assert.equal(D.validateDesigns([{ id: 'x', name: 'x', qr: { show: false } }])[0].qr.show, false);
   assert.throws(() => D.validateDesigns([{ id: 'x', name: 'x', qr: { sizeMm: 80 } }]), e => e.status === 400);
 });
+
+test('ijaza title per type: defaults, partial stored values, validation', () => {
+  const S = require('../src/services/ijaza/settings');
+  const m = S.mergeSettings({ titles: { mutoon: { color: '#112233' } } });
+  assert.equal(m.titles.mutoon.text, 'إجازة في متن «{المتن}»');
+  assert.equal(m.titles.mutoon.color, '#112233');
+  assert.equal(m.titles.quran.family, '');
+  const ok = S.validateSettings({ titles: { general: { text: ' الإجازة العامة ', family: 'Aref Ruqaa', size: 40 } } });
+  assert.deepEqual(ok.titles.general, { text: 'الإجازة العامة', color: '', family: 'Aref Ruqaa', size: 40 });
+  assert.throws(() => S.validateSettings({ titles: { mutoon: { text: '' } } }), e => e.status === 400);
+  assert.throws(() => S.validateSettings({ titles: { mutoon: { text: 'x', color: 'red' } } }), e => e.status === 400);
+  assert.throws(() => S.validateSettings({ titles: { mutoon: { text: 'x', family: 'Comic Sans' } } }), e => e.status === 400);
+  assert.throws(() => S.validateSettings({ titles: { mutoon: { text: 'x', size: 99 } } }), e => e.status === 400);
+});
+
+test('designs carry an author colour (older stored designs get the default)', () => {
+  const { mergeDesign } = require('../src/services/ijaza/designs');
+  assert.match(mergeDesign({ colors: { names: '#000000' } }).colors.author, /^#[0-9a-f]{6}$/i);
+});

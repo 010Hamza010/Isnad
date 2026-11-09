@@ -35,6 +35,8 @@ module.exports = {
     noteMarkers: false,  // «فلان[[12]]» after a person's first mention, for footnotes
     heartWord: 'غيباً من حفظي', // written after the shaykh when I read from memory (clear mode)
     lookingWord: 'نظراً',   // … when I read from the text
+    tahwilMeet: 'repeat', // after ح: 'repeat' names the meeting person in every branch, 'joined' writes «كلاهما عن …»
+    authorTitle: 'المؤلف', // before the matn's author at the end of the isnad: «عن المؤلف فلان» ('' to disable)
     fullNames: false,    // «أبو عبد الله محمد بن إسماعيل البخاري»: kunya (in case) + nisba — the detailed ijaza
     hideMyReadingMode: false, // omit it on my own link (the ijaza sets this when the teachers paragraph already says it)
   },
@@ -70,6 +72,14 @@ module.exports = {
     joined: {
       lafz: '{الراوي:سمع|سمعت} من لفظ {الاسم}', sama: '{الراوي:سمع|سمعت} من {الاسم}',
       qiraa: '{الراوي:قرأ|قرأت} على {الاسم}', ard: '{الراوي:عرض|عرضت} على {الاسم}',
+    },
+    // a branch after ح that starts from someone already named ({الراوي}): «ح وقرأ شيخنا فلان أيضاً على …»
+    also: {
+      lafz: '{الراوي:سمع|سمعت} {الراوي} أيضاً من لفظ {الاسم}', sama: '{الراوي:سمع|سمعت} {الراوي} أيضاً من {الاسم}',
+      qiraa: '{الراوي:قرأ|قرأت} {الراوي} أيضاً على {الاسم}', ard: '{الراوي:عرض|عرضت} {الراوي} أيضاً على {الاسم}',
+      sama_reading: 'قُرئ على {الاسم} أيضاً و{الراوي} {الراوي:يسمع|تسمع}',
+      ijaza: '{الشيخ:أجاز|أجازت} {الاسم} {الراوي} أيضاً',
+      null: '{الراوي:رواه|روته} {الراوي} أيضاً عن {الاسم}',
     },
   },
   // stripped from the start of a name when parsing
