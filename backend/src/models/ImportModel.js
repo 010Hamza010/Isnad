@@ -37,7 +37,8 @@ exports.apply = async (plan, { target, matn_id, items = [], userId }) => {
       } else {
         await conn.query(
           'INSERT INTO matn_connections (from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, reading_mode) VALUES (?,?,?,?,?,?)',
-          [from, to, matn_id || null, e.transmission_type_id, e.tx_kind === 'ijaza_general' ? 1 : 0, e.reading_mode]);
+          // no matn = valid for every matn («عام — لكل المتون»), as in the connection form
+          [from, to, matn_id || null, e.transmission_type_id, matn_id ? 0 : 1, e.reading_mode]);
       }
       created++;
     }

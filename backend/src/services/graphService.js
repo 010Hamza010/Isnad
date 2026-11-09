@@ -53,14 +53,14 @@ function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwa
 const { kindOf, rankOf } = require('./txKinds');
 
 /**
- * Lower is stronger. The chosen transmission type decides («سماع» stays سماع even if the
- * «إجازة عامة» box is also ticked); the box only types an untyped connection, and on a tie
- * an unticked connection, then one for this specific matn, wins.
+ * Lower is stronger. Only the chosen transmission type decides. The «عام — لكل المتون» box is a
+ * scope (valid for every matn), not a way of receiving: on a tie the connection for this specific
+ * matn wins over a general one.
  */
 function edgeRank(edge) {
   const general = Number(edge.is_general_ijaza) ? 1 : 0;
   const kind = kindOf(edge); // by kind, never by type id: ids differ between databases (see txKinds.js)
-  const r = rankOf(kind ?? (general ? 'ijaza_general' : null));
+  const r = rankOf(kind);
   return r * 4 + general * 2 + (edge.matn_id ? 0 : 1);
 }
 

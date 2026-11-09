@@ -96,12 +96,37 @@ describe('which connection wins between the same two people', () => {
     assert.equal(pick(e(0, 1, { tx_kind: 'ijaza', is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { tx_kind: 'sama', is_general_ijaza: 1, tag: 'sama' })).tag, 'sama');
     assert.equal(pick(e(0, 1, { tx_kind: 'ijaza', is_general_ijaza: 1, tag: 'ij' }), e(0, 1, { tx_kind: 'kitaba', tag: 'kitaba' })).tag, 'ij');
   });
-  test('the box types an untyped connection as إجازة عامة, and breaks ties', () => {
-    assert.equal(pick(e(0, 1, { tx_kind: null, is_general_ijaza: 1, tag: 'gen' }), e(0, 1, { tx_kind: 'wijada', tag: 'wijada' })).tag, 'gen');
+  test('the «عام — لكل المتون» box is a scope, not a type: it never makes a link an إجازة عامة; it loses ties', () => {
+    assert.equal(pick(e(0, 1, { tx_kind: null, is_general_ijaza: 1, tag: 'gen' }), e(0, 1, { tx_kind: 'wijada', tag: 'wijada' })).tag, 'wijada');
     assert.equal(pick(e(0, 1, { tx_kind: 'sama', is_general_ijaza: 1, tag: 'ticked' }), e(0, 1, { tx_kind: 'sama', tag: 'plain' })).tag, 'plain');
   });
   test('same type: the connection for this matn beats a general one; untyped is last', () => {
     assert.equal(pick(e(0, 1, { tx_kind: 'qiraa', matn_id: null, tag: 'any' }), e(0, 1, { tx_kind: 'qiraa', matn_id: 7, tag: 'this' })).tag, 'this');
     assert.equal(pick(e(0, 1, { tx_kind: null, tag: 'none' }), e(0, 1, { tx_kind: 'wijada', tag: 'wijada' })).tag, 'wijada');
   });
+});
+
+test('the «عام» box does not change how a link is written: untyped stays «عن»', () => {
+  const pMap = new Map([[1, { name_ar: 'أ' }]]);
+  const [g] = buildPaths([e(0, 1, { is_general_ijaza: 1 })], 0, [1], null, null, null, pMap, null, null);
+  assert.equal(formatPath(g, pMap).firstEdge.tx_kind, null);
+  const [h] = buildPaths([e(0, 1, { is_general_ijaza: 1, tx_kind: 'sama' })], 0, [1], null, null, null, pMap, null, null);
+  assert.equal(formatPath(h, pMap).firstEdge.tx_kind, 'sama');
+});
+
+test('the «عام» box and an empty matn are the same: no matn, box ticked', async () => {
+  const path = require('node:path');
+  const saved = [];
+  const p = require.resolve(path.join(__dirname, '../src/models/MatnConnectionModel'));
+  require.cache[p] = { id: p, filename: p, loaded: true, exports: {
+    create: async b => { saved.push(b); return { id: 1 }; }, update: async (id, b) => { saved.push(b); },
+  } };
+  const c = require('../src/controllers/matnConnectionsController');
+  const res = { json: b => b };
+  await c.create({ body: { to_person_id: 5, matn_id: 52, is_general_ijaza: true } }, res);
+  await c.update({ params: { id: 1 }, body: { to_person_id: 5, matn_id: 52, is_general_ijaza: false } }, res);
+  await c.create({ body: { to_person_id: 5, matn_id: '', is_general_ijaza: false } }, res);
+  assert.deepEqual([saved[0].matn_id, saved[0].is_general_ijaza], [null, true]);
+  assert.deepEqual([saved[1].matn_id, saved[1].is_general_ijaza], [52, false]);
+  assert.deepEqual([saved[2].matn_id, saved[2].is_general_ijaza], [null, true]);
 });
