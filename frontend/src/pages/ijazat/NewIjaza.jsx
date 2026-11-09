@@ -68,6 +68,7 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   const [chosen, setChosen]   = useState(new Set());
   const [pathsLoading, setPathsLoading] = useState(false);
   const [isnadText, setIsnadText] = useState('');
+  const [isnadFull, setIsnadFull] = useState({ text: '', names: [] }); // detailed version: kunya + nisba
   const [manualBody, setManualBody] = useState(null);
   const [saving, setSaving]   = useState(false);
 
@@ -108,15 +109,19 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   const chosenKey = useDebounced([...chosen].sort().join(','), 200);
   const chains = useMemo(() => groupsToChains(groups.filter((_, i) => chosen.has(i))), [groups, chosenKey]);
   useEffect(() => {
-    if (!chains.length) { setIsnadText(''); setNotes({}); return; }
+    if (!chains.length) { setIsnadText(''); setIsnadFull({ text: '', names: [] }); setNotes({}); return; }
     let alive = true;
     // «غيباً من حفظي» is stated once: in the teachers paragraph when there is one, else in the isnad
     // markers [[id]] are invisible in the normal version and become footnotes in the detailed one
     const renderStyle = { clear: clearWords, deathYears, noteMarkers: true, hideMyReadingMode: listsTeachers };
-    api.post('/isnad-text/render', { chains, style: renderStyle })
-      .then(r => {
+    Promise.all([
+      api.post('/isnad-text/render', { chains, style: renderStyle }),
+      api.post('/isnad-text/render', { chains, style: { ...renderStyle, fullNames: true } }),
+    ])
+      .then(([r, full]) => {
         if (!alive) return;
         setIsnadText(r.data.text);
+        setIsnadFull({ text: full.data.text, names: full.data.names || [] });
         setNotes(Object.fromEntries(r.data.persons.filter(p => p.description).map(p => [p.id, p])));
       })
       .catch(e => alive && notifyError(e));
@@ -139,11 +144,14 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
     'شيوخ_القراءة': teachersText,
     'التاريخ': dates.gregorian, 'التاريخ_الهجري': hijri,
   };
-  const filled = fillTemplate(settings.templates[module], values, {
+  const fillOpts = {
     optional: ['شيوخ_القراءة'],
     genders: { 'المجاز': studentGender, 'المجيز': settings.shaykh_gender || 'M' },
-  });
+  };
+  const filled = fillTemplate(settings.templates[module], values, fillOpts);
   const body = manualBody ?? filled.text;
+  // the detailed version names everyone in full (kunya + nisba); a hand-edited text is used as is
+  const bodyDetailed = manualBody ?? fillTemplate(settings.templates[module], { ...values, 'الإسناد': isnadFull.text || isnadText }, fillOpts).text;
   const title = ijazaTitle(module, { matn: matn?.title, reading });
   const missing = manualBody == null ? filled.missing : [];
   const hint = key => PLACEHOLDERS.find(p => p.key === key)?.hint || key;
@@ -167,7 +175,10 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         ...(correction ? { replaces_id: correction.id, correction_reason: correctionReason } : {}),
         // snapshot: reprints look the same even if the design or biographies change later
         // dual: issued as a normal (printed, one page) and a detailed (footnotes + tree) version
-        details: { notes, chains: chains.map(slimChain), design, people, dual: module !== 'general' },
+        details: {
+          notes, chains: chains.map(slimChain), design, people, dual: module !== 'general',
+          ...(module !== 'general' && bodyDetailed !== body ? { body_detailed: bodyDetailed } : {}),
+        },
       });
       toast('حُفظت الإجازة — يمكنك طباعتها الآن مع رمز التحقق');
       reset(); onSaved(saved);
@@ -177,7 +188,7 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
   const hasDetailed = module !== 'general';
   const detailed = hasDetailed && preview === 'detailed';
   // shaykh = full name (signature), me = short name (tree)
-  const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: teachers.map(t => t.name) };
+  const people = { student: student.trim(), shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name, names: [...teachers.map(t => t.name), ...isnadFull.names] };
   const txOpts = rowOptions(refs.txTypes.filter(t => t.applies_to === 'both' || t.applies_to === module));
 
   return (
@@ -334,7 +345,7 @@ export default function NewIjaza({ settings, profile = {}, onSaved, onEditTempla
         {!detailed && fitInfo && fitInfo.pages === 1 && fitInfo.fit < 0.999 && (
           <div className="small muted">صُغّر الخط إلى {Math.round(fitInfo.fit * 100)}% ليتّسع في صفحة واحدة.</div>
         )}
-        <Certificate key={detailed ? 'd' : 'n'} title={title} body={body} variant={detailed ? 'detailed' : 'normal'}
+        <Certificate key={detailed ? 'd' : 'n'} title={title} body={detailed ? bodyDetailed : body} variant={detailed ? 'detailed' : 'normal'}
           notes={notes} chains={chains} design={design} people={people} verification={{ placeholder: true }}
           fitOnePage={!detailed} onFit={detailed ? undefined : setFitInfo} />
         <p className="small muted">

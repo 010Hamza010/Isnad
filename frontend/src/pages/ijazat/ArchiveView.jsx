@@ -152,7 +152,7 @@ function VersionArchive({ row, settings, profile, variant, renderAs, fitOnePage,
       </div>
 
       {doc ? <FrozenDocument ref={frame} html={doc.html} onReady={onFrameReady} /> : !loading && (
-        <Certificate title={row.title} body={row.body} variant={renderAs}
+        <Certificate title={row.title} body={renderAs === 'detailed' ? row.details?.body_detailed ?? row.body : row.body} variant={renderAs}
           notes={row.details?.notes || {}} chains={row.details?.chains || []} design={design}
           people={row.details?.people || { student: row.student_name, shaykh: settings.shaykh_name, me: profile.short_name || settings.shaykh_name }}
           verification={{ payload: row.qr_payload, code: row.short_code }}
