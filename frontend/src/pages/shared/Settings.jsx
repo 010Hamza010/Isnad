@@ -208,7 +208,7 @@ export default function Settings() {
               ]} />
             </div>
             <div className="form-grid">
-              <Field label="بعد سند طويل: «ح» ثم سطر جديد يبدأ بـ" hint="يبقى «ح» في آخر السطر، ثم: «وأرويه أيضاً: قرأتُ على…» — اتركه فارغاً لاستعمال «ح و…» دائماً">
+              <Field label="بعد سند طويل: «ح» ثم سطر جديد يبدأ بـ" hint="يبقى «ح» في آخر السطر، ثم «وأرويه أيضاً: قرأتُ على…» إذا بدأ الطريق مني، و«ويرويه/وترويه أيضاً فلان» إذا بدأ من شيخ في وسط السند — اتركه فارغاً لاستعمال «ح و…» دائماً">
                 <input className="input" value={draft.style.longRestart ?? ''} onChange={e => setStyle('longRestart', e.target.value)} />
               </Field>
               <Field label="يُعدّ السند طويلاً من (كلمة)">
