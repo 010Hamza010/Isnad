@@ -1,10 +1,11 @@
 const { mergeSettings } = require('./settings');
 const { LINK_FORMS, MANNERS } = require('./vocabulary');
 const { expandGender } = require('./gender');
-const { normalizeArabic, tokenize } = require('./normalize');
+const { normalizeArabic, keyOf, tokenize } = require('./normalize');
 
 const JOINERS = new Set(['كلاهما', 'كلهما', 'كلهم', 'جميعا', 'كلاهم', 'كلتاهما', 'كلتيهما', 'كلهن'].map(normalizeArabic));
 const CONJ = /^[وف]/; // وأخبرنا، فحدثنا
+const AND_TOKEN = '⟨AND⟩'; // stands for «، و» in the text (see prepare / parseSegment)
 
 const phrase = s => tokenize(s).map(t => t.norm);
 const keys = s => tokenize(s).map(t => t.key);       // strict form for keywords / manners
@@ -83,6 +84,19 @@ function parseSegment(tokens, s, match, warnings, ctx) {
       if (cur) cur.death_year = year; else startDeath = year;
       i++; continue;
     }
+    // «قرأتُ على شيخنا A، وشيخنا B» — «، و» before a name (not «، وهو قرأ…» nor «، وعن…»): a second
+    // person in the same link; each one becomes its own chain
+    if (tokens[i].raw === AND_TOKEN) {
+      const next = tokens[i + 1];
+      if (cur && cur.words.length && next && /^و./.test(next.raw) && !match(tokens, i + 1) && !ctx.suffixAt(tokens, i + 1)
+          && !JOINERS.has(next.norm)) {
+        cur.alts.push({ words: cur.words, death_year: cur.death_year });
+        cur.words = []; cur.death_year = undefined;
+        const raw = next.raw.slice(1);
+        tokens[i + 1] = { raw, norm: normalizeArabic(raw), key: keyOf(raw) };
+      }
+      i++; continue;
+    }
     // sentence endings first: «وأنا أسمع» must not be read as the keyword «أنا»
     // only after a name: «سماعاً عليه» before any name is ordinary text
     const suffix = cur && cur.words.length ? ctx.suffixAt(tokens, i) : null;
@@ -94,7 +108,7 @@ function parseSegment(tokens, s, match, warnings, ctx) {
     const m = match(tokens, i);
     if (m) {
       if (cur) links.push(cur);
-      cur = { keyword: m.keyword.word, tx_kind: m.keyword.kind ?? null, words: [] };
+      cur = { keyword: m.keyword.word, tx_kind: m.keyword.kind ?? null, words: [], alts: [] };
       i += m.length;
       continue;
     }
@@ -105,7 +119,10 @@ function parseSegment(tokens, s, match, warnings, ctx) {
   if (cur) links.push(cur);
 
   const named = links
-    .map(l => ({ keyword: l.keyword, tx_kind: l.tx_kind, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null }))
+    .map(l => ({
+      keyword: l.keyword, tx_kind: l.tx_kind, name: cleanName(l.words, s.titles), death_year: l.death_year || null, reading_mode: l.reading_mode || null,
+      ...(l.alts.length ? { alternatives: [...l.alts.map(a => ({ name: cleanName(a.words, s.titles), death_year: a.death_year || null })), null] } : {}),
+    }))
     .filter(l => {
       if (l.name) return true;
       warnings.push(`صيغة «${l.keyword}» بلا اسم بعدها — تم تجاهلها`);
@@ -125,9 +142,14 @@ const DEATH_TOKEN = /^⟨D(\d+)⟩$/;
 
 // «(ت 852هـ)» → a marker token ⟨Dn⟩ (value kept in `deaths[n]`) attached to the preceding name;
 // other parentheses and note markers «[[12]]» from rendered text are dropped.
-function prepare(text) {
+function prepare(text, s) {
   const deaths = [];
-  const out = String(text ?? '')
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let src = String(text ?? '');
+  // a new paragraph «وأرويه أيضاً: …» is a تحويل; «… بالسند المتقدم إلى فلان» restarts from فلان («وعن فلان»)
+  if (s.style.longRestart) src = src.replace(new RegExp(`(^|\\n)\\s*${esc(s.style.longRestart)}\\s*:?`, 'g'), ` ${s.style.tahwil} `);
+  src = src.replace(/بالسند المتقدم إلى/g, 'عن').replace(/،\s*(?=و\S)/g, ` ${AND_TOKEN} `);
+  const out = src
     .replace(/\[\[-?\d+\]\]/g, ' ')
     .replace(/\(([^()]*)\)/g, (_, inner) => {
       const m = inner.match(DEATH);
@@ -149,11 +171,22 @@ function buildSuffixMatcher(s) {
   return (tokens, i) => seqs.find(({ seq }) => seq.length && seq.every((w, j) => tokens[i + j]?.key === w)) || null;
 }
 
+// a link naming several people («على A، وB») → one chain per person (null = the link's own name)
+function expandAlternatives(seg) {
+  const i = seg.links.findIndex(l => l.alternatives);
+  if (i === -1) return [seg];
+  const { alternatives, ...link } = seg.links[i];
+  return alternatives.flatMap(alt => expandAlternatives({
+    ...seg,
+    links: seg.links.map((l, j) => (j !== i ? l : alt ? { ...link, name: alt.name, death_year: alt.death_year } : link)),
+  }));
+}
+
 function parseIsnad(text, settings) {
   const s = mergeSettings(settings);
   const match = buildMatcher(s);
   const warnings = [];
-  const prepared = prepare(text);
+  const prepared = prepare(text, s);
   const ctx = { deaths: prepared.deaths, suffixAt: buildSuffixMatcher(s) };
   const tokens = stripPhrases(tokenize(prepared.text), s.honorifics);
   const tahwil = normalizeArabic(s.style.tahwil);
@@ -173,6 +206,7 @@ function parseIsnad(text, settings) {
   const chains = heads
     .filter(h => h.length)
     .map(h => parseSegment(h, s, match, warnings, ctx))
+    .flatMap(expandAlternatives)
     .map(c => ({ start: c.start, start_death_year: c.start_death_year, links: [...c.links, ...(tail?.links || [])] }))
     .filter(c => c.links.length); // a name with no keyword is not a chain
 

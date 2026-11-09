@@ -151,6 +151,8 @@ function validateSettings(input, idKinds) {
     fullNames: !!st.fullNames,
     tahwilMeet: st.tahwilMeet === 'joined' ? 'joined' : 'repeat',
     authorTitle: str(st.authorTitle, 30, 'style.authorTitle'),
+    longRestart: str(st.longRestart, 40, 'style.longRestart'),
+    longRestartWords: Math.min(500, Math.max(5, Math.round(Number(st.longRestartWords) || DEFAULTS.style.longRestartWords))),
   };
   const phrases = Object.fromEntries(['first', 'others', 'joined', 'also'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`, k === 'also')]));
 
