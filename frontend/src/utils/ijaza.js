@@ -166,3 +166,47 @@ export function withTitleStyle(design, st = {}) {
     fonts: { ...design.fonts, title: { family: st.family || design.fonts.title.family, size: Number(st.size) || design.fonts.title.size } },
   };
 }
+
+/* ── my teachers' order (per matn / riwaya), used by the teachers paragraph and the routes ── */
+
+/** Storage key of the order: «m:<matnId>» / «q:<quran option key>», or null when nothing is chosen. */
+export const teacherOrderKey = (module, { matnId, quranKey } = {}) =>
+  (module === 'mutoon' && matnId ? `m:${matnId}` : module === 'quran' && quranKey ? `q:${quranKey}` : null);
+
+/** Items with an `id`, sorted by their place in `ids`; those not in it keep their order, after the rest. */
+export function sortByOrder(items, ids = [], idOf = x => x.id) {
+  const pos = new Map((ids || []).map((id, i) => [String(id), i]));
+  return items
+    .map((x, i) => ({ x, i, p: pos.has(String(idOf(x))) ? pos.get(String(idOf(x))) : Infinity }))
+    .sort((a, b) => a.p - b.p || a.i - b.i)
+    .map(o => o.x);
+}
+
+/**
+ * Everyone I can order for this ijaza: the first shaykh of each route, and the shuyukh I read on
+ * (the teachers paragraph), once each, in the saved order.
+ * → [{ id, name, routes: [group index], reads: bool }]
+ */
+export function orderablePeople(groups, teachers, ids) {
+  const byId = new Map();
+  groups.forEach((g, gi) => {
+    const id = Number(g.firstEdge.to_person_id);
+    if (!byId.has(id)) byId.set(id, { id, name: g.firstEdge.to_name, routes: [], reads: false });
+    byId.get(id).routes.push(gi);
+  });
+  teachers.forEach(t => {
+    const id = Number(t.id);
+    if (!byId.has(id)) byId.set(id, { id, name: t.name, routes: [], reads: false });
+    byId.get(id).reads = true;
+  });
+  return sortByOrder([...byId.values()], ids);
+}
+
+/** Move the item at index i by dir (−1 up / +1 down); returns the new list of ids. */
+export function moveId(list, i, dir) {
+  const ids = list.map(x => x.id);
+  const j = i + dir;
+  if (j < 0 || j >= ids.length) return ids;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  return ids;
+}

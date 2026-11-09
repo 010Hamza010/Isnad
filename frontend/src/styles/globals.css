@@ -566,3 +566,10 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
   #print-root .cert-page { box-shadow: none; break-after: page; }
   #print-root .cert-page-wrap:last-child .cert-page, #print-root > * > .cert-page:last-child { break-after: auto; }
 }
+
+/* ordered list of my teachers in the ijaza form */
+.order-list { display: flex; flex-direction: column; gap: 6px; }
+.order-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.order-btns { display: flex; flex-direction: column; gap: 2px; }
+.order-btns .icon-btn { width: 24px; height: 20px; font-size: 10px; line-height: 1; }
+.order-btns .icon-btn:disabled { opacity: .3; cursor: default; }
