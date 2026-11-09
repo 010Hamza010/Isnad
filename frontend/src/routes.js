@@ -2,6 +2,7 @@
 export const NAV = [
   { section: null, items: [
     { path: '/', icon: 'home', label: 'الرئيسية', title: 'الرئيسية', sub: 'نظرة عامة على أسانيدك' },
+    { path: '/fast-entry', icon: 'text', label: 'إدخال سريع', title: 'إدخال سريع من نص', sub: 'الصق إسناداً، راجع الأسماء، وتُحفظ الأشخاص والاتصالات دفعة واحدة' },
   ]},
   { section: 'المتون', items: [
     { path: '/mutoon/isnads',      icon: 'chain', label: 'أسانيد المتون', title: 'أسانيد المتون', sub: 'اختر متناً لعرض سلسلة إسنادك إلى مؤلفه' },
