@@ -1,10 +1,11 @@
 /**
  * The order of my teachers per matn / Quran riwaya, chosen in the ijaza form and reused.
- * Stored as { [key]: [personId, …] } with key «m:<matnId>» or «q:<quran option key>».
+ * Stored as { [key]: [personId, …] } with key «m:<matnId>» or «q:<quran option key>»;
+ * «<key>.hidden» lists the teachers left out of the teachers paragraph.
  */
 const { HttpError } = require('../../utils/httpError');
 
-const KEY_RE = /^(?:m|q):[\w-]{1,60}$/;
+const KEY_RE = /^(?:m|q):[\w-]{1,60}(?:\.hidden)?$/;
 const MAX_KEYS = 500;
 const MAX_IDS = 200;
 

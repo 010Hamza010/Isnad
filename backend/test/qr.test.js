@@ -79,3 +79,10 @@ describe('dashboard verification', () => {
     assert.deepEqual(typed.checks, []);
   });
 });
+
+test('a title on several lines signs as one line, exactly like the same title with a space', () => {
+  const one = Q.buildPayload({ ...ROW, title: 'إجازة في متن «المنظومة الطويلة»' });
+  const two = Q.buildPayload({ ...ROW, title: 'إجازة في متن \n«المنظومة الطويلة»' });
+  assert.equal(two, one);
+  assert.equal(two.split('\n').length, one.split('\n').length);
+});
