@@ -1,0 +1,11 @@
+# Local data and scratch files (real names — keep out of git)
+eg.sql
+eg.txt
+map
+conv.md
+
+# Build output
+frontend/dist/
+
+# Secrets
+.env
