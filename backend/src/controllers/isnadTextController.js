@@ -49,7 +49,10 @@ exports.render = async (req, res) => {
   let s = await settingsFor(req);
   if (style && typeof style === 'object') s = validate({ ...s, style: { ...s.style, ...style } }, await TxType.kindMap());
   const list = group ? T.groupChains(group) : chains;
-  res.json({ text: T.renderChains(list, s), persons: T.collectPersons(list) });
+  const ctx = T.newContext();
+  const text = T.renderChains(list, s, ctx);
+  // names: every name as written (full names differ from name_ar), so the certificate can colour them
+  res.json({ text, persons: T.collectPersons(list), names: [...ctx.names] });
 };
 
 // body: { text } → parsed chains with each name resolved against persons, plus the text re-rendered

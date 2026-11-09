@@ -1,6 +1,7 @@
 const { mergeSettings } = require('./settings');
 const { isMe } = require('./normalize');
 const { applyGender } = require('./gender');
+const { fullName, caseAfter } = require('./names');
 
 const { kindOf } = require('../txKinds');
 
@@ -34,11 +35,23 @@ const ANAN = new Set(['عن']);
  * Render context shared by all chains of one text, so a person gets a note marker only
  * at their first mention.
  */
-const newContext = () => ({ noted: new Set() });
+const newContext = () => ({ noted: new Set(), names: new Set() });
 
-// «name (ت …)[[id]]»
-function personLabel(id, name, death, desc, s, ctx) {
-  let out = name;
+// the two people of an edge as { id, name, kunya, nisba, death, desc }
+const toP = e => ({ id: e.to_person_id, name: e.to_name, kunya: e.to_kunya, nisba: e.to_nisba, death: e.to_death_year, desc: e.to_description });
+const fromP = e => ({ id: e.from_person_id, name: e.from_name, kunya: e.from_kunya, nisba: e.from_nisba, death: e.from_death_year, desc: null });
+
+// the name as written: full (kunya in the right case + nisba) when style.fullNames
+function nameOf(p, s, ctx, kase) {
+  const name = s.style.fullNames && Number(p.id) > 0 ? fullName(p, kase) : p.name;
+  ctx.names.add(name);
+  return name;
+}
+
+// «name (ت …)[[id]]»; kase: 'nom' | 'gen', from the word before the name
+function personLabel(p, s, ctx, kase = 'nom') {
+  const { id, death, desc } = p;
+  let out = nameOf(p, s, ctx, kase);
   if (s.style.deathYears && death) out += ` ${deathLabel(death)}`;
   const n = Number(id);
   if (s.style.noteMarkers && desc && n > 0 && !ctx.noted.has(n)) { ctx.noted.add(n); out += `[[${n}]]`; }
@@ -68,16 +81,19 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const genders = { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) };
     const titleWord = genders['الشيخ'] === 'F' ? s.style.firstTitleF : s.style.firstTitle;
     const title = mine && titleWord ? `${titleWord} ` : '';
-    const who = `${title}${personLabel(e.to_person_id, e.to_name, e.to_death_year, e.to_description, s, ctx)}`;
+    const label = kase => `${title}${personLabel(toP(e), s, ctx, kase)}`;
 
     const phrase = phraseFor(e, mine, s);
     if (phrase) {
       // «قرأتُ على شيخنا فلان حفظاً»
       const mode = mine && s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
-      return applyGender(phrase, genders).replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
+      const text = applyGender(phrase, genders);
+      const who = label(caseAfter(text.split(NAME_SLOT)[0]));
+      return text.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
     const kw = keywordFor(edgeKind(e), s);
+    const who = label(caseAfter(kw));
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   });
@@ -87,7 +103,7 @@ function renderChainWith(edges, s, ctx) {
   if (!edges?.length) return '';
   const body = renderLinks(edges, s, ctx).join(s.style.separator);
   if (isMe(edges[0].from_person_id)) return body;
-  const start = personLabel(edges[0].from_person_id, edges[0].from_name, edges[0].from_death_year, null, s, ctx);
+  const start = personLabel(fromP(edges[0]), s, ctx);
   return `${start} ${body}`;
 }
 
@@ -140,7 +156,7 @@ function renderSet(chains, s, ctx, scope) {
   const live = list.filter(c => c.length);
   if (!live.length) return '';
   if (list.length === 1) return linear(list[0]);
-  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${scope.restart}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
+  const restartText = t => (scope.restart ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${t ? sep + t : ''}` : `${s.style.tahwil} و${t}`);
   const joinBranches = texts => texts.map((t, i) => (i === 0 ? t : restartText(t))).join(' ');
   if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
 
@@ -148,7 +164,7 @@ function renderSet(chains, s, ctx, scope) {
   const n = sharedHead(list);
   if (n > 0) {
     const head = renderLinks(list[0].slice(0, n), s, ctx, { opening: scope.opening }).join(sep);
-    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: list[0][n - 1].to_name, depth });
+    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: toP(list[0][n - 1]), depth });
     return [head, rest].filter(Boolean).join(sep);
   }
 
@@ -184,28 +200,26 @@ function renderSet(chains, s, ctx, scope) {
   if (narrators.size === 1) return [text, ...renderLinks(tail, s, ctx, { opening: false })].join(sep);
   const allF = [...narrators.values()].every(e => fromGender(e, s) === 'F');
   const x = tail[0];
-  const who = personLabel(x.to_person_id, x.to_name, x.to_death_year, x.to_description, s, ctx);
   // «كلاهما سمع من فلان» when every narrator took from X the same way, else «كلاهما عن فلان»
   const txs = new Set(live.map(c => txKey(edgeKind(c[c.length - k]))));
   const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
-  const meet = `${joinWord(narrators.size, allF)} ${joined
-    ? applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) }).replace(NAME_SLOT, who)
-    : `عن ${who}`}`;
+  const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
+  const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
+  const meet = `${joinWord(narrators.size, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}`;
   const after = renderLinks(tail.slice(1), s, ctx, { opening: false });
   return [text, meet, ...after].join(sep);
 }
 
 /** Several alternative chains → one text using تحويل (see renderSet). */
-function renderChains(chains, settings) {
+function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
-  const ctx = newContext();
   const list = (chains || []).filter(c => c?.length);
   if (!list.length) return '';
   const first = list[0][0];
   if (isMe(first.from_person_id)) return renderSet(list, s, ctx, { opening: true, restart: null });
   // chains starting at a named narrator: name them once, restart from them after ح
-  const start = personLabel(first.from_person_id, first.from_name, first.from_death_year, null, s, ctx);
-  return `${start} ${renderSet(list, s, ctx, { opening: true, restart: first.from_name })}`;
+  const start = personLabel(fromP(first), s, ctx);
+  return `${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first) })}`;
 }
 
 /** A path group as returned by /api/graph/*\/paths → text. */
@@ -231,4 +245,4 @@ function collectPersons(chains) {
   return [...seen.values()];
 }
 
-module.exports = { renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel };
+module.exports = { newContext, renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel };
