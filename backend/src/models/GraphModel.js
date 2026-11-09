@@ -9,7 +9,7 @@ exports.getMatnWithEdges = async (matnId) => {
   const [edges] = await db.query(
     `SELECT mc.*, tt.name_ar as tx_name FROM matn_connections mc
      LEFT JOIN transmission_types tt ON mc.transmission_type_id = tt.id
-     WHERE mc.matn_id = ? OR mc.matn_id IS NULL`, [matnId]
+     WHERE mc.matn_id = ? OR mc.matn_id IS NULL OR mc.is_general_ijaza = 1`, [matnId] // a general ijaza covers every matn
   );
   return { matn, edges: await TxType.annotate(edges) };
 };
