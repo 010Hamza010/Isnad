@@ -145,6 +145,7 @@ function validateSettings(input, idKinds) {
     heartWord: str(st.heartWord, 30, 'style.heartWord'),
     lookingWord: str(st.lookingWord, 30, 'style.lookingWord'),
     hideMyReadingMode: !!st.hideMyReadingMode,
+    fullNames: !!st.fullNames,
   };
   const phrases = Object.fromEntries(['first', 'others', 'joined'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`)]));
 

@@ -5,7 +5,7 @@
  *   resolve: parsed names → persons in the DB
  * Pure functions; keywords and style come from per-user settings.
  */
-const { renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel } = require('./render');
+const { newContext, renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel } = require('./render');
 const { parseIsnad } = require('./parse');
 const { resolveName, resolveChains } = require('./resolve');
 const { mergeSettings, validateSettings, SettingsError, DEFAULTS } = require('./settings');
@@ -24,7 +24,7 @@ function toEdges(chain) {
 }
 
 module.exports = {
-  renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel,
+  newContext, renderChain, renderChains, renderGroup, groupChains, collectPersons, keywordFor, deathLabel,
   parseIsnad, resolveName, resolveChains, toEdges,
   mergeSettings, validateSettings, SettingsError, DEFAULTS,
 };
