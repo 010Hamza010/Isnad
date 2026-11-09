@@ -207,6 +207,18 @@ export default function Settings() {
                 { value: 'joined', label: '«كلاهما عن ج»' },
               ]} />
             </div>
+            <div className="form-grid">
+              <Field label="بعد سند طويل يبدأ الطريق التالي في سطر جديد بـ" hint="بدل «ح»: «وأرويه أيضاً: قرأتُ على…» — اتركه فارغاً لاستعمال «ح» دائماً">
+                <input className="input" value={draft.style.longRestart ?? ''} onChange={e => setStyle('longRestart', e.target.value)} />
+              </Field>
+              <Field label="يُعدّ السند طويلاً من (كلمة)">
+                <input className="input" type="number" min="5" max="500" value={draft.style.longRestartWords ?? 30}
+                  onChange={e => setStyle('longRestartWords', Number(e.target.value))} />
+              </Field>
+            </div>
+            <p className="field-hint" style={{ marginTop: -4, marginBottom: 12 }}>
+              إذا قرأتَ على شيخين بالطريقة نفسها وكلاهما عن شيخ واحد، يُكتبان معاً بلا «ح»: «قرأتُ على شيخنا فلان، وشيخنا فلان، كلاهما قرأ على…».
+            </p>
             <Field label="لقب مؤلف المتن في آخر السند" hint="«عن المؤلف فلان» — اتركه فارغاً لحذفه">
               <input className="input" value={draft.style.authorTitle ?? ''} onChange={e => setStyle('authorTitle', e.target.value)} />
             </Field>
