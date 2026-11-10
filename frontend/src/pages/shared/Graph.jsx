@@ -183,7 +183,7 @@ export default function Graph() {
               <button className="link-btn" onClick={() => setRoute(x => (x === r.label ? null : r.label))} title="إبراز الطريق">
                 <b>ط{r.label}</b> <span>{r.n} رواة</span>
               </button>
-              {r.general && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عام</span>}
+              {r.general && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عامة</span>}
               <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${r.label}`}
                 onClick={() => disableRoute(r.key)}><Icon name="x" size={13} /></button>
             </span>

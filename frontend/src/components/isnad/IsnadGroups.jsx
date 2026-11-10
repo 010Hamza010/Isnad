@@ -86,7 +86,7 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
                 <b>ط{j + 1}</b>
                 <span>{r.n} {r.n > 10 ? 'راوياً' : r.n > 2 ? 'رواة' : r.n === 2 ? 'راويان' : 'راوٍ'}</span>
                 {r.n === highest && <span className="badge badge-accent" title="أقل عدد من الرواة">الأعلى</span>}
-                {isGeneralRoute(g.firstEdge) && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عام</span>}
+                {isGeneralRoute(g.firstEdge) && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عامة</span>}
                 <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${j + 1}`}
                   onClick={() => toggle([r.key], true)}><Icon name="x" size={13} /></button>
               </span>
