@@ -21,8 +21,7 @@ export const NAV = [
   { section: 'عام', items: [
     { path: '/persons', icon: 'users',   label: 'الأعلام', stat: 'persons', title: 'الأعلام', sub: 'الشيوخ والرواة والمؤلفون — ملف واحد لكل شخص' },
     { path: '/graph',   icon: 'network', label: 'شبكة الإسناد', title: 'شبكة الإسناد', sub: 'الشبكة الكاملة للاتصالات' },
-    { path: '/profile', icon: 'user', label: 'الملف الشخصي', title: 'الملف الشخصي', sub: 'اسمك الكامل والمختصر وجنسك ومكانك — تستعملها الإجازات والأسانيد' },
-    { path: '/settings', icon: 'settings', label: 'الإعدادات', title: 'الإعدادات', sub: 'صيغ الأداء وأسلوب كتابة الأسانيد' },
+    { path: '/settings', icon: 'settings', label: 'الإعدادات', title: 'الإعدادات', sub: 'حسابك وملفك الشخصي وصيغ كتابة الأسانيد' },
   ]},
 ];
 
