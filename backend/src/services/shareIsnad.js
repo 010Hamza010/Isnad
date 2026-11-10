@@ -95,6 +95,18 @@ function usedRefs(file) {
   return [...seen];
 }
 
+/** One person of a file → { status, person_id, candidates }: by known code, else by name (and death year). */
+function resolvePerson(p, { byUid, index, personsById = new Map() }) {
+  if (p.uid && byUid.has(p.uid)) return { status: 'linked', person_id: byUid.get(p.uid), candidates: [] };
+  const r = resolveName(p.name_ar, index);
+  let status = r.status === 'relative' ? 'ambiguous' : r.status;
+  // same name, another death year: not the same person without the user's say
+  const local = personsById.get(Number(r.person_id));
+  if (status === 'matched' && p.death_year && local?.death_year && String(local.death_year) !== String(p.death_year)) status = 'ambiguous';
+  if (status === 'matched' && Number(r.person_id) <= 0) status = 'ambiguous'; // never «me», never a sacred node
+  return { status, person_id: status === 'matched' ? r.person_id : null, candidates: (r.candidates || []).filter(c => c.id > 0) };
+}
+
 /**
  * How each person of the file maps here. byUid: Map uid → local person id; index: resolve.buildIndex.
  * status: linked (known uid) | matched (one clear name match) | ambiguous | new.
@@ -103,13 +115,7 @@ function previewShare(file, { byUid, index, personsById = new Map() }) {
   const rows = usedRefs(file).map(ref => {
     const p = file.persons[ref];
     const base = { ref, ...p, role: ref === ME ? 'sender' : ref === file.target.author ? 'author' : null };
-    if (p.uid && byUid.has(p.uid)) return { ...base, status: 'linked', person_id: byUid.get(p.uid), candidates: [] };
-    const r = resolveName(p.name_ar, index);
-    let status = r.status === 'relative' ? 'ambiguous' : r.status;
-    // same name, another death year: not the same person without the user's say
-    const local = personsById.get(Number(r.person_id));
-    if (status === 'matched' && p.death_year && local?.death_year && String(local.death_year) !== String(p.death_year)) status = 'ambiguous';
-    return { ...base, status, person_id: status === 'matched' ? r.person_id : null, candidates: (r.candidates || []).filter(c => c.id !== 0) };
+    return { ...base, ...resolvePerson(p, { byUid, index, personsById }) };
   });
   const links = new Set();
   file.routes.forEach(r => r.forEach((s, i) => links.add(`${i ? r[i - 1].to : ME}>${s.to}`)));
@@ -149,4 +155,4 @@ function toImport(file, picks, { byUid = new Map(), linkMe = false } = {}) {
   return { chains, remember };
 }
 
-module.exports = { buildShare, validateShare, previewShare, toImport, usedRefs, refOf, FORMAT, ME };
+module.exports = { buildShare, validateShare, previewShare, toImport, usedRefs, refOf, resolvePerson, FORMAT, ME };

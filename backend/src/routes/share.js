@@ -6,4 +6,7 @@ r.get('/matn/:id',  auth, w(c.exportMatn));
 r.get('/quran',     auth, w(c.exportQuran));
 r.post('/preview',  auth, w(c.preview));
 r.post('/import',   auth, w(c.import));
+r.get('/thabat',           auth, w(c.exportThabat));
+r.post('/thabat/preview',  auth, w(c.previewThabat));
+r.post('/thabat/import',   auth, w(c.importThabat));
 module.exports = r;
