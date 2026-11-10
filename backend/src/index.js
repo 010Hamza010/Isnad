@@ -19,6 +19,7 @@ app.use('/api/graph',     require('./routes/graph'));
 app.use('/api/isnad-text', require('./routes/isnadText'));
 app.use('/api/ijazat',    require('./routes/ijazat'));
 app.use('/api/profile',   require('./routes/profile'));
+app.use('/api/share',     require('./routes/share'));
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 

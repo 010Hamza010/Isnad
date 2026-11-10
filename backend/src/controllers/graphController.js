@@ -15,96 +15,108 @@ const QURAN_TAIL = [
     tx_name: 'وحي', description: 'جبريل أمين الوحي نزل به من عند الله', items: [] },
 ];
 
+/** Routes of a matn for this user (disabled ones apart); null when the matn does not exist. */
+async function matnData(userId, matnId) {
+  const { matn, edges } = await GM.getMatnWithEdges(matnId);
+  if (!matn) return null;
+  const scope = DR.matnScope(matn.id);
+  if (!matn.author_id) return { matn, scope, paths: [], disabled: [] };
+  const pMap = await GM.getAllPersons();
+  const raw  = buildPaths(edges, 0, [matn.author_id], null, null, null, pMap, null, null);
+  const { paths, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(userId, scope));
+  return { matn, scope, paths, disabled };
+}
+exports.matnData = matnData;
+
 exports.matnPaths = async (req, res) => {
   try {
-    const { matn, edges } = await GM.getMatnWithEdges(req.params.id);
-    if (!matn) return res.status(404).json({ error: 'Matn not found' });
-    const scope = DR.matnScope(matn.id);
-    if (!matn.author_id) return res.json({ matn, scope, paths: [], disabled: [] });
-    const pMap = await GM.getAllPersons();
-    const raw  = buildPaths(edges, 0, [matn.author_id], null, null, null, pMap, null, null);
-
-    const { paths, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(req.user.id, scope));
-    res.json({ matn, scope, paths, disabled });
+    const data = await matnData(req.user.id, req.params.id);
+    if (!data) return res.status(404).json({ error: 'Matn not found' });
+    res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.quranPaths = async (req, res) => {
-  try {
-    const { riwaya_id, tariq_id, qiraa_id } = req.query;
+/** Routes of a Quran option (riwaya / tariq / qiraa) for this user, with the sacred tail. */
+async function quranData(userId, query) {
+  const { riwaya_id, tariq_id, qiraa_id } = query;
 
-    let riwaya = null, imamId = null, qiraaId = null;
+  let riwaya = null, imamId = null, qiraaId = null;
 
-    // Priority: riwaya_id > qiraa_id
-    if (riwaya_id) {
-      riwaya  = await GM.getRiwayaById(riwaya_id);
-      imamId  = riwaya?.imam_id;
-      qiraaId = riwaya?.qiraa_id;
-    } else if (qiraa_id) {
-      // No riwaya filter — just qiraa level
-      qiraaId = Number(qiraa_id);
-      // Find the imam of this qiraa to use as target
-      const qiraaRow = await GM.getQiraaById(qiraaId);
+  // Priority: riwaya_id > qiraa_id
+  if (riwaya_id) {
+    riwaya  = await GM.getRiwayaById(riwaya_id);
+    imamId  = riwaya?.imam_id;
+    qiraaId = riwaya?.qiraa_id;
+  } else if (qiraa_id) {
+    // No riwaya filter — just qiraa level
+    qiraaId = Number(qiraa_id);
+    // Find the imam of this qiraa to use as target
+    const qiraaRow = await GM.getQiraaById(qiraaId);
 
-      imamId = qiraaRow?.imam_id || null;
-    }
+    imamId = qiraaRow?.imam_id || null;
+  }
 
-    const edges          = await GM.getQuranEdgesForUser(req.user.id);
-    const pMap           = await GM.getAllPersons();
-    const imamMap        = await GM.getImamMap();
-    const riwayaQiraaMap = await GM.getRiwayaQiraaMap();
+  const edges          = await GM.getQuranEdgesForUser(userId);
+  const pMap           = await GM.getAllPersons();
+  const imamMap        = await GM.getImamMap();
+  const riwayaQiraaMap = await GM.getRiwayaQiraaMap();
 
-    const raw = buildPaths(
-      edges, 0,
-      imamId ? [imamId] : [-1],
-      riwaya_id ? Number(riwaya_id) : null,
-      tariq_id  ? Number(tariq_id)  : null,
-      qiraaId   ? Number(qiraaId)   : null,
-      pMap, imamMap, riwayaQiraaMap
-    );
+  const raw = buildPaths(
+    edges, 0,
+    imamId ? [imamId] : [-1],
+    riwaya_id ? Number(riwaya_id) : null,
+    tariq_id  ? Number(tariq_id)  : null,
+    qiraaId   ? Number(qiraaId)   : null,
+    pMap, imamMap, riwayaQiraaMap
+  );
 
-    const scope = DR.quranScope({ riwaya_id, tariq_id, qiraa_id: riwaya_id ? null : qiraaId });
-    const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(req.user.id, scope));
+  const scope = DR.quranScope({ riwaya_id, tariq_id, qiraa_id: riwaya_id ? null : qiraaId });
+  const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(userId, scope));
 
-    const paths = enabled.map(formatted => {
+  const paths = enabled.map(formatted => {
 
-      // append النبي + tail to each chain
-      formatted.chains = formatted.chains.map(chain => {
-        const fullChain = [...chain];
-        if (imamId) {
-          const last = fullChain[fullChain.length - 1];
-          const fromName = last ? last.to_name
-            : (pMap.get(Number(formatted.firstEdge.to_person_id))?.name_ar || '');
-          fullChain.push({
-            from_person_id: imamId, from_name: fromName,
-            to_person_id: -1, to_name: 'النبي ﷺ',
-            tx_name: 'تلقي مباشر', description: null, items: [],
-          });
-        }
-        QURAN_TAIL.forEach(t => fullChain.push({ ...t }));
-        return fullChain;
-      });
-
-      // if no upper chain exists (direct connection to imam)
-      if (formatted.chains.length === 0) {
-        const chain = [];
-        if (imamId) {
-          chain.push({
-            from_person_id: formatted.firstEdge.to_person_id,
-            from_name: formatted.firstEdge.to_name,
-            to_person_id: -1, to_name: 'النبي ﷺ',
-            tx_name: 'تلقي مباشر', description: null, items: [],
-          });
-        }
-        QURAN_TAIL.forEach(t => chain.push({ ...t }));
-        formatted.chains = [chain];
+    // append النبي + tail to each chain
+    formatted.chains = formatted.chains.map(chain => {
+      const fullChain = [...chain];
+      if (imamId) {
+        const last = fullChain[fullChain.length - 1];
+        const fromName = last ? last.to_name
+          : (pMap.get(Number(formatted.firstEdge.to_person_id))?.name_ar || '');
+        fullChain.push({
+          from_person_id: imamId, from_name: fromName,
+          to_person_id: -1, to_name: 'النبي ﷺ',
+          tx_name: 'تلقي مباشر', description: null, items: [],
+        });
       }
-
-      return formatted;
+      QURAN_TAIL.forEach(t => fullChain.push({ ...t }));
+      return fullChain;
     });
 
-    res.json({ riwaya, scope, paths, disabled });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    // if no upper chain exists (direct connection to imam)
+    if (formatted.chains.length === 0) {
+      const chain = [];
+      if (imamId) {
+        chain.push({
+          from_person_id: formatted.firstEdge.to_person_id,
+          from_name: formatted.firstEdge.to_name,
+          to_person_id: -1, to_name: 'النبي ﷺ',
+          tx_name: 'تلقي مباشر', description: null, items: [],
+        });
+      }
+      QURAN_TAIL.forEach(t => chain.push({ ...t }));
+      formatted.chains = [chain];
+    }
+
+    return formatted;
+  });
+
+  return { riwaya, scope, paths, disabled };
+}
+exports.quranData = quranData;
+
+exports.quranPaths = async (req, res) => {
+  try { res.json(await quranData(req.user.id, req.query)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.fullGraph = async (req, res) => {
