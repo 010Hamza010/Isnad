@@ -97,5 +97,9 @@ export function numberRoutes(group, order = 'high') {
   return list;
 }
 
-/** True when a route uses a connection valid for every matn («عام»). */
-export const isGeneralRoute = (firstEdge, chain) => [firstEdge, ...chain].some(e => e.general);
+/**
+ * True when my own link to my shaykh is valid for every matn («عام»): the whole route then rests on
+ * that general permission. Higher up «عام» is only the scope of a link, not how it was received
+ * (an untyped link is «عن», taken as heard), so it never makes a route general.
+ */
+export const isGeneralRoute = firstEdge => !!firstEdge?.general;

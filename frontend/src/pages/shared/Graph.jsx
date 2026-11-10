@@ -13,7 +13,7 @@ const ROUTE_ORDER = () => { try { return localStorage.getItem('isnad.routeOrder'
 
 // read design tokens so the graph follows light/dark theme
 const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-// a matn connection valid for every matn: «عام» box, or no matn at all
+// a matn connection with no matn of its own (valid for every matn): its scope, not how it was received
 const isGeneral = e => !!Number(e.is_general_ijaza) || !e.matn_title;
 const routesText = rs => (rs.length <= 3 ? rs.join('، ') : `${rs.length} طرق`);
 
@@ -74,10 +74,10 @@ export default function Graph() {
         nodes.set(id, box(id, numbered(name, rg.depths.get(id)), false, offOnly.has(id) ? { color: { background: c.surface, border: c.border }, font: { ...font, color: c.faint } } : {}));
       });
       edges = rg.edges.filter(e => showOff || !e.off).map(e => ({
-        id: `${e.from}>${e.to}`, from: e.from, to: e.to, dashes: e.off || e.general,
+        id: `${e.from}>${e.to}`, from: e.from, to: e.to, dashes: e.off,
         label: e.off ? 'معطّل' : routesText(e.routes), font: { ...font, size: 11, color: c.muted, strokeWidth: 3, strokeColor: c.surface },
         color: { color: e.off ? c.border : txColor(e.tx), opacity: e.off ? .6 : .85 }, width: e.off ? 1 : 1 + Math.min(e.routes.length, 6) * .4,
-        title: e.off ? 'طريق معطّل' : [`الطرق: ${e.routes.join('، ')}`, e.tx, e.general && 'عام — لكل المتون'].filter(Boolean).join(' · '),
+        title: e.off ? 'طريق معطّل' : [`الطرق: ${e.routes.join('، ')}`, e.tx].filter(Boolean).join(' · '),
       }));
     } else {
       const matnEdges = hideGeneral ? data.matnEdges.filter(e => !isGeneral(e)) : data.matnEdges;
@@ -96,7 +96,7 @@ export default function Graph() {
       let eid = 1;
       edges = [
         ...matnEdges.map(e => ({ id: eid++, from: e.from_person_id, to: e.to_person_id, dashes: isGeneral(e),
-          color: { color: txColor(e.tx_name), opacity: .8 }, title: [e.tx_name, e.matn_title || 'كل المتون'].filter(Boolean).join(' · ') })),
+          color: { color: txColor(e.tx_name), opacity: .8 }, title: [e.tx_name, e.matn_title || 'بلا متن محدد'].filter(Boolean).join(' · ') })),
         ...data.quranEdges.map(e => ({ id: eid++, from: e.from_person_id, to: e.to_person_id, width: 2,
           color: { color: e.tx_name ? txColor(e.tx_name) : c.accent, opacity: .8 }, title: e.tx_name || undefined })),
       ];
@@ -166,7 +166,7 @@ export default function Graph() {
           )
         ) : mod !== 'quran' && (
           <label className="row small muted" style={{ gap: 6 }}>
-            <input type="checkbox" checked={hideGeneral} onChange={e => setHideGeneral(e.target.checked)} /> إخفاء الاتصالات العامة
+            <input type="checkbox" checked={hideGeneral} onChange={e => setHideGeneral(e.target.checked)} /> إخفاء الاتصالات بلا متن محدد
           </label>
         )}
         <div className="spacer" />
@@ -183,7 +183,7 @@ export default function Graph() {
               <button className="link-btn" onClick={() => setRoute(x => (x === r.label ? null : r.label))} title="إبراز الطريق">
                 <b>ط{r.label}</b> <span>{r.n} رواة</span>
               </button>
-              {r.general && <span className="badge badge-outline">عام</span>}
+              {r.general && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عام</span>}
               <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${r.label}`}
                 onClick={() => disableRoute(r.key)}><Icon name="x" size={13} /></button>
             </span>
@@ -199,7 +199,7 @@ export default function Graph() {
           <span><i style={{ background: 'var(--primary)' }} />سماع / قراءة</span>
           <span><i style={{ background: 'var(--purple)' }} />إجازة</span>
           <span><i style={{ background: 'var(--info)' }} />عرض</span>
-          <span><i style={{ background: 'repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 7px)' }} />عام — لكل المتون</span>
+          {!rg && <span><i style={{ background: 'repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 7px)' }} />بلا متن محدد</span>}
           <span><b>3 ·</b> الترتيب من شيخي</span>
           {rg && <span><b>1.2</b> رقم الطريق (الشيخ.الطريق) كما في صفحة الأسانيد</span>}
         </div>

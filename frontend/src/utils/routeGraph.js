@@ -12,20 +12,20 @@ export function routeGraph(paths, disabled = [], order = 'high') {
   const names = new Map([[0, 'أنا']]);
   const link = (from, to, extra) => {
     const k = `${from}>${to}`;
-    if (!edges.has(k)) edges.set(k, { from, to, routes: [], off: true, tx: null, general: false });
+    if (!edges.has(k)) edges.set(k, { from, to, routes: [], off: true, tx: null });
     Object.assign(edges.get(k), extra(edges.get(k)));
   };
 
   paths.forEach((g, gi) => numberRoutes(g, order).forEach((r, ri) => {
     const label = `${gi + 1}.${ri + 1}`;
     const steps = [g.firstEdge, ...r.chain];
-    routes.push({ label, key: r.key, n: r.n, general: isGeneralRoute(g.firstEdge, r.chain), ids: [0, ...steps.map(e => Number(e.to_person_id))] });
+    routes.push({ label, key: r.key, n: r.n, general: isGeneralRoute(g.firstEdge), ids: [0, ...steps.map(e => Number(e.to_person_id))] });
     steps.forEach((e, d) => {
       const to = Number(e.to_person_id);
       names.set(to, e.to_name);
       if (!depths.has(to)) depths.set(to, new Set());
       depths.get(to).add(d + 1);
-      link(Number(e.from_person_id), to, x => ({ routes: [...x.routes, label], off: false, tx: x.tx || e.tx_name || null, general: x.general || !!e.general }));
+      link(Number(e.from_person_id), to, x => ({ routes: [...x.routes, label], off: false, tx: x.tx || e.tx_name || null }));
     });
   }));
 
