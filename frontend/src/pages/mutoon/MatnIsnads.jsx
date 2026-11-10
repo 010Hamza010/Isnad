@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
-import ChainView from '../../components/isnad/ChainView';
-import IsnadText from '../../components/isnad/IsnadText';
+import IsnadGroups from '../../components/isnad/IsnadGroups';
 import EmptyState from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Icon from '../../components/ui/Icon';
@@ -21,14 +20,14 @@ export default function MatnIsnads() {
   const [search, setSearch]   = useState('');
   const [subject, setSubject] = useState('');
   const [result, setResult]   = useState(null);
-  const [asText, setAsText]     = useState({});
   const [loading, setLoading] = useState(false);
 
-  const load = async id => {
-    setLoading(true); setAsText({});
+  // quiet: reload in place (after a route is switched off/on) without the skeleton
+  const load = async (id, { quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
     try { const { data } = await api.get(`/graph/matn/${id}/paths`); setResult(data); }
-    catch (e) { notifyError(e); setResult(null); }
-    finally { setLoading(false); }
+    catch (e) { notifyError(e); if (!quiet) setResult(null); }
+    finally { if (!quiet) setLoading(false); }
   };
 
   // the URL (?matn=id) is the source of truth: deep links, refresh and back button all work
@@ -98,28 +97,14 @@ export default function MatnIsnads() {
               </div>
             )}
 
-            {matn.author_id && paths.length === 0 && (
+            {matn.author_id && paths.length === 0 && !result.disabled?.length && (
               <div className="card"><EmptyState icon="alert" title="لا يوجد سند متصل"
                 subtitle="السلسلة لا تصل إلى المؤلف بعد — أكمل الحلقات الناقصة"
                 action={<Link to="/mutoon/connections" className="btn btn-secondary">إدارة الاتصالات</Link>} /></div>
             )}
 
-            {paths.map((g, i) => (
-              <div key={i} className="card chain-card">
-                <div className="card-head">
-                  <span className="badge badge-primary">{i + 1}</span>
-                  <span className="via">من طريق شيخي</span>
-                  <span className="strong">{g.firstEdge.to_name}</span>
-                  {g.chains.length > 1 && <span className="badge">{g.chains.length} طرق</span>}
-                  <button className={`btn btn-sm ${asText[i] ? 'btn-secondary' : 'btn-ghost'}`} style={{ marginInlineStart: 'auto' }}
-                    onClick={() => setAsText(s => ({ ...s, [i]: !s[i] }))} aria-pressed={!!asText[i]}>
-                    <Icon name="text" size={14} /> نص الإسناد
-                  </button>
-                </div>
-                {asText[i] && <IsnadText group={g} />}
-                <ChainView firstEdge={g.firstEdge} chains={g.chains} endIds={[matn.author_id]} />
-              </div>
-            ))}
+            <IsnadGroups key={result.scope} paths={paths} disabled={result.disabled} scope={result.scope} endIds={[matn.author_id]}
+              via="من طريق شيخي" onChanged={() => load(selected, { quiet: true })} />
           </>
         )}
       </section>
