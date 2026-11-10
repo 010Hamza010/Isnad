@@ -1,5 +1,10 @@
 const GM = require('../models/GraphModel');
 const { buildPaths, formatPath } = require('../services/graphService');
+const Settings = require('../models/SettingsModel');
+const DR = require('../services/disabledRoutes');
+
+const DISABLED_KEY = 'disabled_routes';
+const disabledIn = async (userId, scope) => ((await Settings.get(userId, DISABLED_KEY)) || {})[scope] || [];
 
 const QURAN_TAIL = [
   { from_person_id: -1, to_person_id: -2,
@@ -14,13 +19,13 @@ exports.matnPaths = async (req, res) => {
   try {
     const { matn, edges } = await GM.getMatnWithEdges(req.params.id);
     if (!matn) return res.status(404).json({ error: 'Matn not found' });
-    if (!matn.author_id) return res.json({ matn, paths: [] });
+    const scope = DR.matnScope(matn.id);
+    if (!matn.author_id) return res.json({ matn, scope, paths: [], disabled: [] });
     const pMap = await GM.getAllPersons();
     const raw  = buildPaths(edges, 0, [matn.author_id], null, null, null, pMap, null, null);
 
-    const paths = raw.map(group => formatPath(group, pMap));
-
-    res.json({ matn, paths });
+    const { paths, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(req.user.id, scope));
+    res.json({ matn, scope, paths, disabled });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -58,8 +63,10 @@ exports.quranPaths = async (req, res) => {
       pMap, imamMap, riwayaQiraaMap
     );
 
-    const paths = raw.map(group => {
-      const formatted = formatPath(group, pMap);
+    const scope = DR.quranScope({ riwaya_id, tariq_id, qiraa_id: riwaya_id ? null : qiraaId });
+    const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(req.user.id, scope));
+
+    const paths = enabled.map(formatted => {
 
       // append النبي + tail to each chain
       formatted.chains = formatted.chains.map(chain => {
@@ -96,7 +103,7 @@ exports.quranPaths = async (req, res) => {
       return formatted;
     });
 
-    res.json({ riwaya, paths });
+    res.json({ riwaya, scope, paths, disabled });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -105,4 +112,11 @@ exports.fullGraph = async (req, res) => {
     const data = await GM.getFullGraphData(req.user.id, req.query.module || 'both');
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
+};
+// body: { keys: [routeKey], disabled: true|false } → { keys: the scope's disabled routes }
+exports.setDisabledRoutes = async (req, res) => {
+  const keys = DR.validate(req.params.scope, req.body?.keys);
+  const all = DR.setDisabled(await Settings.get(req.user.id, DISABLED_KEY), req.params.scope, keys, req.body?.disabled !== false);
+  await Settings.set(req.user.id, DISABLED_KEY, all);
+  res.json({ keys: all[req.params.scope] || [] });
 };

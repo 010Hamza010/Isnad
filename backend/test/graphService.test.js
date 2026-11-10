@@ -130,3 +130,11 @@ test('the «عام» box and an empty matn are the same: no matn, box ticked', a
   assert.deepEqual([saved[1].matn_id, saved[1].is_general_ijaza], [52, false]);
   assert.deepEqual([saved[2].matn_id, saved[2].is_general_ijaza], [null, true]);
 });
+
+test('formatPath marks general matn links (no matn or «عام»); Quran links never', () => {
+  const g = { firstEdge: e(0, 1, { matn_id: 7, is_general_ijaza: 0 }), chains: [[e(1, 2, { matn_id: null }), e(2, 9, { matn_id: 7, is_general_ijaza: 1 })], [e(1, 9)]] };
+  const out = formatPath(g, new Map());
+  assert.equal(out.firstEdge.general, false);
+  assert.deepEqual(out.chains[0].map(x => x.general), [true, true]);
+  assert.equal(out.chains[1][0].general, false);
+});
