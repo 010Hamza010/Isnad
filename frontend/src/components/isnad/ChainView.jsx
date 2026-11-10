@@ -1,11 +1,11 @@
 import React from 'react';
-import { routeTree } from '../../utils/chains';
+import { routeTree, isGeneralRoute } from '../../utils/chains';
 
 const SACRED = new Set([-1, -2, -3]); // النبي ﷺ، جبريل، رب العزة
 
 const routesLabel = routes => (routes.length === 1 ? `الطريق ${routes[0]}` : `الطرق ${routes.join('، ')}`);
 
-function Step({ edge, depths, kind, scope, last }) {
+function Step({ edge, depths, kind, scope, last, general }) {
   return (
     <div className={`step ${kind}`}>
       <div className="step-rail">
@@ -17,9 +17,10 @@ function Step({ edge, depths, kind, scope, last }) {
           {depths?.length > 0 && <span className="step-no" title="الترتيب من شيخي">{depths.join('/')}</span>}
           {edge.to_name || `#${edge.to_person_id}`}
         </div>
-        {(edge.tx_name || scope) && (
+        {(edge.tx_name || scope || general) && (
           <div className="step-meta">
             {edge.tx_name && <span className="badge">{edge.tx_name}</span>}
+            {general && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عامة</span>}
             {scope && <span className="badge badge-primary">{scope}</span>}
           </div>
         )}
@@ -76,7 +77,9 @@ export default function ChainView({ firstEdge, chains, routes, endIds = [], scop
         <div className="step-body"><div className="step-name">أنا</div></div>
       </div>
 
-      {run([{ edge: firstEdge, depths: [1] }], !tree.prefix.length && !tree.forks.length && !tree.suffix.length)}
+      {/* «عامة» only on my own link to my shaykh: higher up it is a scope, not how a link was received */}
+      <Step edge={firstEdge} depths={[1]} kind={kindOf(firstEdge)} scope={scopeOf(firstEdge)} general={isGeneralRoute(firstEdge)}
+        last={!tree.prefix.length && !tree.forks.length && !tree.suffix.length} />
       {node(tree, true)}
 
       {!reachedEnd && (
