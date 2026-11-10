@@ -134,6 +134,8 @@ function formatPath(group, pMap) {
     transmission_type_id: edge.transmission_type_id ?? null,
     tx_kind:              kindOf(edge),
     reading_mode:         edge.reading_mode || null,
+    // a matn connection valid for every matn («عام»); Quran connections have no matn_id
+    general:     'matn_id' in edge && (edge.matn_id == null || !!Number(edge.is_general_ijaza)),
     description: edge.description || null,
     items:       edge.items       || [],
   });

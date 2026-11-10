@@ -12,6 +12,7 @@ const dbPath = require.resolve(path.join(__dirname, '../config/db'));
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
   execute: async sql => {
     if (/FROM transmission_types/.test(sql)) return [FX.transmission_types];
+    if (/FROM user_settings/.test(sql)) return [[]];
     throw new Error(`unexpected execute: ${sql}`);
   },
   query: async (sql, params) => {
@@ -37,7 +38,7 @@ const T = require('../src/services/isnadText');
 async function matnPaths(id) {
   let body;
   const res = { json: b => { body = b; }, status: () => res };
-  await graph.matnPaths({ params: { id } }, res);
+  await graph.matnPaths({ params: { id }, user: { id: 1 } }, res);
   return body;
 }
 

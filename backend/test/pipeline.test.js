@@ -11,6 +11,8 @@ require.cache[gmPath] = { id: gmPath, filename: gmPath, loaded: true, exports: {
     [1, { id: 1, name_ar: 'الشيخ', gender: 'M' }], [2, { id: 2, name_ar: 'شيخ الشيخ', gender: 'M' }], [3, { id: 3, name_ar: 'المؤلف', gender: 'M' }],
   ]),
 } };
+const stPath = require.resolve(path.join(__dirname, '../src/models/SettingsModel'));
+require.cache[stPath] = { id: stPath, filename: stPath, loaded: true, exports: { get: async () => null } };
 const graph = require('../src/controllers/graphController');
 const T = require('../src/services/isnadText');
 
@@ -25,7 +27,7 @@ const row = (from, to, tx, { matn = 7, general = 0 } = {}) => ({
 async function ijazaText(edges) {
   EDGES = edges;
   let body;
-  await graph.matnPaths({ params: { id: 7 } }, { json: b => { body = b; }, status: () => ({ json: b => { body = b; } }) });
+  await graph.matnPaths({ params: { id: 7 }, user: { id: 1 } }, { json: b => { body = b; }, status: () => ({ json: b => { body = b; } }) });
   assert.ok(body.paths?.length, JSON.stringify(body));
   return T.renderChains(body.paths.flatMap(T.groupChains), { style: { clear: true, firstTitle: '' } });
 }
