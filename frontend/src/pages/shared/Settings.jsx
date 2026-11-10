@@ -4,11 +4,13 @@ import Segmented from '../../components/ui/Segmented';
 import Account from './Account';
 import Profile from './Profile';
 import IsnadTextSettings from './IsnadTextSettings';
+import DataTransfer from './DataTransfer';
 
 export const SETTINGS_TABS = [
   { value: 'account', label: 'الحساب' },
   { value: 'profile', label: 'الملف الشخصي' },
   { value: 'isnad',   label: 'صيغ الإسناد' },
+  { value: 'data',    label: 'النسخ والنقل' },
 ];
 
 /** All settings in one page; the tab is in the URL (?tab=) so links and the back button work. */
@@ -21,6 +23,7 @@ export default function Settings() {
       {tab === 'account' && <Account />}
       {tab === 'profile' && <Profile />}
       {tab === 'isnad' && <IsnadTextSettings />}
+      {tab === 'data' && <DataTransfer />}
     </>
   );
 }
