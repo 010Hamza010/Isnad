@@ -4,6 +4,7 @@ import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import Icon from '../../components/ui/Icon';
 import { downloadFrom, readJsonFile } from '../../utils/download';
+import ShareIsnad from './ShareIsnad';
 
 // the tables people recognise; the others are counted under «أخرى»
 const LABELS = {
@@ -25,7 +26,7 @@ function Counts({ counts }) {
 /** Settings tab: full backup (download / restore) and sharing one isnad with another instance. */
 export default function DataTransfer() {
   const { toast, notifyError, confirm } = useUI();
-  const { data: summary } = useLoad(() => api.get('/data/summary').then(r => r.data), [], null);
+  const { data: summary, reload } = useLoad(() => api.get('/data/summary').then(r => r.data), [], null);
   const [busy, setBusy] = useState('');
   const fileRef = useRef(null);
 

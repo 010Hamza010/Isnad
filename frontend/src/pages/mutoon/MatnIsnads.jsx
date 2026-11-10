@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import IsnadGroups from '../../components/isnad/IsnadGroups';
+import ShareButton from '../../components/isnad/ShareButton';
 import EmptyState from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Icon from '../../components/ui/Icon';
@@ -88,6 +89,7 @@ export default function MatnIsnads() {
                   <div className="hero-sub">{[matn.author_name && `للإمام ${matn.author_name}`, matn.subject].filter(Boolean).join(' · ')}</div>
                 </div>
                 <span className="badge">{countLabel(paths.length, PATH_FORMS)}</span>
+                <ShareButton url={`/share/matn/${matn.id}`} disabled={!paths.length} />
               </div>
             </div>
 

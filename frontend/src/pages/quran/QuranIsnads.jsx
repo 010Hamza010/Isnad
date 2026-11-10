@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import IsnadGroups from '../../components/isnad/IsnadGroups';
+import ShareButton from '../../components/isnad/ShareButton';
 import EmptyState from '../../components/ui/EmptyState';
 import { countLabel } from '../../utils/text';
 import { quranOptions, quranPathParams } from '../../utils/quranOptions';
@@ -103,6 +104,7 @@ export default function QuranIsnads() {
                   </div>
                 </div>
                 <span className="badge">{countLabel(paths.length, PATH_FORMS)}</span>
+                <ShareButton url={`/share/quran?${quranPathParams(selected)}`} disabled={!paths.length} />
               </div>
             </div>
 
