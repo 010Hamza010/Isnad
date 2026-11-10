@@ -4,6 +4,8 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors());
+// a full backup holds every archived PDF: its restore gets a larger body limit (parsed first)
+app.use('/api/data', express.json({ limit: '300mb' }), require('./routes/data'));
 app.use(express.json({ limit: '9mb' })); // frozen ijaza documents can be a few MB
 
 app.use('/api/auth',      require('./routes/auth'));
