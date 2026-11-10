@@ -17,10 +17,9 @@ function Step({ edge, depths, kind, scope, last }) {
           {depths?.length > 0 && <span className="step-no" title="الترتيب من شيخي">{depths.join('/')}</span>}
           {edge.to_name || `#${edge.to_person_id}`}
         </div>
-        {(edge.tx_name || scope || edge.general) && (
+        {(edge.tx_name || scope) && (
           <div className="step-meta">
             {edge.tx_name && <span className="badge">{edge.tx_name}</span>}
-            {edge.general && <span className="badge badge-outline">عام</span>}
             {scope && <span className="badge badge-primary">{scope}</span>}
           </div>
         )}

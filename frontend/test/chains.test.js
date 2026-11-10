@@ -62,7 +62,8 @@ test('numberRoutes orders the highest (shortest) first and keeps keys', () => {
   assert.deepEqual(numberRoutes(g, 'entry').map(r => r.key), ['a', 'b']);
 });
 
-test('isGeneralRoute looks at every link of the route', () => {
-  assert.equal(isGeneralRoute(e(0, 1), [e(1, 9)]), false);
-  assert.equal(isGeneralRoute(e(0, 1), [{ ...e(1, 9), general: true }]), true);
+test('isGeneralRoute: only my own link to my shaykh makes a route general', () => {
+  assert.equal(isGeneralRoute(e(0, 1)), false);
+  assert.equal(isGeneralRoute({ ...e(0, 1), general: true }), true);
+  assert.equal(isGeneralRoute(e(0, 1), [{ ...e(1, 9), general: true }]), false, 'a general link higher up is only a scope');
 });

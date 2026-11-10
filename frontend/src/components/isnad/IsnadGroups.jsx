@@ -30,7 +30,7 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
     return { g: { ...g, chains: routes.map(r => r.chain), keys: routes.map(r => r.key) }, routes };
   }), [paths, order]);
   const highest = Math.min(...groups.flatMap(x => x.routes.map(r => r.n)));
-  const generalKeys = groups.flatMap(({ g, routes }) => routes.filter(r => isGeneralRoute(g.firstEdge, r.chain)).map(r => r.key));
+  const generalKeys = groups.filter(({ g }) => isGeneralRoute(g.firstEdge)).flatMap(({ routes }) => routes.map(r => r.key));
 
   const toggle = async (keys, off) => {
     setBusy(true);
@@ -44,7 +44,7 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
   };
 
   const disableGeneral = async () => {
-    const ok = await confirm({ title: 'تعطيل الطرق العامة', message: `ستُعطَّل ${generalKeys.length} طرق تمرّ باتصال «عام — لكل المتون». يمكنك إعادة تفعيل أيّ منها لاحقاً.`, confirmLabel: 'تعطيل' });
+    const ok = await confirm({ title: 'تعطيل الطرق العامة', message: `ستُعطَّل ${generalKeys.length} طرق يتصل فيها شيخك بك اتصالاً «عاماً — لكل المتون». يمكنك إعادة تفعيل أيّ منها لاحقاً.`, confirmLabel: 'تعطيل' });
     if (ok) toggle(generalKeys, true);
   };
 
@@ -86,7 +86,7 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
                 <b>ط{j + 1}</b>
                 <span>{r.n} {r.n > 10 ? 'راوياً' : r.n > 2 ? 'رواة' : r.n === 2 ? 'راويان' : 'راوٍ'}</span>
                 {r.n === highest && <span className="badge badge-accent" title="أقل عدد من الرواة">الأعلى</span>}
-                {isGeneralRoute(g.firstEdge, r.chain) && <span className="badge badge-outline">عام</span>}
+                {isGeneralRoute(g.firstEdge) && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عام</span>}
                 <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${j + 1}`}
                   onClick={() => toggle([r.key], true)}><Icon name="x" size={13} /></button>
               </span>
