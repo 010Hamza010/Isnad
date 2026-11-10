@@ -106,3 +106,46 @@ exports.import = async (req, res) => {
   if (dry_run) return res.json({ plan });
   res.json({ plan, result: await Import.apply(plan, opts) });
 };
+
+/* ── «ثبتي»: the whole network of connections (services/thabat) ── */
+const Thabat = require('../models/ThabatModel');
+const TH = require('../services/thabat');
+
+// ?mutoon=all|none|1,5,9  &quran=1  &bios=1
+exports.exportThabat = async (req, res) => {
+  const q = req.query;
+  const opts = {
+    mutoon: q.mutoon === 'none' ? false : !q.mutoon || q.mutoon === 'all' ? true : String(q.mutoon).split(',').map(Number).filter(Number.isInteger),
+    quran: q.quran !== '0', bios: q.bios !== '0',
+  };
+  const data = await Thabat.exportData(req.user.id);
+  const { personIds } = TH.selection(data, opts);
+  await Share.withUids(personIds);
+  const file = TH.buildThabat({ ...data, persons: await Thabat.persons(personIds) }, opts, await sender(req.user.id));
+  if (!file.links.length && !file.quran.length) throw new HttpError(400, 'لا اتصالات لتصديرها');
+  sendFile(res, `ثبت-${file.from}-${new Date().toISOString().slice(0, 10)}`, file);
+};
+
+async function thabatContext() {
+  const [persons, byUid, local] = await Promise.all([Thabat.persons(), Share.uidMap(), Thabat.lists()]);
+  return { persons, byUid, local };
+}
+
+// body: { file } → persons and mutoon to review, Quran names found here or to create
+exports.previewThabat = async (req, res) => {
+  const file = TH.validateThabat(req.body?.file);
+  const { persons, byUid, local } = await thabatContext();
+  const out = TH.previewThabat(file, { byUid, index: buildIndex([...persons.values()]), personsById: persons, local });
+  res.json({ file: { from: file.from, exported_at: file.exported_at }, ...out });
+};
+
+// body: { file, picks: { persons: { ref: id|'new' }, mutoon: { ref: id|'new' } }, dry_run }
+exports.importThabat = async (req, res) => {
+  const file = TH.validateThabat(req.body?.file);
+  const { persons, byUid, local } = await thabatContext();
+  const [types, existing] = await Promise.all([TxType.findAll(), Thabat.existing(req.user.id)]);
+  const plan = TH.planThabat(file, req.body?.picks, { byUid, types, qmap: TH.mapQuran(file, local), personsById: persons, ...existing });
+  const counts = TH.planCounts(plan);
+  if (req.body?.dry_run) return res.json({ counts, fills: plan.fills.slice(0, 50), newPersons: plan.persons.map(p => p.name_ar), newMutoon: plan.mutoon.map(m => m.title) });
+  res.json({ counts, result: await Thabat.apply(plan, req.user.id) });
+};

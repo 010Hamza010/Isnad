@@ -6,6 +6,8 @@ const app = express();
 app.use(cors());
 // a full backup holds every archived PDF: its restore gets a larger body limit (parsed first)
 app.use('/api/data', express.json({ limit: '300mb' }), require('./routes/data'));
+// a whole thabat with biographies can be large
+app.use('/api/share', express.json({ limit: '50mb' }), require('./routes/share'));
 app.use(express.json({ limit: '9mb' })); // frozen ijaza documents can be a few MB
 
 app.use('/api/auth',      require('./routes/auth'));
@@ -19,7 +21,6 @@ app.use('/api/graph',     require('./routes/graph'));
 app.use('/api/isnad-text', require('./routes/isnadText'));
 app.use('/api/ijazat',    require('./routes/ijazat'));
 app.use('/api/profile',   require('./routes/profile'));
-app.use('/api/share',     require('./routes/share'));
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
