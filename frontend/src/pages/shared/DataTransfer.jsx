@@ -5,6 +5,7 @@ import { useUI } from '../../components/ui/UIProvider';
 import Icon from '../../components/ui/Icon';
 import { downloadFrom, readJsonFile } from '../../utils/download';
 import ShareIsnad from './ShareIsnad';
+import Thabat from './Thabat';
 
 // the tables people recognise; the others are counted under «أخرى»
 const LABELS = {
