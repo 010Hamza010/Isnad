@@ -39,12 +39,14 @@ function nodeOf(n, where, newPersons) {
   }
   const name = String(n?.new_name ?? '').trim();
   if (!name) throw new ImportError(`${where}: لم يُحدَّد الشخص`);
-  const key = newKey(n);
+  // a shared file names its own persons (new_key): two of them may share a name and year
+  const key = n.new_key ? `ref:${n.new_key}` : newKey(n);
   if (!newPersons.has(key)) {
     newPersons.set(key, {
       key, name_ar: name,
       death_year: cleanYear(n.death_year),
       gender: n.gender === 'F' ? 'F' : 'M',
+      ...Object.fromEntries(['kunya', 'nisba', 'region', 'uid'].filter(k => n[k]).map(k => [k, String(n[k])])),
     });
   }
   return { ref: key, name };

@@ -9,17 +9,32 @@ exports.existingPairs = async ({ target, matn_id, userId }) => {
 };
 
 /** Apply a plan from services/isnadImport in one transaction. Edges marked `exists` are skipped. */
-exports.apply = async (plan, { target, matn_id, items = [], userId }) => {
+exports.apply = async (plan, opts) => {
+  const { target, items = [], userId } = opts;
+  let { matn_id } = opts;
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
     const ids = {};
     for (const p of plan.persons) {
-      const [r] = await conn.query('INSERT INTO persons (name_ar, death_year, gender) VALUES (?,?,?)',
-        [p.name_ar, p.death_year, p.gender]);
+      // kunya / nisba / region / uid come with a shared isnad (services/shareIsnad)
+      const extra = ['kunya', 'nisba', 'region', 'uid'].filter(k => p[k]);
+      const [r] = await conn.query(
+        `INSERT INTO persons (name_ar, death_year, gender${extra.map(k => `, ${k}`).join('')}) VALUES (?,?,?${extra.map(() => ',?').join('')})`,
+        [p.name_ar, p.death_year, p.gender, ...extra.map(k => p[k])]);
       ids[p.key] = r.insertId;
     }
     const idOf = ref => (typeof ref === 'number' ? ref : ids[ref]);
+
+    // a shared isnad may bring its matn: created once its author (maybe new) exists
+    if (opts.new_matn) {
+      const [r] = await conn.query('INSERT INTO mutoon (title, author_id) VALUES (?,?)',
+        [opts.new_matn.title, opts.new_matn.author == null ? null : idOf(opts.new_matn.author)]);
+      matn_id = r.insertId;
+    }
+    // codes of another instance's persons, remembered for the next import from there
+    for (const l of opts.remember || [])
+      await conn.query('INSERT INTO person_links (uid, person_id) VALUES (?,?) ON DUPLICATE KEY UPDATE person_id = VALUES(person_id)', [l.uid, l.person_id]);
 
     let created = 0;
     for (const e of plan.edges) {
@@ -43,7 +58,7 @@ exports.apply = async (plan, { target, matn_id, items = [], userId }) => {
       created++;
     }
     await conn.commit();
-    return { persons_created: plan.persons.length, connections_created: created, connections_skipped: plan.edges.length - created };
+    return { persons_created: plan.persons.length, connections_created: created, connections_skipped: plan.edges.length - created, matn_id };
   } catch (e) { await conn.rollback(); throw e; }
   finally { conn.release(); }
 };

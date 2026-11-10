@@ -1,0 +1,9 @@
+const r    = require('express').Router();
+const auth = require('../middleware/auth');
+const w    = require('../utils/asyncHandler');
+const c    = require('../controllers/shareController');
+r.get('/matn/:id',  auth, w(c.exportMatn));
+r.get('/quran',     auth, w(c.exportQuran));
+r.post('/preview',  auth, w(c.preview));
+r.post('/import',   auth, w(c.import));
+module.exports = r;
