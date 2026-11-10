@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { errorMessage } from '../../components/ui/UIProvider';
@@ -14,29 +14,31 @@ const ChainArt = () => (
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState('login');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [setup, setSetup] = useState(false);   // first run: no account yet on this instance
   const [err, setErr] = useState('');
-  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const nav = useNavigate();
 
+  useEffect(() => {
+    api.get('/auth/status').then(r => setSetup(!!r.data.setup)).catch(() => {});
+  }, []);
+
   const submit = async e => {
-    e.preventDefault(); setErr(''); setNotice(''); setLoading(true);
+    e.preventDefault(); setErr('');
+    if (setup && password !== confirmPw) { setErr('كلمتا المرور غير متطابقتين'); return; }
+    setLoading(true);
     try {
-      const { data } = await api.post(`/auth/${mode}`, { username, password });
-      if (mode === 'register') {
-        setMode('login'); setPassword(''); setNotice('تم إنشاء الحساب، سجّل الدخول الآن');
-        return;
-      }
-      login(data.token, data.username);
+      const { data } = await api.post(setup ? '/auth/setup' : '/auth/login', { username, password, remember });
+      login(data.token, data.username, setup || remember);
       nav('/');
     } catch (e) {
-      setErr(e.response?.status === 401 ? 'اسم المستخدم أو كلمة المرور غير صحيحة' : errorMessage(e));
+      setErr(errorMessage(e));
+      if (e.response?.status === 403 && setup) setSetup(false); // created meanwhile: log in instead
     } finally { setLoading(false); }
   };
-
-  const isLogin = mode === 'login';
 
   return (
     <div className="auth">
@@ -46,13 +48,12 @@ export default function Login() {
             <div className="brand-mark">س</div>
             <div><div className="brand-name">إسناد</div><div className="brand-tag">إدارة الأسانيد والمتون</div></div>
           </div>
-          <h1>{isLogin ? 'مرحباً بعودتك' : 'إنشاء حساب'}</h1>
+          <h1>{setup ? 'إعداد الحساب' : 'مرحباً بعودتك'}</h1>
           <p className="muted small" style={{ marginBottom: 24 }}>
-            {isLogin ? 'سجّل الدخول لمتابعة أسانيدك' : 'أنشئ حساباً لتبدأ بتوثيق أسانيدك'}
+            {setup ? 'أول تشغيل: أنشئ حسابك — حساب واحد لهذه النسخة' : 'سجّل الدخول لمتابعة أسانيدك'}
           </p>
 
           {err && <div className="alert alert-error" role="alert">{err}</div>}
-          {notice && <div className="alert alert-success">{notice}</div>}
 
           <form onSubmit={submit}>
             <label className="field">
@@ -62,20 +63,24 @@ export default function Login() {
             <label className="field">
               <span className="field-label">كلمة المرور</span>
               <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)}
-                autoComplete={isLogin ? 'current-password' : 'new-password'} required />
+                autoComplete={setup ? 'new-password' : 'current-password'} minLength={setup ? 8 : undefined} required />
+              {setup && <span className="field-hint">8 أحرف على الأقل</span>}
             </label>
+            {setup ? (
+              <label className="field">
+                <span className="field-label">تأكيد كلمة المرور</span>
+                <input className="input" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" required />
+              </label>
+            ) : (
+              <label className="row small" style={{ gap: 8, marginBottom: 12 }}>
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> تذكرني على هذا الجهاز
+              </label>
+            )}
             <button className="btn btn-primary btn-block" style={{ height: 44, marginTop: 6 }} disabled={loading}>
-              {loading ? <span className="spinner" /> : isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب'}
+              {loading ? <span className="spinner" /> : setup ? 'إنشاء الحساب والدخول' : 'تسجيل الدخول'}
             </button>
           </form>
 
-          <p className="small muted" style={{ textAlign: 'center', marginTop: 18 }}>
-            {isLogin ? 'ليس لديك حساب؟' : 'لديك حساب؟'}{' '}
-            <button className="strong" style={{ color: 'var(--primary)' }}
-              onClick={() => { setMode(isLogin ? 'register' : 'login'); setErr(''); setNotice(''); }}>
-              {isLogin ? 'أنشئ حساباً' : 'سجّل الدخول'}
-            </button>
-          </p>
         </div>
       </div>
 

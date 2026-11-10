@@ -46,7 +46,7 @@ export default function Sidebar({ stats, open }) {
       </nav>
 
       <div className="sidebar-foot">
-        <NavLink to="/profile" className="row spacer" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} title="الملف الشخصي">
+        <NavLink to="/settings?tab=account" className="row spacer" style={{ textDecoration: 'none', color: 'inherit', minWidth: 0 }} title="الحساب">
           <div className="avatar">{(username || '?').slice(0, 1).toUpperCase()}</div>
           <div className="truncate small strong">{username}</div>
         </NavLink>

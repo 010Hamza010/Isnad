@@ -45,7 +45,7 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
   return (
     <>
       <div className="callout settings-section">
-        اسمك الكامل والمختصر وجنسك والمكان الافتراضي في <Link to="/profile">الملف الشخصي</Link>.
+        اسمك الكامل والمختصر وجنسك والمكان الافتراضي في <Link to="/settings?tab=profile">الملف الشخصي</Link>.
       </div>
 
       <div className="card settings-section">
