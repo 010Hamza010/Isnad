@@ -591,3 +591,30 @@ describe('a shaykh\'s own teachers who meet again: «عن B، وعن C، كلا�
     assert.deepEqual(TT.parseIsnad('أخبرنا عمرو، وأجاز لي بكر', null).chains.map(c => c.links.map(l => l.name)), [['عمرو', 'بكر']]);
   });
 });
+
+describe('Quran «منقطع» jump', () => {
+  const q = (from, fromName, to, toName, extra = {}) => ({ ...e(from, fromName, to, toName, 2), ...extra });
+  const TAIL = [q(-1, 'النبي ﷺ', -2, 'جبريل عليه السلام'), q(-2, 'جبريل عليه السلام', -3, 'رب العزة')];
+
+  test('the chain stops at the imam with a note: no step to the Prophet ﷺ, no tail', () => {
+    const chain = [q(0, 'أنا', 1, 'زيد'), q(1, '', 2, 'قالون'), q(2, '', 3, 'نافع'), q(3, '', -1, 'النبي ﷺ', { munqati: true }), ...TAIL];
+    const text = T.renderChain(chain);
+    assert.match(text, /نافع\. \[لم يُدخَل بعدُ سند الإمام نافع إلى النبي ﷺ\]$/);
+    assert.doesNotMatch(text, /جبريل/);
+    assert.equal(T.renderChains([chain]), text);
+  });
+
+  test('«الإمام» is not doubled, and a connected chain is unchanged', () => {
+    const cut = [q(0, 'أنا', 1, 'زيد'), q(1, '', 3, 'الإمام نافع'), q(3, '', -1, 'النبي ﷺ', { munqati: true })];
+    assert.match(T.renderChain(cut), /\[لم يُدخَل بعدُ سند الإمام نافع إلى النبي ﷺ\]$/);
+    const whole = [q(0, 'أنا', 1, 'زيد'), q(1, '', 3, 'نافع'), q(3, '', -1, 'النبي ﷺ'), ...TAIL];
+    assert.match(T.renderChain(whole), /رب العزة$/);
+  });
+
+  test('two routes reaching the imam share one note', () => {
+    const a = [q(0, 'أنا', 1, 'زيد'), q(1, '', 3, 'نافع'), q(3, '', -1, 'النبي ﷺ', { munqati: true }), ...TAIL];
+    const b = [q(0, 'أنا', 2, 'عمرو'), q(2, '', 3, 'نافع'), q(3, '', -1, 'النبي ﷺ', { munqati: true }), ...TAIL];
+    const text = T.renderChains([a, b]);
+    assert.equal(text.split('لم يُدخَل').length - 1, 1);
+  });
+});
