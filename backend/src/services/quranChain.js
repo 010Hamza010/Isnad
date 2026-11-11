@@ -49,7 +49,8 @@ function upperCovers(edge, want, riwayaQiraa) {
 /** A link to save: names what was read, or is «عام» (not mine). → is_general (0/1), or throws 400. */
 function checkScope(body) {
   const mine = Number(body?.from_person_id || 0) === 0;
-  const items = (body?.items || []).filter(it => it && (it.qiraa_id || it.riwaya_id || it.tariq_id));
+  const items = [...(body?.items || []).filter(it => it && (it.qiraa_id || it.riwaya_id || it.tariq_id)),
+    ...(body?.groups || []).filter(g => Number(g) > 0)];   // a group names what was read too
   const general = !mine && !!Number(body?.is_general);
   if (mine && !items.length) throw new HttpError(400, 'حدّد ما قرأتَ على شيخك');
   if (!general && !items.length) throw new HttpError(400, 'حدّد ما قُرئ، أو اختر «عام — كل القراءات»');

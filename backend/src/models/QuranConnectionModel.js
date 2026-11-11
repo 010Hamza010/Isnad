@@ -13,6 +13,24 @@ async function booksOf(ids) {
 }
 exports.booksOf = booksOf;
 
+/** Groups each link was read with: { [connection_id]: [{ group_id, name_ar, text_ar }] }. */
+async function groupsOf(ids) {
+  if (!ids.length) return {};
+  const [rows] = await db.query(
+    `SELECT cg.connection_id, g.id AS group_id, g.name_ar, g.text_ar FROM quran_connection_groups cg
+     JOIN quran_groups g ON g.id = cg.group_id WHERE cg.connection_id IN (?) ORDER BY g.name_ar`, [ids]);
+  const by = {};
+  rows.forEach(({ connection_id, ...g }) => { (by[connection_id] ??= []).push(g); });
+  return by;
+}
+exports.groupsOf = groupsOf;
+
+async function writeGroups(conn, id, groups = []) {
+  await conn.query('DELETE FROM quran_connection_groups WHERE connection_id=?', [id]);
+  const ids = [...new Set((Array.isArray(groups) ? groups : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  for (const g of ids) await conn.query('INSERT INTO quran_connection_groups (connection_id, group_id) VALUES (?,?)', [id, g]);
+}
+
 async function writeBooks(conn, id, books = []) {
   await conn.query('DELETE FROM quran_connection_books WHERE connection_id=?', [id]);
   const ids = [...new Set((Array.isArray(books) ? books : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
@@ -43,12 +61,12 @@ exports.findAllForUser = async (userId) => {
   } else {
     conns.forEach(c => { c.items = []; });
   }
-  const books = await booksOf(ids);
-  conns.forEach(c => { c.books = books[c.id] || []; });
+  const [books, groups] = await Promise.all([booksOf(ids), groupsOf(ids)]);
+  conns.forEach(c => { c.books = books[c.id] || []; c.groups = groups[c.id] || []; });
   return TxType.annotateQuran(conns);
 };
 
-exports.create = async (userId, fields, items, books) => {
+exports.create = async (userId, fields, items, books, groups) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
@@ -63,6 +81,7 @@ exports.create = async (userId, fields, items, books) => {
     );
     const connId = result.insertId;
     await writeBooks(conn, connId, books);
+    await writeGroups(conn, connId, groups);
     for (const item of items) {
       if (!item.qiraa_id && !item.riwaya_id && !item.tariq_id) continue;
       await conn.query(
@@ -76,7 +95,7 @@ exports.create = async (userId, fields, items, books) => {
   finally { conn.release(); }
 };
 
-exports.update = async (id, userId, fields, items, books) => {
+exports.update = async (id, userId, fields, items, books, groups) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
@@ -92,6 +111,7 @@ exports.update = async (id, userId, fields, items, books) => {
        id, userId]
     );
     await writeBooks(conn, id, books);
+    await writeGroups(conn, id, groups);
     await conn.query('DELETE FROM quran_connection_items WHERE connection_id=?', [id]);
     for (const item of items) {
       if (!item.qiraa_id && !item.riwaya_id && !item.tariq_id) continue;

@@ -1,6 +1,7 @@
 const GM = require('../models/GraphModel');
 const { buildPaths, formatPath, formatEdge } = require('../services/graphService');
 const QC = require('../services/quranChain');
+const QG = require('../services/quranGroups');
 const Settings = require('../models/SettingsModel');
 const DR = require('../services/disabledRoutes');
 const H = require('../services/heights');
@@ -42,10 +43,14 @@ async function quranData(userId, query) {
   const imamId = riwaya?.imam_id ?? qiraa?.imam_id ?? null;
   const rawiId = riwaya?.rawi_id ?? null;
 
-  const [edges, pMap, riwayaQiraa] = await Promise.all([GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap()]);
-  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && QC.startCovers(e, { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
+  const [edges, pMap, riwayaQiraa, groups] = await Promise.all([
+    GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap(), Quran.allGroups()]);
+  // a link read with a group carries its members (the link itself keeps its groups for display)
+  const byGroup = new Map(groups.map(g => [Number(g.id), g]));
+  const scoped = e => ({ ...e, items: QG.expandItems(e.items, (e.groups || []).map(g => g.group_id), byGroup) });
+  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && QC.startCovers(scoped(e), { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
   const want  = { qiraa_id: qiraaId, riwaya_id };
-  const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QC.upperCovers(e, want, riwayaQiraa))
+  const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QC.upperCovers(scoped(e), want, riwayaQiraa))
     .map(e => ({ ...e, books: undefined }));
 
   const target = rawiId ?? imamId ?? QC.PROPHET;

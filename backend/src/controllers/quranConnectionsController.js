@@ -14,14 +14,14 @@ const asRead = async body => {
 
 exports.create = async (req, res) => {
   requireValidLink(req.body);
-  const { items = [], books = [], ...fields } = await asRead(req.body);
-  res.json(await QC.create(req.user.id, fields, items, books));
+  const { items = [], books = [], groups = [], ...fields } = await asRead(req.body);
+  res.json(await QC.create(req.user.id, fields, items, books, groups));
 };
 
 exports.update = async (req, res) => {
   requireValidLink(req.body);
-  const { items = [], books = [], ...fields } = await asRead(req.body);
-  await QC.update(req.params.id, req.user.id, fields, items, books);
+  const { items = [], books = [], groups = [], ...fields } = await asRead(req.body);
+  await QC.update(req.params.id, req.user.id, fields, items, books, groups);
   res.json({ ok: true });
 };
 

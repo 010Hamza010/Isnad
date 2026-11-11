@@ -80,6 +80,7 @@ test('GET /graph/heights: general links reach every matn, disabled routes are le
   t.mock.method(GM, 'getMyQuranItems', async () => [{ riwaya_id: 3, qiraa_id: 1, riwaya_name: 'ورش', qiraa_name: 'قراءة نافع' }]);
   t.mock.method(GM, 'getRiwayaById', async () => ({ id: 3, qiraa_id: 1, imam_id: 101 }));
   t.mock.method(require('../src/models/QuranModel'), 'allRiwayat', async () => [{ id: 3, qiraa_id: 1, name_ar: 'ورش' }]);
+  t.mock.method(require('../src/models/QuranModel'), 'allGroups', async () => []);
   t.mock.method(GM, 'getQuranEdgesForUser', async () => [
     { from_person_id: 0, to_person_id: 5, items: [{ riwaya_id: 3 }] },
     { from_person_id: 5, to_person_id: 101, items: [{ riwaya_id: 3 }] },
