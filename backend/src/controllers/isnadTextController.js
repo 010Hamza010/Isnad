@@ -71,13 +71,15 @@ exports.parse = async (req, res) => {
   });
 };
 
-// body: { target: 'matn'|'quran', matn_id?, items?: [{ qiraa_id, riwaya_id, tariq_id }], chains, dry_run? }
+// body: { target: 'matn'|'quran', matn_id?, items?: [{ qiraa_id, riwaya_id, tariq_id }], groups?: [id], chains, dry_run? }
 // chains are the reviewed parse output (see services/isnadImport). dry_run returns the plan without writing.
 exports.import = async (req, res) => {
-  const { target = 'matn', matn_id = null, items = [], chains, dry_run } = req.body || {};
+  const { target = 'matn', matn_id = null, items = [], groups = [], chains, dry_run } = req.body || {};
   if (!['matn', 'quran'].includes(target)) throw new HttpError(400, 'Invalid target');
-  if (!Array.isArray(items)) throw new HttpError(400, 'Invalid items');
-  const opts = { target, matn_id, items, userId: req.user.id };
+  if (!Array.isArray(items) || !Array.isArray(groups)) throw new HttpError(400, 'Invalid items');
+  // a group read (Quran): stored on every link created, like the items
+  const groupIds = target === 'quran' ? [...new Set(groups.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 20) : [];
+  const opts = { target, matn_id, items, groups: groupIds, userId: req.user.id };
   const [types, existing] = await Promise.all([TxType.findAll(), Import.existingPairs(opts)]);
   let plan;
   try { plan = planImport(chains, { types, target, existing }); }

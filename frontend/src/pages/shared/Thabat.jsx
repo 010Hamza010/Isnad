@@ -14,7 +14,7 @@ const STATUS = {
   ambiguous: { color: 'var(--accent)',  label: 'محتمل — اختر' },
   new:       { color: 'var(--info)',    label: 'جديد' },
 };
-const QURAN_KIND = { qiraat: 'قراءة', riwayat: 'رواية', turuq: 'طريق' };
+const QURAN_KIND = { qiraat: 'قراءة', riwayat: 'رواية', turuq: 'طريق', groups: 'مجموعة' };
 const fmt = n => Number(n || 0).toLocaleString('ar');
 const initialPick = r => r.person_id ?? r.matn_id ?? (r.status === 'new' ? NEW : null);
 
@@ -222,7 +222,7 @@ function ThabatImport({ onImported }) {
                   {c.existing > 0 && <span className="badge">{fmt(c.existing)} موجود لن يُكرَّر</span>}
                   {c.persons > 0 && <span className="badge">{fmt(c.persons)} علَماً جديداً</span>}
                   {c.mutoon > 0 && <span className="badge">{fmt(c.mutoon)} متناً جديداً</span>}
-                  {c.quranNames > 0 && <span className="badge">{fmt(c.quranNames)} قراءة/رواية/طريق</span>}
+                  {c.quranNames > 0 && <span className="badge">{fmt(c.quranNames)} قراءة/رواية/طريق/مجموعة</span>}
                   {c.fills > 0 && <span className="badge">إكمال بيانات {fmt(c.fills)} علَماً</span>}
                 </div>
                 {plan.fills.length > 0 && (

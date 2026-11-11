@@ -93,7 +93,14 @@ test('import: dry_run returns the plan without writing', async () => {
 test('import: applies with the user and target', async () => {
   const out = await c.import(req({ target: 'quran', items: [{ riwaya_id: 2 }], chains: [{ start: null, links: [{ new_name: 'x' }] }] }), res());
   assert.equal(out.result.persons_created, 1);
-  assert.deepEqual(applied[0].opts, { target: 'quran', matn_id: null, items: [{ riwaya_id: 2 }], userId: 7 });
+  assert.deepEqual(applied[0].opts, { target: 'quran', matn_id: null, items: [{ riwaya_id: 2 }], groups: [], userId: 7 });
+});
+
+test('import: a Quran group is passed on (ids only, once); ignored for a matn', async () => {
+  await c.import(req({ target: 'quran', groups: [3, '3', 'x', -1], chains: [{ start: null, links: [{ new_name: 'x' }] }] }), res());
+  assert.deepEqual(applied.at(-1).opts.groups, [3]);
+  await c.import(req({ target: 'matn', groups: [3], chains: [{ start: null, links: [{ new_name: 'x' }] }] }), res());
+  assert.deepEqual(applied.at(-1).opts.groups, []);
 });
 
 test('import: bad target / chains → 400', async () => {

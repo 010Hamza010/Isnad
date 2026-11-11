@@ -22,17 +22,18 @@ const EMPTY_ITEM = { qiraa_id: '', riwaya_id: '', tariq_id: '' };
 export default function FastEntry() {
   const { toast, notifyError } = useUI();
   const { data, loading, reload } = useLoad(async () => {
-    const [p, m, q, r, t, s] = await Promise.all([
+    const [p, m, q, r, t, s, g] = await Promise.all([
       api.get('/persons'), api.get('/mutoon'),
       api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'),
-      api.get('/isnad-text/settings'),
+      api.get('/isnad-text/settings'), api.get('/quran/groups'),
     ]);
-    return { persons: p.data, mutoon: m.data, qiraat: q.data, riwayat: r.data, turuq: t.data, kinds: s.data.kinds };
+    return { persons: p.data, mutoon: m.data, qiraat: q.data, riwayat: r.data, turuq: t.data, kinds: s.data.kinds, groups: g.data };
   }, [], null);
 
   const [target, setTarget] = useState('matn');
   const [matnId, setMatnId] = useState('');
   const [item, setItem]     = useState(EMPTY_ITEM);
+  const [groupId, setGroupId] = useState('');   // Quran: a group read instead of (or with) one qiraa / riwaya
   const [text, setText]     = useState('');
   const [review, setReview] = useState(null);
   const [warnings, setWarnings] = useState([]);
@@ -46,6 +47,7 @@ export default function FastEntry() {
     matn_id: target === 'matn' ? Number(matnId) || null : null,
     items: target === 'quran' && (item.qiraa_id || item.riwaya_id || item.tariq_id)
       ? [{ qiraa_id: item.qiraa_id || null, riwaya_id: item.riwaya_id || null, tariq_id: item.tariq_id || null }] : [],
+    groups: target === 'quran' && groupId ? [Number(groupId)] : [],
   });
 
   const analyse = async () => {
@@ -68,7 +70,7 @@ export default function FastEntry() {
       .then(r => alive && setPlan(r.data.plan))
       .catch(e => alive && setPlanErr(errorMessage(e)));
     return () => { alive = false; };
-  }, [review, target, matnId, item]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [review, target, matnId, item, groupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setPick = (key, pick) => setReview(r => ({ ...r, names: { ...r.names, [key]: { ...r.names[key], pick } } }));
 
@@ -93,7 +95,7 @@ export default function FastEntry() {
   });
 
   if (loading && !data) return <SkeletonList rows={4} />;
-  const { persons, mutoon, qiraat, riwayat, turuq, kinds } = data;
+  const { persons, mutoon, qiraat, riwayat, turuq, kinds, groups } = data;
   const kindLabel = k => kinds.find(x => x.key === k)?.label || 'عنعنة';
   const nameOf = ref => (typeof ref === 'number' ? (ref === 0 ? 'أنا' : persons.find(p => p.id === ref)?.name_ar) : null);
 
@@ -112,6 +114,15 @@ export default function FastEntry() {
               <Combobox value={matnId} onChange={v => setMatnId(v ?? '')} opts={rowOptions(mutoon, 'title')} placeholder="اختر المتن…" />
             </Field>
           ) : (
+            <>
+            {groups.length > 0 && (
+              <Field label="المجموعة" hint="اختياري — تُحفظ مع كل اتصال كما في نموذج الاتصال">
+                <select className="select" value={groupId} onChange={e => setGroupId(e.target.value)}>
+                  <option value="">— بلا مجموعة —</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>◆ {g.name_ar}</option>)}
+                </select>
+              </Field>
+            )}
             <div className="grid-3">
               <Field label="القراءة">
                 <select className="select" value={item.qiraa_id} onChange={e => updateItem('qiraa_id', e.target.value)}>
@@ -132,6 +143,7 @@ export default function FastEntry() {
                 </select>
               </Field>
             </div>
+            </>
           )}
           <Field label="نص الإسناد" hint="يبدأ بك: «أخبرنا شيخنا فلان، عن فلان…»، أو باسم شيخ: «فلان، عن فلان…». يُفهم التحويل «ح» و«كلاهما».">
             <textarea className="textarea display" style={{ fontSize: 18, minHeight: 120 }} value={text} onChange={e => setText(e.target.value)} />

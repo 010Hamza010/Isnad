@@ -83,3 +83,21 @@ test('a person cannot be me, and a code already used here is not given to a new 
   assert.equal(p2.new_key, 'p2');
   assert.equal(p2.uid, null);
 });
+
+test('a Quran file names the books and groups of my links, once each; validate keeps them clean', () => {
+  const g = { group_id: 3, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى' };
+  const qpaths = [
+    { firstEdge: e(0, 7, { books: [{ matn_id: 1, title: 'الشاطبية' }], groups: [g] }), chains: [[e(7, 2)]] },
+    { firstEdge: e(0, 9, { books: [{ matn_id: 1, title: 'الشاطبية' }, { matn_id: 2, title: 'الدرة' }], groups: [g] }), chains: [[e(9, 2)]] },
+  ];
+  const f = JSON.parse(JSON.stringify(S.buildShare({ paths: qpaths, persons: A, sender: { name_ar: 'الشيخ فلان' }, target: { type: 'quran', riwaya: 'رواية حفص' } })));
+  assert.deepEqual(f.target.books, ['الشاطبية', 'الدرة']);
+  assert.deepEqual(f.target.groups, [{ name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى' }]);
+  f.target.groups.push({ name_ar: '' }, 'x');
+  f.target.books.push(42, null);
+  const v = S.validateShare(f);
+  assert.deepEqual(v.target.books, ['الشاطبية', 'الدرة', '42']);
+  assert.deepEqual(v.target.groups.map(x => x.name_ar), ['العشر الصغرى']);
+  // a matn file has neither
+  assert.equal(file().target.books, undefined);
+});

@@ -4,6 +4,8 @@
  *   { format: 'isnad-share', version: 1, exported_at, from, target,
  *     persons: { me: {…sender}, p12: { uid, name_ar, kunya, nisba, death_year, gender, region } },
  *     routes: [[{ to: 'p12', tx_kind, tx_name, reading_mode }, …], …] }   each route starts at «me»
+ * A Quran target also names what my links were read with: books «بمضمن» (titles) and groups
+ * ({ name_ar, text_ar }); the receiver finds them by name.
  * «me» is the sender: on import it becomes one of the receiver's persons (their shaykh).
  * A person is matched by its uid when this instance has seen it before, otherwise by name.
  */
@@ -48,8 +50,18 @@ function buildShare({ paths, persons, sender, target, now = new Date() }) {
 
   const t = target.type === 'matn'
     ? { type: 'matn', title: target.title, author: target.author_id && used.has(Number(target.author_id)) ? refOf(target.author_id) : null }
-    : { type: 'quran', qiraa: target.qiraa || null, riwaya: target.riwaya || null, tariq: target.tariq || null };
+    : { type: 'quran', qiraa: target.qiraa || null, riwaya: target.riwaya || null, tariq: target.tariq || null, ...readWith(paths) };
   return { format: FORMAT, version: VERSION, exported_at: now.toISOString(), from: sender.name_ar, target: t, persons: out, routes };
+}
+
+/** Books and groups on my links of the shared routes (each once, by name). */
+function readWith(paths) {
+  const books = new Map(), groups = new Map();
+  paths.forEach(g => {
+    (g.firstEdge.books || []).forEach(b => b.title && books.set(b.title, b.title));
+    (g.firstEdge.groups || []).forEach(x => x.name_ar && groups.set(x.name_ar, { name_ar: x.name_ar, text_ar: x.text_ar || null }));
+  });
+  return { books: [...books.values()], groups: [...groups.values()] };
 }
 
 /** Check a received file; returns a clean copy (unknown fields dropped). */
@@ -83,7 +95,11 @@ function validateShare(file) {
 
   const t = file.target || {};
   const target = t.type === 'quran'
-    ? { type: 'quran', qiraa: str(t.qiraa, 200), riwaya: str(t.riwaya, 200), tariq: str(t.tariq, 200) }
+    ? {
+      type: 'quran', qiraa: str(t.qiraa, 200), riwaya: str(t.riwaya, 200), tariq: str(t.tariq, 200),
+      books: (Array.isArray(t.books) ? t.books : []).slice(0, 20).map(b => str(b, 300)).filter(Boolean),
+      groups: (Array.isArray(t.groups) ? t.groups : []).slice(0, 20).map(g => ({ name_ar: str(g?.name_ar, 150), text_ar: str(g?.text_ar, 255) })).filter(g => g.name_ar),
+    }
     : { type: 'matn', title: str(t.title, 300), author: persons[t.author] && t.author !== ME ? t.author : null };
   return { format: FORMAT, version: VERSION, exported_at: str(file.exported_at, 40), from: str(file.from, 200), target, persons, routes };
 }
