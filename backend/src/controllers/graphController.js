@@ -29,11 +29,9 @@ async function matnData(userId, matnId) {
 exports.matnData = matnData;
 
 exports.matnPaths = async (req, res) => {
-  try {
-    const data = await matnData(req.user.id, req.params.id);
-    if (!data) return res.status(404).json({ error: 'Matn not found' });
-    res.json(data);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  const data = await matnData(req.user.id, req.params.id);
+  if (!data) return res.status(404).json({ error: 'Matn not found' });
+  res.json(data);
 };
 
 /** Routes of a Quran option (riwaya / tariq / qiraa) for this user, with the sacred tail. */
@@ -114,17 +112,9 @@ async function quranData(userId, query) {
 }
 exports.quranData = quranData;
 
-exports.quranPaths = async (req, res) => {
-  try { res.json(await quranData(req.user.id, req.query)); }
-  catch (err) { res.status(500).json({ error: err.message }); }
-};
+exports.quranPaths = async (req, res) => res.json(await quranData(req.user.id, req.query));
 
-exports.fullGraph = async (req, res) => {
-  try {
-    const data = await GM.getFullGraphData(req.user.id, req.query.module || 'both');
-    res.json(data);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
+exports.fullGraph = async (req, res) => res.json(await GM.getFullGraphData(req.user.id, req.query.module || 'both'));
 // body: { keys: [routeKey], disabled: true|false } → { keys: the scope's disabled routes }
 exports.setDisabledRoutes = async (req, res) => {
   const keys = DR.validate(req.params.scope, req.body?.keys);

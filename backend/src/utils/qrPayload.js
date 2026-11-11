@@ -18,7 +18,11 @@ const crypto = require('crypto');
 const LABELS = { code: 'الرمز', student: 'المجاز', subject: 'الموضوع', issued: 'التاريخ', sig: 'التوقيع' };
 const FIELDS = ['code', 'student', 'subject', 'issued'];
 
-const secret = () => process.env.QR_SECRET || process.env.JWT_SECRET || '';
+const secret = () => {
+  const s = process.env.QR_SECRET || process.env.JWT_SECRET;
+  if (!s) throw new Error('QR_SECRET / JWT_SECRET is not set'); // an empty key would let anyone sign
+  return s;
+};
 // one line: a title written on several lines («إجازة في متن ⏎ «…»») signs as «إجازة في متن «…»»
 const clean = v => String(v ?? '').replace(/[ \t]*[\r\n]+[ \t]*/g, ' ').trim();
 
