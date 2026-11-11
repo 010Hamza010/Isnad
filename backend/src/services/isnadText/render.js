@@ -118,20 +118,24 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const label = kase => `${title}${personLabel(toP(e), s, ctx, kase)}`;
 
     const phrase = phraseFor(e, mine, s);
+    const read = mine ? readWith(e) : '';
     if (phrase) {
-      // «قرأتُ على شيخنا فلان حفظاً»
+      // «قرأتُ على شيخنا فلان بالقراءات العشر الصغرى حفظاً»
       const mode = mine && s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
       const text = applyGender(phrase, genders);
-      const who = label(caseAfter(text.split(NAME_SLOT)[0]));
+      const who = `${label(caseAfter(text.split(NAME_SLOT)[0]))}${read}`;
       return text.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
     const kw = keywordFor(edgeKind(e), s);
-    const who = label(caseAfter(kw));
+    const who = `${label(caseAfter(kw))}${read}`;
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   }).map((t, i) => `${t}${edges[i].noteAfter || ''}`);
 }
+
+/** What I read on my shaykh (Quran ijaza: «بالقراءات العشر الصغرى»), written after his name; set by the caller. */
+const readWith = e => (e.read_with ? ` ${String(e.read_with).trim().slice(0, 300)}` : '');
 
 /** Where a Quran chain stops: the imam's sanad to the Prophet ﷺ is not entered yet. */
 const munqatiNote = e => `[لم يُدخَل بعدُ سند ${/^الإمام\s/.test(e.to_name || '') ? '' : 'الإمام '}${e.to_name} إلى النبي ﷺ]`;
@@ -253,7 +257,7 @@ function renderTogether(firsts, s, ctx) {
   const kase = caseAfter(phrase ? lead.split(NAME_SLOT)[0] : lead);
   const names = firsts.map(e => {
     const tw = toGender(e) === 'F' ? s.style.firstTitleF : s.style.firstTitle;
-    return `${tw ? `${tw} ` : ''}${personLabel(toP(e), s, ctx, kase)}`;
+    return `${tw ? `${tw} ` : ''}${personLabel(toP(e), s, ctx, kase)}${readWith(e)}`;
   }).join(`${s.style.separator}و`);
   if (!phrase) return `${lead} ${names}`;
   const mode = s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[firsts[0].reading_mode];

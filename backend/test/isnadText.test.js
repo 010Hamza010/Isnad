@@ -618,3 +618,23 @@ describe('Quran «منقطع» jump', () => {
     assert.equal(text.split('لم يُدخَل').length - 1, 1);
   });
 });
+
+describe('what I read on my shaykh (read_with)', () => {
+  const q = (from, fromName, to, toName, extra = {}) => ({ ...e(from, fromName, to, toName, 2), ...extra });
+
+  test('written after my shaykh\'s name only, before the reading mode', () => {
+    const text = T.renderChain([q(0, 'أنا', 1, 'زيد', { read_with: 'بالقراءات العشر الصغرى', reading_mode: 'heart' }), q(1, '', 2, 'عمرو', { read_with: 'لا يُكتب' })],
+      { style: { clear: true, heartWord: 'غيباً' } });
+    assert.match(text, /زيد بالقراءات العشر الصغرى غيباً/);
+    assert.doesNotMatch(text, /لا يُكتب/);
+  });
+
+  test('my shaykhs written together each keep theirs', () => {
+    const text = T.renderChains([
+      [q(0, 'أنا', 1, 'زيد', { read_with: 'بالقراءات العشر الصغرى' }), q(1, '', 3, 'بكر')],
+      [q(0, 'أنا', 2, 'عمرو', { read_with: 'برواية حفص عن عاصم' }), q(2, '', 3, 'بكر')],
+    ], { style: { clear: true } });
+    assert.match(text, /زيد بالقراءات العشر الصغرى/);
+    assert.match(text, /عمرو برواية حفص عن عاصم/);
+  });
+});

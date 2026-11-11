@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fillTemplate, readingPhrase, groupReading, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph, applyGender } from '../src/utils/ijaza.js';
+import { fillTemplate, readingPhrase, groupReading, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, readOnShaykh, teacherReading, teachersParagraph, applyGender } from '../src/utils/ijaza.js';
 import { quranOptions, quranGroupOptions, quranPathParams, groupsToChains } from '../src/utils/quranOptions.js';
 
 test('fillTemplate replaces known keys and reports missing ones', () => {
@@ -228,4 +228,39 @@ test('groupReading: «ب» + the group text, with its books «بمضمن»', () 
   assert.equal(groupReading({ text: 'القراءات العشر الصغرى', books: [{ title: 'الشاطبية' }, { title: 'الدرة' }] }),
     'بالقراءات العشر الصغرى بمضمن الشاطبية والدرة');
   assert.equal(groupReading({}), '');
+});
+
+test('teacherReading: the ijaza\'s choice per shaykh, with the imam', () => {
+  assert.equal(teacherReading({ riwayaLabel: 'رواية حفص', qiraaLabel: 'قراءة عاصم' }), 'برواية حفص عن عاصم');
+  assert.equal(teacherReading({ riwayaLabel: 'حفص', qiraaLabel: 'عاصم', tariqLabel: 'عبيد' }), 'برواية حفص عن عاصم من طريق عبيد');
+  assert.equal(teacherReading({ riwayaLabel: 'رواية حفص عن عاصم', qiraaLabel: 'قراءة عاصم' }), 'برواية حفص عن عاصم');
+  assert.equal(teacherReading({ qiraaLabel: 'قراءة نافع' }), 'بقراءة نافع');
+  assert.equal(teacherReading({ group_id: 3, groupText: 'القراءات العشر الصغرى' }), 'بالقراءات العشر الصغرى');
+  assert.equal(teacherReading(null), '');
+});
+
+test('readOnShaykh: a group covering the choice first, else only the choice (never the other qiraat)', () => {
+  const groups = [{ id: 3, name_ar: 'الصغرى', text_ar: 'القراءات العشر الصغرى', items: [{ qiraa_id: 1 }, { qiraa_id: 2 }] },
+    { id: 4, name_ar: 'الحرميان', text_ar: 'قراءة الحرميين', items: [{ qiraa_id: 2 }] }];
+  const hafs = { qiraa_id: 1, riwaya_id: 11 };
+  const fallback = 'برواية حفص عن عاصم';
+  // عاصم + نافع read on him: only حفص is named
+  assert.equal(readOnShaykh([{ items: [{ qiraa_id: 1 }, { qiraa_id: 2 }] }], hafs, { groups, fallback }), fallback);
+  // the group read on him wins, even with other items
+  assert.equal(readOnShaykh([{ items: [{ qiraa_id: 2 }], groups: [{ group_id: 3 }] }], hafs, { groups, fallback }), 'بالقراءات العشر الصغرى');
+  // a group that does not hold حفص is not named
+  assert.equal(readOnShaykh([{ items: [{ qiraa_id: 1 }], groups: [{ group_id: 4 }] }], hafs, { groups, fallback }), fallback);
+  // a riwaya member of a group
+  assert.equal(readOnShaykh([{ groups: [{ group_id: 5 }] }], hafs, { groups: [{ id: 5, text_ar: 'ح', items: [{ riwaya_id: 11 }] }], fallback }), 'بح');
+  // a group ijaza: that group
+  assert.equal(readOnShaykh([{ groups: [{ group_id: 3 }] }], { group_id: 3 }, { groups }), 'بالقراءات العشر الصغرى');
+});
+
+test('readingTeachers with readOf, and the teachers paragraph names what was read on each', () => {
+  const conns = [conn(1, 'أ', 2, { items: [{ riwaya_id: 2 }] }), conn(2, 'ب', 2, { items: [{ qiraa_id: 1 }] })];
+  const t = readingTeachers(conns, 'quran', { option: { qiraa_id: 1, riwaya_id: 2 }, riwayaQiraa: () => 1, readOf: links => `قرأ ${links.length}` });
+  assert.deepEqual(t.map(x => x.read), ['قرأ 1', 'قرأ 1']);
+  const p = teachersParagraph([{ name: 'أ', read: 'بالقراءات العشر الصغرى', reading_mode: 'heart' }, { name: 'ب', read: 'برواية حفص عن عاصم' }],
+    'منهم: {الشيوخ}.', { heart: 'غيباً' });
+  assert.equal(p, 'منهم: الشيخ أ بالقراءات العشر الصغرى غيباً، والشيخ ب برواية حفص عن عاصم.');
 });
