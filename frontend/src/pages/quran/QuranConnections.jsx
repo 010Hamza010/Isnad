@@ -3,20 +3,22 @@ import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import { FormModal } from '../../components/ui/Modal';
-import { Field, TextInput, TextArea, Select } from '../../components/ui/Field';
+import { Field, TextInput, TextArea } from '../../components/ui/Field';
 import Combobox from '../../components/ui/Combobox';
 import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
-import ReadingModeField, { isReadingKind, READING_LABELS } from '../../components/isnad/ReadingMode';
+import ReadingModeField, { READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
-import { personOptions, rowOptions, kindOfType } from '../../utils/options';
+import { personOptions } from '../../utils/options';
 import { scopeOptions, itemLabel, itemKey, addItem, completeItem, linkMatchesScope, findDuplicate } from '../../utils/quranScope';
 
 const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
+// for now every Quran link is by reading on the shaykh: the server saves it so (services/quranReading)
+const QURAN_KIND = 'qiraa';
 const EMPTY = {
-  from_person_id: 0, to_person_id: '', transmission_type_id: '', khatmat_count: 1,
+  from_person_id: 0, to_person_id: '', khatmat_count: 1,
   ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [],
 };
 
@@ -29,14 +31,13 @@ const TABS = [
 export default function QuranConnections() {
   const { toast, notifyError, confirm } = useUI();
   const { data, loading, reload } = useLoad(async () => {
-    const [c, p, q, r, t, tx] = await Promise.all([
+    const [c, p, q, r, t] = await Promise.all([
       api.get('/quran-connections'), api.get('/persons'),
-      api.get('/quran/qiraat'), api.get('/quran/riwayat'),
-      api.get('/quran/turuq'), api.get('/tx-types?applies_to=quran'),
+      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'),
     ]);
-    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data };
-  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [], txTypes: [] });
-  const { conns, persons, qiraat, riwayat, turuq, txTypes } = data;
+    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data };
+  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [] });
+  const { conns, persons, qiraat, riwayat, turuq } = data;
   const lists = useMemo(() => ({ qiraat, riwayat, turuq }), [qiraat, riwayat, turuq]);
 
   const [tab, setTab]         = useState('from_me');
@@ -73,7 +74,7 @@ export default function QuranConnections() {
   const openEdit = c => setForm({
     ...EMPTY, id: c.id,
     from_person_id: c.from_person_id, to_person_id: c.to_person_id,
-    transmission_type_id: c.transmission_type_id ?? '', khatmat_count: c.khatmat_count ?? 1,
+    khatmat_count: c.khatmat_count ?? 1,
     ijaza_date: c.ijaza_date ?? '', meeting_mode: c.meeting_mode || 'حضوراً', reading_mode: c.reading_mode ?? '',
     notes: c.notes ?? '', description: c.description ?? '',
     items: (c.items || []).map(it => completeItem(it, lists)),
@@ -90,11 +91,10 @@ export default function QuranConnections() {
       const payload = {
         from_person_id:       Number(form.from_person_id) || 0,
         to_person_id:         Number(form.to_person_id),
-        transmission_type_id: form.transmission_type_id || null,
         khatmat_count:        parseInt(form.khatmat_count) || 1,
         ijaza_date:           form.ijaza_date || null,
         meeting_mode:         form.meeting_mode || 'حضوراً',
-        reading_mode:         isReadingKind(kindOfType(txTypes, form.transmission_type_id)) ? form.reading_mode || null : null,
+        reading_mode:         form.reading_mode || null,
         notes:                form.notes || null,
         description:          form.description || null,
         items:                form.items,
@@ -120,7 +120,6 @@ export default function QuranConnections() {
           <span className={`from${isMe(c.from_person_id) ? ' me' : ''}`}>{pName(c.from_person_id)}</span>
           <span className="arrow"><Icon name="arrow" size={14} /></span>
           <span className="to">{c.to_name || pName(c.to_person_id)}</span>
-          {c.tx_name && <span className="badge badge-primary">{c.tx_name}</span>}
         </div>
         <div className="chips" style={{ marginTop: 6, gap: 5 }}>
           {c.items?.length
@@ -228,9 +227,8 @@ export default function QuranConnections() {
               ))}
           </div>
 
-          <div className="section-label">تفاصيل الإجازة</div>
+          <div className="section-label">تفاصيل الإجازة <span className="muted small" style={{ fontWeight: 400 }}>— قراءة على الشيخ</span></div>
           <div className="form-grid">
-            <Field label="طريقة التحمل"><Select form={form} set={set} name="transmission_type_id" options={rowOptions(txTypes)} /></Field>
             <div className="field">
               <span className="field-label">الوسيلة</span>
               <div className="segmented" style={{ width: '100%' }}>
@@ -243,7 +241,7 @@ export default function QuranConnections() {
             <Field label="عدد الختمات"><TextInput form={form} set={set} name="khatmat_count" type="number" min="1" /></Field>
             <Field label="تاريخ الإجازة (هجري)"><TextInput form={form} set={set} name="ijaza_date" placeholder="1444هـ" /></Field>
           </div>
-          <ReadingModeField kind={kindOfType(txTypes, form.transmission_type_id)} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
+          <ReadingModeField kind={QURAN_KIND} value={form.reading_mode} onChange={v => set('reading_mode', v)} />
           <Field label="ملاحظات التلاوة"><TextArea form={form} set={set} name="notes" rows={2} placeholder="أجازني بالغنة والتحقيق…" /></Field>
           <Field label="وصف عام"><TextArea form={form} set={set} name="description" rows={2} placeholder="ختمت عليه في رمضان 1444هـ بمنزله…" /></Field>
         </FormModal>
