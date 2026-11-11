@@ -35,13 +35,13 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const c0 = correction;
   const { toast, notifyError } = useUI();
   const { data: refs } = useLoad(async () => {
-    const [m, c, q, r, t, tx, mc, is, to] = await Promise.all([
+    const [m, c, q, r, t, tx, mc, is, to, g] = await Promise.all([
       api.get('/mutoon?connected=1'), api.get('/quran-connections'),
       api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/tx-types'),
-      api.get('/matn-connections'), api.get('/isnad-text/settings'), api.get('/ijazat/teacher-orders'),
+      api.get('/matn-connections'), api.get('/isnad-text/settings'), api.get('/ijazat/teacher-orders'), api.get('/quran/groups'),
     ]);
-    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style, orders: to.data.orders || {} };
-  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {}, orders: {} });
+    return { mutoon: m.data, conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, txTypes: tx.data, matnConns: mc.data, isnadStyle: is.data.settings.style, orders: to.data.orders || {}, groups: g.data };
+  }, [], { mutoon: [], conns: [], qiraat: [], riwayat: [], turuq: [], txTypes: [], matnConns: [], isnadStyle: {}, orders: {}, groups: [] });
 
   const [module, setModule]   = useState(c0?.module || 'mutoon');
   // every ijaza is issued in two versions; this only picks which one the preview shows

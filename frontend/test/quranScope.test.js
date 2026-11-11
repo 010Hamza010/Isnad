@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { completeItem, itemLabel, scopeOptions, addItem, linkMatchesScope, findDuplicate } from '../src/utils/quranScope.js';
+import { completeItem, itemLabel, scopeOptions, addItem, linkMatchesScope, findDuplicate, linkItems, scopeText } from '../src/utils/quranScope.js';
 
 const lists = {
   qiraat: [{ id: 1, name_ar: 'قراءة نافع' }, { id: 5, name_ar: 'قراءة عاصم' }],
@@ -65,4 +65,26 @@ test('duplicate: same reader and shaykh, not the link being edited', () => {
   assert.equal(findDuplicate(links, { id: 1, from_person_id: 0, to_person_id: 12 }), null);
   assert.equal(findDuplicate(links, { from_person_id: 12, to_person_id: 12 }), null);
   assert.equal(findDuplicate(links, { from_person_id: 0, to_person_id: '' }), null);
+});
+
+const withGroups = { ...lists, groups: [
+  { id: 3, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى', items: [{ qiraa_id: 1 }, { qiraa_id: 5 }] },
+  { id: 4, name_ar: 'قالون وورش', text_ar: null, items: [{ riwaya_id: 3 }, { riwaya_id: 4 }] },
+] };
+
+test('groups come first among the options; a group\'s members are offered without turuq', () => {
+  const o = scopeOptions(withGroups);
+  assert.deepEqual(o.slice(0, 2).map(x => [x.value, x.label, x.sub]), [['g3', '◆ العشر الصغرى', 'مجموعة — 2'], ['g4', '◆ قالون وورش', 'مجموعة — 2']]);
+  assert.equal(scopeOptions(lists, { withTuruq: false }).some(x => x.item?.tariq_id), false);
+});
+
+test('a link read with a group: its members count for the filter, its text names the group', () => {
+  const link = { items: [{ qiraa_id: 5 }], groups: [{ group_id: 4, name_ar: 'قالون وورش' }] };
+  assert.deepEqual(linkItems(link, withGroups), [{ qiraa_id: 5 }, { riwaya_id: 3 }, { riwaya_id: 4 }]);
+  assert.equal(linkMatchesScope(link, 'r4', withGroups), true);
+  assert.equal(linkMatchesScope({ items: [], groups: [3] }, 'q5', withGroups), true);
+  assert.equal(linkMatchesScope({ items: [], groups: [3] }, 'r9', withGroups), true);    // عاصم as a whole carries حفص
+  assert.equal(linkMatchesScope({ items: [], groups: [4] }, 'q5', withGroups), false);
+  assert.equal(scopeText({ groups: [{ group_id: 3 }], items: [{ riwaya_id: 9 }] }, withGroups), 'القراءات العشر الصغرى وقراءة عاصم › رواية حفص');
+  assert.equal(scopeText(link, withGroups), 'قالون وورش وقراءة عاصم');
 });

@@ -12,14 +12,14 @@ import Icon from '../../components/ui/Icon';
 import ReadingModeField, { READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
 import { personOptions } from '../../utils/options';
-import { scopeOptions, itemLabel, itemKey, addItem, completeItem, linkMatchesScope, findDuplicate } from '../../utils/quranScope';
+import { scopeOptions, itemLabel, itemKey, addItem, completeItem, linkMatchesScope, findDuplicate, linkItems } from '../../utils/quranScope';
 
 const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 // for now every Quran link is by reading on the shaykh: the server saves it so (services/quranReading)
 const QURAN_KIND = 'qiraa';
 const EMPTY = {
   from_person_id: 0, to_person_id: '', khatmat_count: 1,
-  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [], books: [], is_general: false,
+  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [], books: [], groups: [], is_general: false,
 };
 
 // Same tabs as the matn links. Mine: one card per shaykh. Above: grouped by the student.
@@ -31,14 +31,15 @@ const TABS = [
 export default function QuranConnections() {
   const { toast, notifyError, confirm } = useUI();
   const { data, loading, reload } = useLoad(async () => {
-    const [c, p, q, r, t, m] = await Promise.all([
+    const [c, p, q, r, t, m, g] = await Promise.all([
       api.get('/quran-connections'), api.get('/persons'),
-      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/mutoon'),
+      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/mutoon'), api.get('/quran/groups'),
     ]);
-    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data, mutoon: m.data };
-  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [], mutoon: [] });
-  const { conns, persons, qiraat, riwayat, turuq, mutoon } = data;
-  const lists = useMemo(() => ({ qiraat, riwayat, turuq }), [qiraat, riwayat, turuq]);
+    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data, mutoon: m.data, groups: g.data };
+  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [], mutoon: [], groups: [] });
+  const { conns, persons, qiraat, riwayat, turuq, mutoon, groups: qGroups } = data;
+  const lists = useMemo(() => ({ qiraat, riwayat, turuq, groups: qGroups }), [qiraat, riwayat, turuq, qGroups]);
+  const groupName = id => qGroups.find(g => Number(g.id) === Number(id))?.name_ar || `#${id}`;
 
   const [tab, setTab]         = useState('from_me');
   const [scope, setScope]     = useState('');      // filter: «q<id>» or «r<id>»
@@ -57,7 +58,7 @@ export default function QuranConnections() {
 
   const inScope = c => linkMatchesScope(c, scope, lists);
   const found = c => matches(query, c.from_name, c.to_name, isMe(c.from_person_id) ? 'أنا' : '',
-    ...(c.items || []).map(it => itemLabel(it, lists)));
+    ...linkItems(c, lists).map(it => itemLabel(it, lists)), ...(c.groups || []).map(g => g.name_ar));
   const visible = conns.filter(inScope).filter(current.test).filter(found);
   const counts = Object.fromEntries(TABS.map(t => [t.value, conns.filter(inScope).filter(t.test).length]));
 
@@ -82,6 +83,7 @@ export default function QuranConnections() {
     items: (c.items || []).map(it => completeItem(it, lists)),
     books: (c.books || []).map(b => Number(b.matn_id)),
     is_general: !!Number(c.is_general),
+    groups: (c.groups || []).map(g => Number(g.group_id)),
   });
 
   const duplicate = form ? findDuplicate(conns, form) : null;
@@ -91,8 +93,9 @@ export default function QuranConnections() {
     if (form.from_person_id === '' || form.to_person_id === '') return toast('اختر الطرفين', 'error');
     if (String(form.from_person_id) === String(form.to_person_id)) return toast('لا يمكن أن يتصل الشخص بنفسه', 'error');
     const mine = isMe(form.from_person_id);
-    if (mine && !form.items.length) return toast('حدّد ما قرأتَ على شيخك', 'error');
-    if (!mine && !form.is_general && !form.items.length) return toast('حدّد ما قُرئ، أو اختر «عام — كل القراءات»', 'error');
+    const named = form.items.length || form.groups.length;
+    if (mine && !named) return toast('حدّد ما قرأتَ على شيخك', 'error');
+    if (!mine && !form.is_general && !named) return toast('حدّد ما قُرئ، أو اختر «عام — كل القراءات»', 'error');
     setSaving(true);
     try {
       const payload = {
@@ -106,6 +109,7 @@ export default function QuranConnections() {
         description:          form.description || null,
         is_general:           !mine && form.is_general,
         items:                !mine && form.is_general ? [] : form.items,
+        groups:               !mine && form.is_general ? [] : form.groups,
         books:                form.books,
       };
       if (form.id) await api.put(`/quran-connections/${form.id}`, payload);
@@ -133,8 +137,8 @@ export default function QuranConnections() {
         <div className="chips" style={{ marginTop: 6, gap: 5 }}>
           {Number(c.is_general) && !isMe(c.from_person_id)
             ? <span className="badge badge-outline">عام — كل القراءات</span>
-            : c.items?.length
-            ? c.items.map(it => <span key={itemKey(completeItem(it, lists))} className="badge badge-accent" title={itemLabel(it, lists)}>{itemLabel(it, lists, { short: true }) || 'مطلق'}</span>)
+            : c.items?.length || c.groups?.length
+            ? [...(c.groups || []).map(g => <span key={`g${g.group_id}`} className="badge badge-purple" title={g.text_ar || g.name_ar}>◆ {g.name_ar}</span>), ...(c.items || []).map(it => <span key={itemKey(completeItem(it, lists))} className="badge badge-accent" title={itemLabel(it, lists)}>{itemLabel(it, lists, { short: true }) || 'مطلق'}</span>)]
             : <span className="badge badge-danger" title="حدّد ما قُرئ حتى يدخل في الأسانيد">لم يُحدَّد ما قُرئ</span>}
           {c.books?.map(b => <span key={b.matn_id} className="badge badge-info"><Icon name="book" size={12} /> بمضمن {b.title}</span>)}
           {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
@@ -233,9 +237,24 @@ export default function QuranConnections() {
           )}
           {(isMe(form.from_person_id) || !form.is_general) && <>
           <Combobox value="" opts={scopeOpts} allowClear={false} placeholder="ابحث عن قراءة أو رواية أو طريق…"
-            onChange={key => { const o = scopeOpts.find(x => x.value === key); if (o) set('items', addItem(form.items, o.item, lists)); }} />
+            onChange={key => {
+              const o = scopeOpts.find(x => x.value === key);
+              if (!o) return;
+              if (o.group) {   // a group, with its books «بمضمن»
+                const books = (o.group.books || []).map(b => Number(b.matn_id));
+                setForm(f => ({ ...f, groups: f.groups.includes(Number(o.group.id)) ? f.groups : [...f.groups, Number(o.group.id)],
+                  books: [...new Set([...f.books, ...books])] }));
+              } else set('items', addItem(form.items, o.item, lists));
+            }} />
           <div className="chips scope-chips">
-            {form.items.length === 0
+            {form.groups.map(id => (
+              <span key={`g${id}`} className="badge badge-purple scope-chip">
+                ◆ {groupName(id)}
+                <button type="button" className="chip-x" onClick={() => set('groups', form.groups.filter(x => x !== id))}
+                  aria-label={`إزالة ${groupName(id)}`} title="إزالة"><Icon name="x" size={12} /></button>
+              </span>
+            ))}
+            {form.items.length === 0 && form.groups.length === 0
               ? <span className="small muted">{isMe(form.from_person_id)
                 ? 'حدّد ما قرأتَ على شيخك.'
                 : 'حدّد ما قرأ على شيخه، أو اختر «عام — كل القراءات».'}</span>
