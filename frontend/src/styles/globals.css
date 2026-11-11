@@ -479,14 +479,54 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 }
 .auth-art .quote { font-family: var(--font-display); font-size: 34px; line-height: 1.7; max-width: 460px; }
 .auth-art .attrib { opacity: .7; font-size: 14px; margin-top: 10px; }
-.auth-art .chainviz { position: absolute; inset-inline-end: -30px; bottom: -30px; opacity: .14; }
+.auth-art > .brand-name, .auth-art-quote { position: relative; z-index: 1; }
+.auth-art-quote { pointer-events: none; }
+.auth-art .attrib { animation: fade 1s 1.8s both; }
+.quote-word { display: inline-block; white-space: pre; animation: quote-in .9s var(--ease) both; }
+@keyframes quote-in { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } }
+
+/* the 3D isnad (components/auth/LoginSky) */
+.login-sky { position: absolute; inset: 0; }
+.login-sky canvas { display: block; width: 100%; height: 100%; }
+.login-sky-panel { animation: fade 1.2s both; }
+.auth-strip {
+  position: relative; height: 110px; margin: -32px -32px 22px; overflow: hidden;
+  background: linear-gradient(160deg, #0f5e5c, #0a3433);
+}
+
+/* the form: a soft entrance, a shake on failure, a check on success */
+.auth-card > * { animation: pop .6s var(--ease) both; }
+.auth-card > :nth-child(2) { animation-delay: .06s; }
+.auth-card > :nth-child(3) { animation-delay: .12s; }
+.auth-card > :nth-child(4) { animation-delay: .18s; }
+.auth-card > :nth-child(5) { animation-delay: .24s; }
+.auth-card.shake { animation: shake .45s cubic-bezier(.36, .07, .19, .97); }
+@keyframes shake {
+  20%, 80% { transform: translateX(-3px); } 30%, 50%, 70% { transform: translateX(6px); } 40%, 60% { transform: translateX(-6px); }
+}
+.input-wrap { position: relative; display: block; }
+.input-wrap .input { padding-inline-end: 42px; }
+.input-eye {
+  position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--muted);
+}
+.input-eye:hover { color: var(--text); background: var(--surface-2); }
+.input-eye:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.btn-done { background: var(--success) !important; border-color: var(--success) !important; animation: done-pop .4s var(--ease); }
+@keyframes done-pop { 50% { transform: scale(1.03); } }
+.auth-done .auth-card { transition: opacity .5s .5s, transform .5s .5s var(--ease); opacity: .0; transform: translateY(-6px); }
+@media (prefers-reduced-motion: reduce) {
+  .auth-card > *, .auth-card.shake, .quote-word, .auth-art .attrib, .login-sky-panel, .btn-done { animation: none; }
+  .auth-done .auth-card { transition: none; }
+}
 .auth-panel { display: flex; align-items: center; justify-content: center; padding: 32px; }
 .auth-card { width: 100%; max-width: 380px; }
 .auth-card h1 { font-family: var(--font-display); font-size: 32px; margin-bottom: 4px; }
 .alert { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13.5px; margin-bottom: 14px; }
 .alert-error { background: var(--danger-soft); color: var(--danger); }
 .alert-success { background: var(--success-soft); color: var(--success); }
-@media (max-width: 860px) { .auth { grid-template-columns: 1fr; } .auth-art { display: none; } }
+@media (max-width: 860px) { .auth { grid-template-columns: 1fr; } .auth-art { display: none; } .auth-panel { flex-direction: column; justify-content: flex-start; } }
+@media (min-width: 861px) { .auth-strip { display: none; } }
 
 /* ── Tag input ─────────────────────────────────────────────── */
 .tag-input { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 40px; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); cursor: text; }
