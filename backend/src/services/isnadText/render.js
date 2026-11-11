@@ -164,7 +164,14 @@ const munqatiNote = e => `[لم يُدخَل بعدُ سند ${/^الإمام\s/
  *    step to the Prophet ﷺ and no جبريل tail;
  *  - the stop of a group's isnad (quranGroupIsnad): «… ابن الجزري، بأسانيده … إلى الأئمة».
  */
-function cutChain(chain, s) {
+function cutChain(chain0, s) {
+  // «… على شيخنا فلان بإسناده المتقدم [إلى ابن الجزري، وهو قرأ على …]» (several paragraphs): the
+  // refer step is written after the link before it, the chain goes on after it
+  const chain = [];
+  chain0.forEach(e => {
+    if (e?.refer && chain.length) chain[chain.length - 1] = { ...chain[chain.length - 1], noteAfter: ` ${String(e.note || '').trim().slice(0, 300)}` };
+    else if (!e?.refer) chain.push(e);
+  });
   const i = chain.findIndex(e => e?.munqati || e?.group_stop);
   if (i <= 0) return chain;
   const prev = chain[i - 1];

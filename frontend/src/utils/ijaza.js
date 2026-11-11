@@ -175,6 +175,43 @@ export function isnadSections(sections) {
   return list.map(x => `وإسنادي في ${x.label}: ${x.text}`).join('.\n\n');
 }
 
+/**
+ * Several paragraphs: a later chain that reaches a shaykh already written before, with at least two
+ * more links the same above him, stops there with «بإسناده المتقدم» (the whole rest the same), or
+ * «بإسناده المتقدم إلى ابن الجزري، وهو قرأ على …» and goes on where it parts.
+ * sections: [{ chains }] in order → the same with the chains shortened by a refer step
+ * ({ refer: true, note }) that the renderer writes after the shaykh's name.
+ */
+export function referEarlier(sections, minShared = 2) {
+  const earlier = [];   // person-id sequences already written
+  const ids = c => c.map(e => Number(e.to_person_id));
+  return sections.map(sec => {
+    const chains = sec.chains.map(c => {
+      if (!earlier.length) return c;
+      const to = ids(c);
+      for (let i = 0; i < to.length - minShared; i++) {
+        let best = 0;
+        earlier.forEach(E => E.forEach((p, j) => {
+          if (p !== to[i]) return;
+          let n = 0;
+          while (i + n + 1 < to.length && j + n + 1 < E.length && to[i + n + 1] === E[j + n + 1]) n++;
+          best = Math.max(best, n);
+        }));
+        if (best < minShared) continue;
+        const her = c[i].to_gender === 'F' ? 'بإسنادها' : 'بإسناده';
+        const whole = i + best === to.length - 1;
+        const upTo = c[i + best];
+        const refer = { from_person_id: c[i].to_person_id, to_person_id: c[i].to_person_id, refer: true, items: [],
+          note: whole ? `${her} المتقدم` : `${her} المتقدم إلى ${upTo.to_name}` };
+        return [...c.slice(0, i + 1), refer, ...c.slice(i + best + 1)];
+      }
+      return c;
+    });
+    sec.chains.forEach(c => earlier.push(ids(c)));
+    return { ...sec, chains };
+  });
+}
+
 /** With several choices the paragraphs say «وإسنادي في …» themselves: drop the template's «وإسنادي فيه:». */
 export const multiIsnadTemplate = tpl => String(tpl).replace(/وإسنادي\s+فيه\s*:\s*\{الإسناد\}/, '{الإسناد}');
 

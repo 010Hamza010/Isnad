@@ -332,3 +332,25 @@ test('ijazaChoices: groups, whole qiraat that have riwayat, riwayat; addChoice a
   assert.equal(choicesReading(['r21-t0', 'r11-t0'].map(byKey)), 'برواية قالون عن نافع ورواية حفص عن عاصم');
   assert.equal(choicesReading([byKey('g3')], { withBooks: true }), 'بالقراءات العشر الصغرى بمضمن الشاطبية');
 });
+
+test('referEarlier: «بإسناده المتقدم» where a later paragraph joins one already written', async () => {
+  const { referEarlier } = await import('../src/utils/ijaza.js');
+  const step = (f, t, extra = {}) => ({ from_person_id: f, to_person_id: t, to_name: `#${t}`, ...extra });
+  const qalun = [step(0, 1), step(1, 2), step(2, 3), step(3, 9, { to_name: 'ابن الجزري' }), step(9, -9, { group_stop: true })];
+  // the whole rest the same: stop at my shaykh
+  const same = referEarlier([{ chains: [qalun] }, { chains: [[step(0, 1), step(1, 2), step(2, 3), step(3, 9), step(9, -9, { group_stop: true })]] }]);
+  assert.deepEqual(same[0].chains, [qalun]);
+  assert.deepEqual(same[1].chains[0].map(e => e.refer ? e.note : e.to_person_id), [1, 'بإسناده المتقدم']);
+  // the same up to ابن الجزري, then حفص's own: «إلى ابن الجزري» and on
+  const hafs = [step(0, 1), step(1, 2), step(2, 3), step(3, 9, { to_name: 'ابن الجزري' }), step(9, 40), step(40, 51)];
+  const part = referEarlier([{ chains: [qalun] }, { chains: [hafs] }])[1].chains[0];
+  assert.deepEqual(part.map(e => e.refer ? e.note : e.to_person_id), [1, 'بإسناده المتقدم إلى ابن الجزري', 40, 51]);
+  // a woman
+  const f = referEarlier([{ chains: [qalun] }, { chains: [[step(0, 1, { to_gender: 'F' }), step(1, 2), step(2, 3), step(3, 9), step(9, -9)]] }])[1].chains[0];
+  assert.equal(f[1].note, 'بإسنادها المتقدم');
+  // only one shared link above: not worth it
+  const short = referEarlier([{ chains: [qalun] }, { chains: [[step(0, 7), step(7, 3), step(3, 9), step(9, 50)]] }])[1].chains[0];
+  assert.ok(!short.some(e => e.refer));
+  // the first paragraph never refers
+  assert.deepEqual(referEarlier([{ chains: [qalun, qalun] }])[0].chains, [qalun, qalun]);
+});
