@@ -457,10 +457,15 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .accordion-head { width: 100%; text-align: start; }
 .accordion-head .chev { transition: transform .2s; color: var(--faint); }
 .accordion-head[aria-expanded="true"] .chev { transform: rotate(-90deg); }
-.scope-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: end; padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm); margin-bottom: 8px; }
-.scope-row .field { margin-bottom: 0; }
-@media (max-width: 560px) { .scope-row { grid-template-columns: 1fr; } }
+/* Quran links: what was read, as removable chips under a search box */
+.scope-chips { margin: 8px 0 16px; min-height: 26px; align-items: center; }
+.scope-chip { display: inline-flex; align-items: center; gap: 4px; padding-inline-end: 3px; font-size: 13px; }
+.chip-x { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: inherit; opacity: .7; }
+.chip-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
+.chip-x:focus-visible { outline: 2px solid var(--primary); }
 .callout { font-size: 13px; color: var(--muted); padding: 10px 14px; background: var(--surface-2); border-radius: var(--radius-sm); border: 1px dashed var(--border-strong); }
+.callout-warn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.callout-warn > span { flex: 1; min-width: 180px; }
 .section-label { font-size: 12px; font-weight: 700; color: var(--faint); margin: 8px 0 10px; display: flex; align-items: center; gap: 8px; }
 .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
