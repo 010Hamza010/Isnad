@@ -1,21 +1,14 @@
 const GM = require('../models/GraphModel');
-const { buildPaths, formatPath } = require('../services/graphService');
+const { buildPaths, formatPath, formatEdge } = require('../services/graphService');
+const QC = require('../services/quranChain');
 const Settings = require('../models/SettingsModel');
 const DR = require('../services/disabledRoutes');
 const H = require('../services/heights');
 const Mutoon = require('../models/MutoonModel');
+const Quran = require('../models/QuranModel');
 
 const DISABLED_KEY = 'disabled_routes';
 const disabledIn = async (userId, scope) => ((await Settings.get(userId, DISABLED_KEY)) || {})[scope] || [];
-
-const QURAN_TAIL = [
-  { from_person_id: -1, to_person_id: -2,
-    from_name: 'النبي ﷺ', to_name: 'جبريل عليه السلام',
-    tx_name: 'وحي', description: 'تلقى النبي ﷺ القرآن من جبريل عليه السلام', items: [] },
-  { from_person_id: -2, to_person_id: -3,
-    from_name: 'جبريل عليه السلام', to_name: 'رب العزة',
-    tx_name: 'وحي', description: 'جبريل أمين الوحي نزل به من عند الله', items: [] },
-];
 
 /** Routes of a matn for this user (disabled ones apart); null when the matn does not exist. */
 async function matnData(userId, matnId) {
@@ -36,80 +29,33 @@ exports.matnPaths = async (req, res) => {
   res.json(data);
 };
 
-/** Routes of a Quran option (riwaya / tariq / qiraa) for this user, with the sacred tail. */
+/**
+ * Routes of a Quran choice for this user: { riwaya_id | qiraa_id, tariq_id? } where tariq_id «0» means
+ * my links without a tariq and no tariq_id means any. See services/quranChain for the rule.
+ */
 async function quranData(userId, query) {
-  const { riwaya_id, tariq_id, qiraa_id } = query;
+  const riwaya_id = Number(query.riwaya_id) || null;
+  const tariq = query.tariq_id === undefined || query.tariq_id === '' ? undefined : Number(query.tariq_id) || 0;
+  const riwaya = riwaya_id ? await GM.getRiwayaById(riwaya_id) : null;
+  const qiraaId = riwaya?.qiraa_id || Number(query.qiraa_id) || null;
+  const qiraa = !riwaya && qiraaId ? await GM.getQiraaById(qiraaId) : null;
+  const imamId = riwaya?.imam_id ?? qiraa?.imam_id ?? null;
+  const rawiId = riwaya?.rawi_id ?? null;
 
-  let riwaya = null, imamId = null, qiraaId = null;
+  const [edges, pMap, riwayaQiraa] = await Promise.all([GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap()]);
+  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && QC.startCovers(e, { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
+  const upper = edges.filter(e => Number(e.from_person_id) !== 0).map(e => ({ ...e, items: [], books: undefined }));   // complete: read everything
 
-  // Priority: riwaya_id > qiraa_id
-  if (riwaya_id) {
-    riwaya  = await GM.getRiwayaById(riwaya_id);
-    imamId  = riwaya?.imam_id;
-    qiraaId = riwaya?.qiraa_id;
-  } else if (qiraa_id) {
-    // No riwaya filter — just qiraa level
-    qiraaId = Number(qiraa_id);
-    // Find the imam of this qiraa to use as target
-    const qiraaRow = await GM.getQiraaById(qiraaId);
+  const target = rawiId ?? imamId ?? QC.PROPHET;
+  const raw = buildPaths([...mine, ...upper], 0, [target], null, null, null, pMap, null, null);
 
-    imamId = qiraaRow?.imam_id || null;
-  }
-
-  const edges          = await GM.getQuranEdgesForUser(userId);
-  const pMap           = await GM.getAllPersons();
-  const imamMap        = await GM.getImamMap();
-  const riwayaQiraaMap = await GM.getRiwayaQiraaMap();
-
-  const raw = buildPaths(
-    edges, 0,
-    imamId ? [imamId] : [-1],
-    riwaya_id ? Number(riwaya_id) : null,
-    tariq_id  ? Number(tariq_id)  : null,
-    qiraaId   ? Number(qiraaId)   : null,
-    pMap, imamMap, riwayaQiraaMap
-  );
-
-  const scope = DR.quranScope({ riwaya_id, tariq_id, qiraa_id: riwaya_id ? null : qiraaId });
+  const scope = DR.quranScope({ riwaya_id, tariq_id: tariq, qiraa_id: riwaya_id ? null : qiraaId });
   const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(userId, scope));
 
-  const paths = enabled.map(formatted => {
-
-    // append النبي + tail to each chain
-    formatted.chains = formatted.chains.map(chain => {
-      const fullChain = [...chain];
-      if (imamId) {
-        const last = fullChain[fullChain.length - 1];
-        const fromName = last ? last.to_name
-          : (pMap.get(Number(formatted.firstEdge.to_person_id))?.name_ar || '');
-        fullChain.push({
-          from_person_id: imamId, from_name: fromName,
-          to_person_id: -1, to_name: 'النبي ﷺ',
-          tx_name: 'تلقي مباشر', description: null, items: [],
-        });
-      }
-      QURAN_TAIL.forEach(t => fullChain.push({ ...t }));
-      return fullChain;
-    });
-
-    // if no upper chain exists (direct connection to imam)
-    if (formatted.chains.length === 0) {
-      const chain = [];
-      if (imamId) {
-        chain.push({
-          from_person_id: formatted.firstEdge.to_person_id,
-          from_name: formatted.firstEdge.to_name,
-          to_person_id: -1, to_name: 'النبي ﷺ',
-          tx_name: 'تلقي مباشر', description: null, items: [],
-        });
-      }
-      QURAN_TAIL.forEach(t => chain.push({ ...t }));
-      formatted.chains = [chain];
-    }
-
-    return formatted;
-  });
-
+  const fmt = e => formatEdge(e, pMap);
+  const step = (from, to, extra) => ({ ...formatEdge({ from_person_id: from, to_person_id: to, items: [] }, pMap),
+    ...(to === QC.PROPHET ? { to_name: 'النبي ﷺ' } : {}), tx_name: extra.auto ? 'قراءة' : null, tx_kind: extra.auto ? 'qiraa' : null, ...extra });
+  const paths = QC.completeGroups(enabled, QC.above({ rawiId, imamId, upper, fmt, step }));
   return { riwaya, scope, paths, disabled };
 }
 exports.quranData = quranData;
@@ -135,7 +81,7 @@ exports.heights = async (req, res) => {
     if (h) mutoonRows.push({ id: m.id, label: m.title, author_name: m.author_name, ...h });
   }
   const quranRows = [];
-  for (const o of H.quranOptions(items)) {
+  for (const o of H.quranOptions(items, await Quran.allRiwayat())) {
     const h = H.fewest((await quranData(userId, o)).paths, -1);
     if (h) quranRows.push({ ...o, ...h });
   }

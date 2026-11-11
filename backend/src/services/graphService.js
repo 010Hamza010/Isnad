@@ -114,8 +114,8 @@ function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pM
   return [...groups.values()];
 }
 
-function formatPath(group, pMap) {
-  const fmt = edge => ({
+function formatEdge(edge, pMap) {
+  return ({
     from_person_id: edge.from_person_id,
     from_name: Number(edge.from_person_id) === 0
       ? 'أنا' : (pMap.get(Number(edge.from_person_id))?.name_ar || `#${edge.from_person_id}`),
@@ -138,12 +138,16 @@ function formatPath(group, pMap) {
     general:     'matn_id' in edge && (edge.matn_id == null || !!Number(edge.is_general_ijaza)),
     description: edge.description || null,
     items:       edge.items       || [],
+    ...(edge.books ? { books: edge.books } : {}),   // Quran: books read «بمضمنها» on my link
   });
+}
 
+function formatPath(group, pMap) {
+  const fmt = edge => formatEdge(edge, pMap);
   return {
     firstEdge: fmt(group.firstEdge),
     chains: group.chains.map(chain => chain.map(fmt)),
   };
 }
 
-module.exports = { buildPaths, formatPath, edgeRank };
+module.exports = { buildPaths, formatPath, formatEdge, edgeRank };

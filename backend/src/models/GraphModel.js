@@ -48,6 +48,8 @@ exports.getQuranEdgesForUser = async (userId) => {
     const iMap = {};
     items.forEach(it => { (iMap[it.connection_id] ??= []).push(it); });
     edges.forEach(e => { e.items = iMap[e.id] || []; });
+    const books = await require('./QuranConnectionModel').booksOf(edges.map(e => e.id));
+    edges.forEach(e => { e.books = books[e.id] || []; });
   }
   return TxType.annotateQuran(edges);
 };

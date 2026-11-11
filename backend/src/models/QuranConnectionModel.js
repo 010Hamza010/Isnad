@@ -1,6 +1,24 @@
 const db = require('../../config/db');
 const TxType = require('./TxTypeModel');
 
+/** Books read «بمضمنها» on each link: { [connection_id]: [{ matn_id, title }] }. */
+async function booksOf(ids) {
+  if (!ids.length) return {};
+  const [rows] = await db.query(
+    `SELECT b.connection_id, b.matn_id, m.title FROM quran_connection_books b
+     JOIN mutoon m ON m.id = b.matn_id WHERE b.connection_id IN (?) ORDER BY m.title`, [ids]);
+  const by = {};
+  rows.forEach(r => { (by[r.connection_id] ??= []).push({ matn_id: r.matn_id, title: r.title }); });
+  return by;
+}
+exports.booksOf = booksOf;
+
+async function writeBooks(conn, id, books = []) {
+  await conn.query('DELETE FROM quran_connection_books WHERE connection_id=?', [id]);
+  const ids = [...new Set((Array.isArray(books) ? books : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  for (const matnId of ids) await conn.query('INSERT INTO quran_connection_books (connection_id, matn_id) VALUES (?,?)', [id, matnId]);
+}
+
 exports.findAllForUser = async (userId) => {
   const [conns] = await db.query(`
     SELECT qc.*, pf.name_ar as from_name, pt.name_ar as to_name, pf.gender as from_gender, pt.gender as to_gender, tt.name_ar as tx_name
@@ -25,10 +43,12 @@ exports.findAllForUser = async (userId) => {
   } else {
     conns.forEach(c => { c.items = []; });
   }
+  const books = await booksOf(ids);
+  conns.forEach(c => { c.books = books[c.id] || []; });
   return TxType.annotateQuran(conns);
 };
 
-exports.create = async (userId, fields, items) => {
+exports.create = async (userId, fields, items, books) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
@@ -42,6 +62,7 @@ exports.create = async (userId, fields, items) => {
        fields.notes||null, fields.description||null]
     );
     const connId = result.insertId;
+    await writeBooks(conn, connId, books);
     for (const item of items) {
       if (!item.qiraa_id && !item.riwaya_id && !item.tariq_id) continue;
       await conn.query(
@@ -55,7 +76,7 @@ exports.create = async (userId, fields, items) => {
   finally { conn.release(); }
 };
 
-exports.update = async (id, userId, fields, items) => {
+exports.update = async (id, userId, fields, items, books) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
@@ -70,6 +91,7 @@ exports.update = async (id, userId, fields, items) => {
        fields.notes||null, fields.description||null,
        id, userId]
     );
+    await writeBooks(conn, id, books);
     await conn.query('DELETE FROM quran_connection_items WHERE connection_id=?', [id]);
     for (const item of items) {
       if (!item.qiraa_id && !item.riwaya_id && !item.tariq_id) continue;
