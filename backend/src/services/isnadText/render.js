@@ -377,6 +377,22 @@ function renderSet(chains, s, ctx, scope) {
     }
   }
 
+  // Routes that part right away and meet again only later (حفص's and شعبة's, each through its own
+  // sahaba up to النبي ﷺ): split where they part when that makes fewer branches than splitting at the
+  // meeting — «… السلمي، وهو قرأ على عثمان، وعلى علي…، كلهم قرأ على النبي ﷺ ح وعن زيد… زر…، كلهم قرأ على النبي ﷺ، …»
+  if (narrators.size > 1) {
+    const byFirst = new Map();
+    live.forEach(c => {
+      const key = pid(c[0]);
+      if (!byFirst.has(key)) byFirst.set(key, []);
+      byFirst.get(key).push(c.slice(0, c.length - k + 1));
+    });
+    if (byFirst.size > 1 && byFirst.size < narrators.size) {
+      const texts = [...byFirst.values()].map(g => renderSet(g, s, ctx, { ...scope, depth }));
+      return [joinBranches(texts), ...tailAfter()].join(sep);
+    }
+  }
+
   if (narrators.size > 1 && s.style.tahwilMeet !== 'joined') {
     // every branch names the meeting person X: «A عن B عن X ح وD عن E عن X، عن G».
     // Branches are grouped by who reaches X, each group factored the same way (smaller sets: no loop).

@@ -652,3 +652,21 @@ describe('what was read on each link (read_with)', () => {
     assert.match(differ, /كلاهما قرأ على بكر/);   // they read differently on him: not said
   });
 });
+
+describe('routes that part at once and meet only later (عاصم: حفص / شعبة)', () => {
+  const q = (from, to, toName) => ({ ...e(from, '', to, toName, 2), from_name: from === 0 ? 'أنا' : '' });
+  const tail = [q(-1, -2, 'جبريل عليه السلام'), q(-2, -3, 'رب العزة')];
+  const up = (rawi, rawiName, shaykh, shaykhName, sahaba) => sahaba.map(([id, n]) =>
+    [q(0, 1, 'زيد'), q(1, rawi, rawiName), q(rawi, 50, 'عاصم'), q(50, shaykh, shaykhName), q(shaykh, id, n), q(id, -1, 'النبي ﷺ'), ...tail]);
+  const hafs = up(51, 'حفص', 60, 'السلمي', [[20, 'عثمان'], [21, 'علي'], [22, 'ابن مسعود'], [23, 'أبي'], [24, 'زيد بن ثابت']]);
+  const shuba = up(52, 'شعبة', 61, 'زر', [[22, 'ابن مسعود'], [20, 'عثمان'], [21, 'علي']]);
+
+  test('one ح between the two riwayat, each naming its sahaba together «كلهم قرأ على النبي ﷺ»', () => {
+    for (const tahwilMeet of ['repeat', 'joined']) {
+      const text = TT.renderChains([...hafs, ...shuba], { style: { clear: true, tahwilMeet } });
+      assert.equal((text.match(/\sح(?=\s|$)/g) || []).length, 1, tahwilMeet);
+      assert.match(text, /السلمي، وهو قرأ على عثمان، وعلى علي، وعلى ابن مسعود، وعلى أبي، وعلى زيد بن ثابت، كلهم قرأ على النبي ﷺ/);
+      assert.match(text, /زر، وهو قرأ على ابن مسعود، وعلى عثمان، وعلى علي، كلهم قرأ على النبي ﷺ، وهو قرأ على جبريل/);
+    }
+  });
+});
