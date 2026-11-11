@@ -28,12 +28,19 @@ export default function Modal({ title, onClose, children, footer, size = '' }) {
 }
 
 // Standard form modal: Enter in a text input submits, footer has cancel/save.
-export function FormModal({ title, onClose, onSubmit, saving, submitLabel = 'حفظ', size, children }) {
+// extra: an optional secondary submit, e.g. { label: 'حفظ وإضافة آخر', onClick }
+export function FormModal({ title, onClose, onSubmit, saving, submitLabel = 'حفظ', size, extra, children }) {
   const submit = e => { e.preventDefault(); if (!saving) onSubmit(); };
   return (
     <Modal title={title} onClose={onClose} size={size}
       footer={<>
         <button type="button" className="btn btn-secondary" onClick={onClose}>إلغاء</button>
+        {extra && (
+          <button type="button" className="btn btn-secondary" disabled={saving}
+            onClick={() => { const f = document.getElementById('modal-form'); if (f?.reportValidity() !== false) extra.onClick(); }}>
+            {extra.label}
+          </button>
+        )}
         <button type="submit" form="modal-form" className="btn btn-primary" disabled={saving}>
           {saving ? <span className="spinner" /> : <Icon name="check" size={16} />} {submitLabel}
         </button>
