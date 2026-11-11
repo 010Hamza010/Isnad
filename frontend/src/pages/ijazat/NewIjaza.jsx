@@ -9,7 +9,7 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, withReads, isnadSections, multiIsnadTemplate, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
+import { fillTemplate, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, withReads, referEarlier, isnadSections, multiIsnadTemplate, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
 import { ijazaChoices, addChoice, choicesReading, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
@@ -198,8 +198,9 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
     const renderStyle = { clear: clearWords, deathYears, noteMarkers: true, hideMyReadingMode: listsTeachers };
     // the matn's author is written «المؤلف فلان» in his own colour
     const authorId = module === 'mutoon' ? matn?.author_id ?? null : null;
-    // each section is rendered on its own: several Quran choices → «وإسنادي في رواية قالون: …» paragraphs
-    const parts = sections.filter(x => x.chains.length);
+    // each section is rendered on its own: several Quran choices → «وإسنادي في رواية قالون: …» paragraphs,
+    // a later one pointing back «بإسناده المتقدم» where it joins one already written (the tree keeps every route)
+    const parts = referEarlier(sections).filter(x => x.chains.length);
     Promise.all(parts.map(x => Promise.all([
       api.post('/isnad-text/render', { chains: x.chains, style: renderStyle, authorId }),
       api.post('/isnad-text/render', { chains: x.chains, style: { ...renderStyle, fullNames: true }, authorId }),
@@ -207,7 +208,8 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
       .then(res => {
         if (!alive) return;
         // every source in its place (one without a route is left out of the paragraphs); v: 0 normal, 1 full names
-        const textOf = v => isnadSections(sections.map(x => ({ label: x.label, text: parts.includes(x) ? res[parts.indexOf(x)][v].data.text : '' })));
+        const at = key => parts.findIndex(x => x.key === key);
+        const textOf = v => isnadSections(sections.map(x => ({ label: x.label, text: at(x.key) >= 0 ? res[at(x.key)][v].data.text : '' })));
         setIsnadText(textOf(0));
         setIsnadFull({ text: textOf(1),
           names: [...new Set(res.flatMap(([, full]) => full.data.names || []))] });

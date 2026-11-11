@@ -670,3 +670,18 @@ describe('routes that part at once and meet only later (عاصم: حفص / شع�
     }
   });
 });
+
+describe('«بإسناده المتقدم» (refer step)', () => {
+  const q = (from, to, toName, extra = {}) => ({ ...e(from, from === 0 ? 'أنا' : '', to, toName, 2), ...extra });
+  const refer = (at, note) => ({ from_person_id: at, to_person_id: at, refer: true, note });
+
+  test('the whole rest: after my shaykh\'s name', () => {
+    const text = TT.renderChain([q(0, 1, 'زيد', { read_with: 'بقراءة عاصم' }), refer(1, 'بإسناده المتقدم')], { style: { clear: true } });
+    assert.equal(text, 'قرأتُ بقراءة عاصم على شيخنا زيد بإسناده المتقدم');
+  });
+
+  test('up to a point, then on: «بإسناده المتقدم إلى ابن الجزري، وهو قرأ على …»', () => {
+    const text = TT.renderChain([q(0, 1, 'زيد'), refer(1, 'بإسناده المتقدم إلى ابن الجزري'), q(9, 40, 'ابن اللبان'), q(40, 51, 'حفص')], { style: { clear: true } });
+    assert.equal(text, 'قرأتُ على شيخنا زيد بإسناده المتقدم إلى ابن الجزري، وهو قرأ على ابن اللبان، وهو قرأ على حفص');
+  });
+});
