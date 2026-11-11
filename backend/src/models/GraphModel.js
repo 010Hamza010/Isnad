@@ -49,7 +49,7 @@ exports.getQuranEdgesForUser = async (userId) => {
     items.forEach(it => { (iMap[it.connection_id] ??= []).push(it); });
     edges.forEach(e => { e.items = iMap[e.id] || []; });
   }
-  return TxType.annotate(edges);
+  return TxType.annotateQuran(edges);
 };
 
 exports.getRiwayaById = async (riwaya_id) => {
@@ -103,7 +103,7 @@ exports.getFullGraphData = async (userId, module) => {
        LEFT JOIN transmission_types tt ON qc.transmission_type_id = tt.id
        WHERE qc.user_id = ?`, [userId]
     );
-    quranEdges = await TxType.annotate(r);
+    quranEdges = await TxType.annotateQuran(r);
   }
   return { persons, matnEdges, quranEdges };
 };

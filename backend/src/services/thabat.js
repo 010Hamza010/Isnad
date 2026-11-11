@@ -16,6 +16,7 @@ const { HttpError } = require('../utils/httpError');
 const { normalizeArabic } = require('./isnadText/normalize');
 const { resolvePerson } = require('./shareIsnad');
 const { pickType } = require('./isnadImport');
+const { QURAN_KIND } = require('./quranReading');
 
 const FORMAT = 'isnad-thabat';
 const VERSION = 1;
@@ -308,7 +309,7 @@ function planThabat(file, picks, ctx) {
     if (seen.has(`q:${key}`)) return;
     seen.add(`q:${key}`);
     plan.quranLinks.push({
-      from, to, items, transmission_type_id: pickType(ctx.types, c.tx_kind, 'quran'), tx_kind: c.tx_kind,
+      from, to, items, transmission_type_id: pickType(ctx.types, QURAN_KIND, 'quran'), tx_kind: QURAN_KIND,   // always read (quranReading)
       reading_mode: c.reading_mode, description: c.description, ijaza_date: c.ijaza_date, khatmat_count: c.khatmat_count, meeting_mode: c.meeting_mode,
       exists: isId(from) && isId(to) && items.every(it => [it.qiraa, it.riwaya, it.tariq].every(v => v == null || isId(v))) && ctx.existingQuran.has(key),
     });

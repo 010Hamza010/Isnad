@@ -1,5 +1,6 @@
 const db = require('../../config/db');
 const { kindOf, KEYS } = require('../services/txKinds');
+const QR = require('../services/quranReading');
 
 // `SELECT *` so this works before and after migration 006 (the `kind` column)
 const withKind = row => ({ ...row, kind: kindOf(row), kind_auto: !(row.kind && KEYS.has(row.kind)) });
@@ -24,6 +25,12 @@ exports.annotate = async (rows) => {
   rows.forEach(r => { r.tx_kind = r.transmission_type_id == null ? null : map[r.transmission_type_id] ?? null; });
   return rows;
 };
+
+/** Quran link rows: always shown as read on the shaykh (see services/quranReading). */
+exports.annotateQuran = async (rows) => QR.asReading(rows, await exports.findAll());
+
+/** The type every Quran link is saved with. */
+exports.quranReadingId = async () => QR.readingType(await exports.findAll())?.id ?? null;
 
 exports.setKind = async (id, kind) => {
   await db.execute('UPDATE transmission_types SET kind=? WHERE id=?', [kind || null, id]);

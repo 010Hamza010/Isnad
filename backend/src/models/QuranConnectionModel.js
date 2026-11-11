@@ -25,7 +25,7 @@ exports.findAllForUser = async (userId) => {
   } else {
     conns.forEach(c => { c.items = []; });
   }
-  return TxType.annotate(conns);
+  return TxType.annotateQuran(conns);
 };
 
 exports.create = async (userId, fields, items) => {
