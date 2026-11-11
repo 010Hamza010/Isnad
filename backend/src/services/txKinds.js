@@ -54,7 +54,7 @@ const kindOf = x => {
 
 const rankOf = kind => KINDS.find(k => k.key === kind)?.rank ?? UNTYPED_RANK;
 
-// ids of the original seed (schema.sql), used only to convert settings saved by older versions
+// ids of the original seed (migrations/000_base.sql), used only to convert settings saved by older versions
 const SEED_KINDS = { 1: 'sama', 2: 'qiraa', 3: 'ijaza', 4: 'ijaza_general', 5: 'munawala', 6: 'kitaba', 7: 'wijada', 8: 'ilam', 9: 'ard', 10: 'sama_reading' };
 
 module.exports = { KINDS, KEYS, kindFromName, kindOf, rankOf, UNTYPED_RANK, SEED_KINDS };

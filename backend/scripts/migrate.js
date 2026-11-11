@@ -21,6 +21,11 @@ const pending = (files, applied) => {
   return files.filter(f => !done.has(f));
 };
 
+// A database made before 000_base.sql existed already has the base tables (and its own rows):
+// the file is recorded as applied without running, so deleted reference rows are not re-added.
+const BASE = '000_base.sql';
+const toBaseline = (todo, hasBaseTables) => (hasBaseTables && todo.includes(BASE) ? [BASE] : []);
+
 async function main(cmd = 'up') {
   if (!['up', 'status'].includes(cmd)) throw new Error(`Unknown command "${cmd}" (use: up | status)`);
 
@@ -42,7 +47,18 @@ async function main(cmd = 'up') {
 
     const [rows] = await conn.query('SELECT name FROM schema_migrations');
     const files = listMigrations();
-    const todo  = pending(files, rows.map(r => r.name));
+    let todo    = pending(files, rows.map(r => r.name));
+
+    const [[{ n }]] = await conn.query(
+      "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persons'");
+    const skip = toBaseline(todo, n > 0);
+    if (cmd === 'up') {
+      for (const f of skip) {
+        await conn.query('INSERT INTO schema_migrations (name) VALUES (?)', [f]);
+        console.log(`✓ ${f} recorded (existing database, not run)`);
+      }
+      todo = todo.filter(f => !skip.includes(f));
+    }
 
     if (cmd === 'status') {
       files.forEach(f => console.log(`${todo.includes(f) ? '[ ]' : '[x]'} ${f}`));
@@ -70,4 +86,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { listMigrations, pending };
+module.exports = { listMigrations, pending, toBaseline };

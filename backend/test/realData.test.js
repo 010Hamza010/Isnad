@@ -1,5 +1,5 @@
 // End-to-end on the user's real data (test/fixtures/eg-matn52.json, extracted from eg.sql):
-// a database whose transmission_types are numbered differently from schema.sql
+// a database whose transmission_types are numbered differently from the seed (migrations/000_base.sql)
 // (1 بلفظ الشيخ، 2 قراءة، 3 سماع، 4 إجازة … 10 الإجازة العامة).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
