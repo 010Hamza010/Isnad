@@ -130,7 +130,20 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const who = label(caseAfter(kw));
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
-  });
+  }).map((t, i) => (edges[i].munqatiAfter ? `${t}. ${munqatiNote(edges[i])}` : t));
+}
+
+/** Where a Quran chain stops: the imam's sanad to the Prophet ﷺ is not entered yet. */
+const munqatiNote = e => `[لم يُدخَل بعدُ سند ${/^الإمام\s/.test(e.to_name || '') ? '' : 'الإمام '}${e.to_name} إلى النبي ﷺ]`;
+
+/**
+ * A chain with a made-up «منقطع» jump (quranChain: imam → النبي ﷺ) stops at the imam with a note:
+ * no fake step to the Prophet ﷺ and no جبريل tail after it.
+ */
+function cutMunqati(chain) {
+  const i = chain.findIndex(e => e?.munqati);
+  if (i <= 0) return chain;
+  return [...chain.slice(0, i - 1), { ...chain[i - 1], munqatiAfter: true }];
 }
 
 function renderChainWith(edges, s, ctx) {
@@ -148,7 +161,7 @@ function renderChainWith(edges, s, ctx) {
  * If the chain starts at me (person 0) the speaker is implicit: «أخبرنا شيخنا فلان، عن فلان…».
  */
 function renderChain(edges, settings) {
-  return renderChainWith(edges, mergeSettings(settings), newContext());
+  return renderChainWith(cutMunqati(edges || []), mergeSettings(settings), newContext());
 }
 
 const pid = e => String(e.to_person_id);
@@ -222,7 +235,8 @@ function meetText(meetEdges, s, ctx) {
   const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
   meetEdges.forEach(e => ctx.written.add(linkKey(e)));
   const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
-  return `${joinWord(meetEdges.length, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}`;
+  const note = x.munqatiAfter ? `. ${munqatiNote(x)}` : '';
+  return `${joinWord(meetEdges.length, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}${note}`;
 }
 
 // «قرأتُ على شيخنا A، وشيخنا B» — my own teachers taken the same way, in one sentence
@@ -383,7 +397,7 @@ function renderSet(chains, s, ctx, scope) {
 /** Several alternative chains → one text using تحويل (see renderSet). */
 function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
-  const list = (chains || []).filter(c => c?.length);
+  const list = (chains || []).filter(c => c?.length).map(cutMunqati);
   if (!list.length) return '';
   const first = list[0][0];
   const clean = t => t.split(ALSO_MARK).join('');
