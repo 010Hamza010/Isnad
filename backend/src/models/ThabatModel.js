@@ -26,7 +26,7 @@ exports.lists = async () => {
 exports.exportData = async (userId) => {
   const [[matnConns], quranConns, lists] = await Promise.all([db.query('SELECT * FROM matn_connections'), quranLinks(userId), exports.lists()]);
   await TxType.annotate(matnConns);
-  await TxType.annotate(quranConns);
+  await TxType.annotateQuran(quranConns);
   return { matnConns, quranConns, ...lists };
 };
 

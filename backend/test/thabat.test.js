@@ -86,6 +86,8 @@ test('plan: creates what is missing, skips what exists, fills only empty fields,
   assert.deepEqual(plan.turuq.map(t => [t.key, t.riwaya]), [['ref:t5', 'ref:r3']]);
   assert.deepEqual(plan.matnLinks.map(l => [l.from, l.to, l.matn, l.transmission_type_id]), [[20, 'ref:p7', 40, 1], ['ref:p7', 'ref:p8', null, null]]);
   assert.deepEqual(plan.quranLinks.map(l => [l.from, l.to, l.exists]), [[20, 3, false], [3, 'ref:p10', false]]);
+  // Quran links are always saved as read on the shaykh, even the one exported without a type
+  assert.deepEqual(plan.quranLinks.map(l => [l.tx_kind, l.transmission_type_id]), [['qiraa', 1], ['qiraa', 1]]);
   assert.deepEqual(TH.planCounts(plan), { persons: 3, fills: 1, mutoon: 0, quranNames: 2, links: 4, existing: 0 });
 });
 

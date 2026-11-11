@@ -8,6 +8,7 @@
  */
 const { normalizeArabic } = require('./isnadText/normalize');
 const { kindOf } = require('./txKinds');
+const { QURAN_KIND } = require('./quranReading');
 
 class ImportError extends Error {}
 
@@ -75,8 +76,8 @@ function planImport(chains, { types = [], target = 'matn', existing = new Set() 
       if (!edges.has(id)) {
         edges.set(id, {
           from: from.ref, to: to.ref, from_name: from.name, to_name: to.name,
-          tx_kind: l.tx_kind || null,
-          transmission_type_id: pickType(types, l.tx_kind, target),
+          tx_kind: target === 'quran' ? QURAN_KIND : l.tx_kind || null,   // Quran: always read (quranReading)
+          transmission_type_id: pickType(types, target === 'quran' ? QURAN_KIND : l.tx_kind, target),
           reading_mode: l.reading_mode || null,
           exists: typeof from.ref === 'number' && typeof to.ref === 'number' && existing.has(id),
         });
