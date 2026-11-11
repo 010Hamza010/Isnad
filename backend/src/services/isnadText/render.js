@@ -168,7 +168,8 @@ function cutChain(chain, s) {
   const i = chain.findIndex(e => e?.munqati || e?.group_stop);
   if (i <= 0) return chain;
   const prev = chain[i - 1];
-  const noteAfter = chain[i].munqati ? `. ${munqatiNote(prev)}` : `${s.style.separator}${String(chain[i].note || '').trim()}`;
+  const note = String(chain[i].note || '').trim();
+  const noteAfter = chain[i].munqati ? `. ${munqatiNote(prev)}` : note ? `${s.style.separator}${note}` : '';
   return [...chain.slice(0, i - 1), { ...prev, noteAfter }];
 }
 

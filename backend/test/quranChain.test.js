@@ -128,6 +128,10 @@ test('saving: a group names what was read', () => {
   assert.equal(QC.checkScope({ from_person_id: 9, groups: [3] }), 0);
 });
 
+// person 10 is ابن الجزري (a stop point by default)
+const JAZARI = new Map([[9, { name_ar: 'شيخي' }], [10, { name_ar: 'محمد بن محمد بن الجزري' }], [11, { name_ar: 'شيخ آخر' }],
+  [51, { name_ar: 'حفص' }], [50, { name_ar: 'عاصم' }], [52, { name_ar: 'شعبة' }]]);
+
 describe('GET /graph/quran/group-paths', () => {
   // group 3 = عاصم (5) + حمزة (6); riwaya 1 حفص of عاصم, 2 خلف of حمزة
   const GROUP = { id: 3, name_ar: 'المجموعة', text_ar: 'قراءة عاصم وحمزة', books: [], items: [{ qiraa_id: 5, riwaya_id: null }, { qiraa_id: 6, riwaya_id: null }] };
@@ -144,20 +148,26 @@ describe('GET /graph/quran/group-paths', () => {
     t.mock.method(Quran, 'allRiwayat', async () => RIW);
     t.mock.method(GM, 'getQiraaById', async id => ({ id: Number(id), imam_id: Number(id) === 5 ? 51 : 11 }));
     Settings.get.mock.mockImplementation(async (_, key) => (key === 'ijaza' ? stored : null));
+    GM.getAllPersons.mock.mockImplementation(async () => JAZARI);
     let body;
     await graph.quranGroupPaths({ user: { id: 1 }, query: { group_id: '3', ...query } }, { json: b => { body = b; } });
     return body;
   };
   const people = p => p.flatMap(gr => gr.chains.map(c => [gr.firstEdge, ...c].map(x => x.to_person_id)));
 
-  test('stop (the default): up to the meeting point, then the stop step', async (t) => {
+  test('stop (the default): each imam\'s isnad cut at ابن الجزري, once, with «النشر»', async (t) => {
     const b = await groupPaths(t, {});
     assert.equal(b.mode, 'stop');
     assert.deepEqual(people(b.paths), [[9, 10, -9]]);
     const stop = b.paths[0].chains[0].at(-1);
     assert.equal(stop.group_stop, true);
-    assert.match(stop.note, /بأسانيده/);
+    assert.match(stop.note, /كتابه النشر/);
     assert.deepEqual(b.riwayat.map(r => r.id), [1, 2]);
+  });
+
+  test('stop: a chain without a stop point is written whole', async (t) => {
+    const b = await groupPaths(t, {}, { quran_group: { stops: [{ match: 'لا أحد', text: 'x' }] } });
+    assert.deepEqual(people(b.paths).map(c => c.slice(0, 3)), [[9, 10, 51], [9, 10, 11]]);
   });
 
   test('riwaya: the chosen riwaya through my group links (default حفص), from the settings too', async (t) => {
@@ -212,13 +222,14 @@ describe('GET /graph/quran/group-paths for a whole qiraa', () => {
     t.mock.method(Quran, 'allRiwayat', async () => RIW);
     t.mock.method(GM, 'getQiraaById', async () => ({ id: 5, name_ar: 'قراءة عاصم', imam_id: 50 }));
     GM.getRiwayaById.mock.mockImplementation(async id => ({ id: Number(id), qiraa_id: 5, imam_id: 50, rawi_id: Number(id) === 1 ? 51 : 52 }));
+    GM.getAllPersons.mock.mockImplementation(async () => JAZARI);
     let body;
     await graph.quranGroupPaths({ user: { id: 1 }, query: { qiraa_id: '5', ...query } }, { json: b => { body = b; } });
     return body;
   };
   const people = p => p.flatMap(gr => gr.chains.map(c => [gr.firstEdge, ...c].map(x => x.to_person_id)));
 
-  test('stop: my links carrying all of عاصم, up to where it splits', async (t) => {
+  test('stop: my links carrying all of عاصم, cut at ابن الجزري', async (t) => {
     const b = await run(t, { mode: 'stop' });
     assert.equal(b.group.qiraa_id, 5);
     assert.deepEqual(people(b.paths), [[9, 10, -9]]);

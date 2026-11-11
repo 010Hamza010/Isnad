@@ -217,7 +217,7 @@ export function readingPhrase({ qiraa, riwaya, tariq } = {}) {
 
 /** A group's isnad after the meeting point (ابن الجزري…); the default is in the ijaza settings. */
 export const GROUP_MODES = [
-  { value: 'stop', label: 'التوقف عند نقطة الالتقاء («بأسانيده…»)' },
+  { value: 'stop', label: 'التوقف عند ابن الجزري («وإسناده موجود في كتابه النشر»)' },
   { value: 'all', label: 'إسناد كل إمام (مع التحويل ح)' },
   { value: 'riwaya', label: 'إسناد رواية واحدة' },
 ];

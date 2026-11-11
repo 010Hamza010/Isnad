@@ -360,7 +360,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           </Field>
         )}
         {module === 'quran' && pickedChoices.some(c => c.kind !== 'riwaya') && (
-          <Field label="الإسناد بعد نقطة الالتقاء" hint="للمجموعات والقراءات الكاملة: بعد آخر شيخ يجمعها كلها (كابن الجزري). الافتراضي من تبويب «القوالب».">
+          <Field label="إسناد المجموعات والقراءات الكاملة" hint="التوقف عند ابن الجزري (أو الداني للعشر النافعية)، أو رواية واحدة، أو الكل. الافتراضي ونقاط التوقف من تبويب «القوالب».">
             <select className="select" value={groupMode ?? Object.values(infos)[0]?.mode ?? settings.quran_group?.mode ?? 'stop'}
               onChange={e => { setGroupMode(e.target.value); resetText(); }}>
               {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}

@@ -1,8 +1,8 @@
 /**
- * The isnad of a group («العشر الصغرى») for an ijaza. My links read with the group carry it up to
- * the meeting point: the last shaykh whose links still carry the whole group (usually ابن الجزري).
- * What follows is the user's choice (ijaza settings, overridable per ijaza):
- *   stop   — the chains stop there, followed by the stop text («بأسانيده … إلى الأئمة»);
+ * The isnad of a group («العشر الصغرى») or a whole qiraa for an ijaza, through my links read with it.
+ * How far it goes is the user's choice (ijaza settings, overridable per ijaza):
+ *   stop   — each chain stops at the first stop point it reaches (settings: ابن الجزري «وإسناده موجود في
+ *            كتابه النشر…», الداني for «العشر النافعية»), else is written whole;
  *   all    — every member's own isnad (one per imam), joined with ح;
  *   riwaya — the isnad of one riwaya of the group (default حفص).
  */
@@ -38,23 +38,6 @@ function carriesGroup(edge, group, riwayat, riwayaQiraa) {
   });
 }
 
-/** The meeting points: persons reached from me over carrying links with no carrying link above them. */
-function meetingPoints(mine, upper) {
-  const out = new Map();
-  upper.forEach(e => { const f = Number(e.from_person_id); if (!out.has(f)) out.set(f, []); out.get(f).push(Number(e.to_person_id)); });
-  const seen = new Set();
-  const stack = mine.map(e => Number(e.to_person_id));
-  const ends = new Set();
-  while (stack.length) {
-    const id = stack.pop();
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const next = out.get(id) || [];
-    if (!next.length) ends.add(id); else stack.push(...next);
-  }
-  return [...ends];
-}
-
 /** The riwaya to continue with: the wanted one if the group covers it, else حفص, else the first. */
 function chooseRiwaya(choices, wanted) {
   if (!choices.length) return null;
@@ -64,14 +47,40 @@ function chooseRiwaya(choices, wanted) {
   return Number((hafs || choices[0]).id);
 }
 
-/** Each chain of the path groups ends with the stop step: the renderer writes «، <text>» after it. */
-function withStop(paths, text) {
-  const stop = last => ({ from_person_id: last.to_person_id, from_name: last.to_name, to_person_id: STOP_MARK, to_name: '',
-    group_stop: true, note: text, items: [] });
-  return paths.map(g => ({
-    ...g,
-    chains: (g.chains.length ? g.chains : [[]]).map(c => [...c, stop(c.length ? c[c.length - 1] : g.firstEdge)]),
-  }));
+/**
+ * The stop points for this group (settings quran_group.stops): those named for it when there are any
+ * («العشر النافعية» → الداني), else those for every group (ابن الجزري). A whole qiraa has no name here.
+ */
+function stopsFor(stops, groupName) {
+  const names = x => String(x.groups || '').split(/[,،]/).map(n => normalizeArabic(n.trim())).filter(Boolean);
+  const mine = groupName ? stops.filter(x => names(x).includes(normalizeArabic(groupName))) : [];
+  return mine.length ? mine : stops.filter(x => !names(x).length);
 }
 
-module.exports = { MODES, STOP_MARK, hasGroup, groupRiwayat, carriesGroup, meetingPoints, chooseRiwaya, withStop };
+/**
+ * Each chain cut after the first stop point it reaches («… على ابن الجزري، وإسناده موجود في كتابه النشر»),
+ * the same cut chains once; a chain that does not pass through one stays whole.
+ * stopOf(personId) → text | null.
+ */
+function cutAtStops(paths, stopOf) {
+  const seen = new Set();
+  const groups = new Map();
+  paths.forEach(g => (g.chains.length ? g.chains : [[]]).forEach(c => {
+    let full = [g.firstEdge, ...c];
+    const i = full.findIndex(e => stopOf(e.to_person_id) != null);
+    if (i >= 0) {
+      const at = full[i];
+      full = [...full.slice(0, i + 1), { from_person_id: at.to_person_id, from_name: at.to_name, to_person_id: STOP_MARK, to_name: '',
+        group_stop: true, note: stopOf(at.to_person_id), items: [] }];
+    }
+    const key = full.map(e => e.to_person_id).join('>');
+    if (seen.has(key)) return;
+    seen.add(key);
+    const fk = `${full[0].from_person_id}-${full[0].to_person_id}`;
+    if (!groups.has(fk)) groups.set(fk, { ...g, firstEdge: full[0], chains: [] });
+    groups.get(fk).chains.push(full.slice(1));
+  }));
+  return [...groups.values()];
+}
+
+module.exports = { MODES, STOP_MARK, hasGroup, groupRiwayat, carriesGroup, chooseRiwaya, stopsFor, cutAtStops };

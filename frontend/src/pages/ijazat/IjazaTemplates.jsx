@@ -17,7 +17,7 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
   const ref = useRef(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
   const { data: riwayat } = useLoad(async () => (await api.get('/quran/riwayat')).data, [], []);
-  const group = draft.quran_group || { mode: 'stop', riwaya_id: null, stop_text: '' };
+  const group = draft.quran_group || { mode: 'stop', riwaya_id: null, stops: [] };
   const setGroup = v => setDraft(d => ({ ...d, quran_group: { ...group, ...v } }));
 
   const setTpl = v => setDraft(d => ({ ...d, templates: { ...d.templates, [which]: v } }));
@@ -97,16 +97,34 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
           {which === 'quran' && (
             <>
               <div className="section-label">إجازة المجموعات والقراءات الكاملة (كالعشر الصغرى، قراءة عاصم)</div>
-              <Field label="الإسناد بعد نقطة الالتقاء"
-                hint="نقطة الالتقاء: آخر شيخ تحمل اتصالاتُه المجموعةَ أو القراءةَ كلها (كابن الجزري). «رواية واحدة»: الرواية المختارة إن كانت فيها، وإلا حفص، وإلا أولها. يمكن تغييره لكل إجازة على حدة.">
+              <Field label="إسناد المجموعات والقراءات الكاملة"
+                hint="«رواية واحدة»: الرواية المختارة إن كانت فيها، وإلا حفص، وإلا أولها. يمكن تغييره لكل إجازة على حدة.">
                 <select className="select" value={group.mode} onChange={e => setGroup({ mode: e.target.value })}>
                   {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </Field>
               {group.mode === 'stop' && (
-                <Field label="ما يُكتب بعد نقطة الالتقاء" hint="«… وهو قرأ على ابن الجزري، [هذا النص]»">
-                  <input className="input" value={group.stop_text} onChange={e => setGroup({ stop_text: e.target.value })} />
-                </Field>
+                <div className="field">
+                  <span className="field-label">نقاط التوقف</span>
+                  <span className="field-hint" style={{ marginTop: 0, marginBottom: 6 }}>
+                    يتوقف الإسناد عند أول من يُذكر هنا («… على ابن الجزري، وإسناده موجود في كتابه النشر…»). «لمجموعات فقط»: أسماء المجموعات مفصولة بفاصلة — تُستعمل لها وحدها بدل الأخرى. سندٌ لا يمرّ بأحدهم يُكتب كاملاً.
+                  </span>
+                  {(group.stops || []).map((x, i) => {
+                    const setStop = v => setGroup({ stops: group.stops.map((y, j) => (j === i ? { ...y, ...v } : y)) });
+                    return (
+                      <div key={i} className="row row-wrap" style={{ gap: 6, marginBottom: 6 }}>
+                        <input className="input" style={{ maxWidth: 140 }} value={x.match} placeholder="من اسمه: الجزري" onChange={e => setStop({ match: e.target.value })} />
+                        <input className="input spacer" value={x.text} placeholder="وإسناده موجود في كتابه النشر" onChange={e => setStop({ text: e.target.value })} />
+                        <input className="input" style={{ maxWidth: 180 }} value={x.groups} placeholder="لمجموعات فقط (اختياري)" onChange={e => setStop({ groups: e.target.value })} />
+                        <button type="button" className="icon-btn" title="حذف" aria-label="حذف"
+                          onClick={() => setGroup({ stops: group.stops.filter((_, j) => j !== i) })}><Icon name="x" size={14} /></button>
+                      </div>
+                    );
+                  })}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setGroup({ stops: [...(group.stops || []), { match: '', text: '', groups: '' }] })}>
+                    <Icon name="plus" size={14} /> نقطة توقف
+                  </button>
+                </div>
               )}
               {group.mode === 'riwaya' && (
                 <Field label="الرواية" hint="إن لم تكن في المجموعة: حفص، وإلا أول رواياتها">

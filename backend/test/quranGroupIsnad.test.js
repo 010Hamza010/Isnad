@@ -30,13 +30,6 @@ describe('quranGroupIsnad', () => {
     assert.ok(!G.carriesGroup(link(1, 2, { items: [{ qiraa_id: 1 }] }), GROUP, RIWAYAT, RQ));
   });
 
-  test('meetingPoints: where no carrying link goes further up', () => {
-    const mine = [link(0, 1), link(0, 5)];
-    const upper = [link(1, 2), link(2, 3), link(5, 3)];
-    assert.deepEqual(G.meetingPoints(mine, upper), [3]);
-    assert.deepEqual(G.meetingPoints([link(0, 1)], []).sort(), [1]);
-  });
-
   test('chooseRiwaya: the wanted one if in the group, else حفص, else the first', () => {
     assert.equal(G.chooseRiwaya(RIWAYAT, 11), 11);
     assert.equal(G.chooseRiwaya(RIWAYAT, 99), 22);
@@ -45,11 +38,27 @@ describe('quranGroupIsnad', () => {
     assert.equal(G.chooseRiwaya([], 11), null);
   });
 
-  test('withStop: each chain ends with the stop step, also a route of one link', () => {
+  test('stopsFor: those named for the group, else those for every group', () => {
+    const stops = [{ match: 'الجزري', text: 'النشر', groups: '' }, { match: 'الداني', text: 'التعريف', groups: 'العشر النافعية، أخرى' }];
+    assert.deepEqual(G.stopsFor(stops, 'العشر الصغرى').map(x => x.match), ['الجزري']);
+    assert.deepEqual(G.stopsFor(stops, 'العشر النافعيه').map(x => x.match), ['الداني']);   // normalised
+    assert.deepEqual(G.stopsFor(stops, null).map(x => x.match), ['الجزري']);
+  });
+
+  test('cutAtStops: cut after the first stop point, the same cut chains once, others whole', () => {
     const fe = { from_person_id: 0, to_person_id: 1, to_name: 'زيد' };
-    const out = G.withStop([{ firstEdge: fe, chains: [[]] }, { firstEdge: fe, chains: [] }], 'بأسانيده');
-    out.forEach(g => assert.equal(g.chains[0][0].group_stop, true));
-    assert.equal(out[0].chains[0][0].from_person_id, 1);
+    const step = (f, t) => ({ from_person_id: f, to_person_id: t, to_name: `#${t}` });
+    const paths = [
+      { firstEdge: fe, chains: [[step(1, 2), step(2, 50), step(50, 60)]] },          // نافع's isnad through الجزري (2)
+      { firstEdge: fe, chains: [[step(1, 2), step(2, 51), step(51, 61)]] },          // عاصم's, same up to الجزري
+      { firstEdge: { ...fe, to_person_id: 3 }, chains: [[step(3, 70)]] },            // no stop point: whole
+    ];
+    const out = G.cutAtStops(paths, id => (id === 2 ? 'وإسناده موجود في كتابه النشر' : null));
+    const people = out.flatMap(g => g.chains.map(c => [g.firstEdge, ...c].map(x => x.to_person_id)));
+    assert.deepEqual(people, [[1, 2, G.STOP_MARK], [3, 70]]);
+    assert.equal(out[0].chains[0].at(-1).note, 'وإسناده موجود في كتابه النشر');
+    // my shaykh is the stop point
+    assert.deepEqual(G.cutAtStops([{ firstEdge: fe, chains: [[step(1, 9)]] }], id => (id === 1 ? 'x' : null))[0].chains, [[{ from_person_id: 1, from_name: 'زيد', to_person_id: G.STOP_MARK, to_name: '', group_stop: true, note: 'x', items: [] }]]);
   });
 });
 
@@ -77,22 +86,24 @@ describe('group isnad text', () => {
 });
 
 describe('ijaza settings: quran_group', () => {
-  test('defaults to stop, حفص, a stop text', () => {
+  test('defaults: stop at ابن الجزري («النشر»), الداني for «العشر النافعية» («التعريف»), حفص', () => {
     const s = IS.mergeSettings(null);
     assert.equal(s.quran_group.mode, 'stop');
     assert.equal(s.quran_group.riwaya_id, null);
-    assert.ok(s.quran_group.stop_text.includes('بأسانيده'));
+    assert.deepEqual(s.quran_group.stops.map(x => [x.match, x.groups]), [['الجزري', ''], ['الداني', 'العشر النافعية']]);
+    assert.match(s.quran_group.stops[0].text, /النشر/);
+    assert.match(s.quran_group.stops[1].text, /التعريف/);
   });
   test('keeps valid stored values and drops invalid ones', () => {
-    const s = IS.mergeSettings({ quran_group: { mode: 'riwaya', riwaya_id: '11', stop_text: ' نص ' } });
-    assert.deepEqual(s.quran_group, { mode: 'riwaya', riwaya_id: 11, stop_text: 'نص' });
-    const bad = IS.mergeSettings({ quran_group: { mode: 'x', riwaya_id: 'abc', stop_text: '' } });
+    const s = IS.mergeSettings({ quran_group: { mode: 'riwaya', riwaya_id: '11', stops: [{ match: ' الشاطبي ', text: 'نص' }, { match: '' }, null] } });
+    assert.deepEqual(s.quran_group, { mode: 'riwaya', riwaya_id: 11, stops: [{ match: 'الشاطبي', text: 'نص', groups: '' }] });
+    const bad = IS.mergeSettings({ quran_group: { mode: 'x', riwaya_id: 'abc', stops: 'x' } });
     assert.equal(bad.quran_group.mode, 'stop');
     assert.equal(bad.quran_group.riwaya_id, null);
-    assert.ok(bad.quran_group.stop_text.length > 0);
+    assert.equal(bad.quran_group.stops.length, 2);
   });
   test('validateSettings returns it and rejects a long stop text', () => {
     assert.equal(IS.validateSettings({ quran_group: { mode: 'all' } }).quran_group.mode, 'all');
-    assert.throws(() => IS.validateSettings({ quran_group: { stop_text: 'ا'.repeat(301) } }), /طويل/);
+    assert.throws(() => IS.validateSettings({ quran_group: { stops: [{ match: 'x', text: 'ا'.repeat(301) }] } }), /طويل/);
   });
 });
