@@ -37,6 +37,12 @@ module.exports = {
     mutoon: 'وقد قرأتُ هذا المتن على جماعة من شيوخي، منهم: {الشيوخ}.',
     quran: 'وقد قرأتُ القرآن الكريم على جماعة من شيوخي، منهم: {الشيوخ}.',
   },
+  // the isnad of a group («العشر الصغرى») after the meeting point (ابن الجزري…): stop | all | riwaya
+  quran_group: {
+    mode: 'stop',
+    riwaya_id: null,   // mode riwaya: null = حفص
+    stop_text: 'بأسانيده المتصلة إلى الأئمة القراء، إلى النبي ﷺ، عن جبريل عليه السلام، عن رب العزة',
+  },
   // title per type: text with {placeholders}; color / font / size empty = the design's
   titles: {
     mutoon: { text: 'إجازة في متن «{المتن}»', color: '', family: '', size: null },

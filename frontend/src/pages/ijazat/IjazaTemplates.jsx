@@ -5,8 +5,9 @@ import { useUI } from '../../components/ui/UIProvider';
 import { Field } from '../../components/ui/Field';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
-import { PLACEHOLDERS, TITLE_PLACEHOLDERS } from '../../utils/ijaza';
+import { PLACEHOLDERS, TITLE_PLACEHOLDERS, GROUP_MODES } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
+import useLoad from '../../hooks/useLoad';
 
 export default function IjazaTemplates({ settings, options, onSaved }) {
   const { toast, notifyError, confirm } = useUI();
@@ -15,6 +16,9 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
   const [saving, setSaving] = useState(false);
   const ref = useRef(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+  const { data: riwayat } = useLoad(async () => (await api.get('/quran/riwayat')).data, [], []);
+  const group = draft.quran_group || { mode: 'stop', riwaya_id: null, stop_text: '' };
+  const setGroup = v => setDraft(d => ({ ...d, quran_group: { ...group, ...v } }));
 
   const setTpl = v => setDraft(d => ({ ...d, templates: { ...d.templates, [which]: v } }));
   const title = draft.titles?.[which] || { text: '' };
@@ -89,6 +93,30 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
                   onChange={e => setDraft(d => ({ ...d, teachers_title_f: e.target.value }))} />
               </Field>
             </div>
+          )}
+          {which === 'quran' && (
+            <>
+              <div className="section-label">إجازة المجموعات (كالعشر الصغرى)</div>
+              <Field label="الإسناد بعد نقطة الالتقاء"
+                hint="نقطة الالتقاء: آخر شيخ تحمل اتصالاتُه المجموعةَ كلها (كابن الجزري). يمكن تغييره لكل إجازة على حدة.">
+                <select className="select" value={group.mode} onChange={e => setGroup({ mode: e.target.value })}>
+                  {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </Field>
+              {group.mode === 'stop' && (
+                <Field label="ما يُكتب بعد نقطة الالتقاء" hint="«… وهو قرأ على ابن الجزري، [هذا النص]»">
+                  <input className="input" value={group.stop_text} onChange={e => setGroup({ stop_text: e.target.value })} />
+                </Field>
+              )}
+              {group.mode === 'riwaya' && (
+                <Field label="الرواية" hint="إن لم تكن في المجموعة: حفص، وإلا أول رواياتها">
+                  <select className="select" value={group.riwaya_id ?? ''} onChange={e => setGroup({ riwaya_id: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">حفص (الافتراضي)</option>
+                    {riwayat.map(r => <option key={r.id} value={r.id}>{r.name_ar}{r.qiraa_name ? ` — ${r.qiraa_name}` : ''}</option>)}
+                  </select>
+                </Field>
+              )}
+            </>
           )}
           <p className="small muted" style={{ marginTop: 8 }}>
             اترك سطراً فارغاً بين الفقرات. الفقرة الأولى تُوسَّط، والأخيرة (التوقيع) تُحاذى إلى اليسار.<br />

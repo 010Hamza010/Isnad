@@ -7,6 +7,9 @@ const DR = require('../services/disabledRoutes');
 const H = require('../services/heights');
 const Mutoon = require('../models/MutoonModel');
 const Quran = require('../models/QuranModel');
+const QGI = require('../services/quranGroupIsnad');
+const IS = require('../services/ijaza/settings');
+const { HttpError } = require('../utils/httpError');
 
 const DISABLED_KEY = 'disabled_routes';
 const disabledIn = async (userId, scope) => ((await Settings.get(userId, DISABLED_KEY)) || {})[scope] || [];
@@ -37,6 +40,7 @@ exports.matnPaths = async (req, res) => {
 async function quranData(userId, query) {
   const riwaya_id = Number(query.riwaya_id) || null;
   const tariq = query.tariq_id === undefined || query.tariq_id === '' ? undefined : Number(query.tariq_id) || 0;
+  const groupId = Number(query.group_id) || null;   // only my links read with this group
   const riwaya = riwaya_id ? await GM.getRiwayaById(riwaya_id) : null;
   const qiraaId = riwaya?.qiraa_id || Number(query.qiraa_id) || null;
   const qiraa = !riwaya && qiraaId ? await GM.getQiraaById(qiraaId) : null;
@@ -48,7 +52,7 @@ async function quranData(userId, query) {
   // a link read with a group carries its members (the link itself keeps its groups for display)
   const byGroup = new Map(groups.map(g => [Number(g.id), g]));
   const scoped = e => ({ ...e, items: QG.expandItems(e.items, (e.groups || []).map(g => g.group_id), byGroup) });
-  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && QC.startCovers(scoped(e), { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
+  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && (!groupId || QGI.hasGroup(e, groupId)) && QC.startCovers(scoped(e), { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
   const want  = { qiraa_id: qiraaId, riwaya_id };
   const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QC.upperCovers(scoped(e), want, riwayaQiraa))
     .map(e => ({ ...e, books: undefined }));
@@ -68,6 +72,48 @@ async function quranData(userId, query) {
 exports.quranData = quranData;
 
 exports.quranPaths = async (req, res) => res.json(await quranData(req.user.id, req.query));
+
+/**
+ * The isnad of a group I read with, for an ijaza: ?group_id&mode=stop|all|riwaya&riwaya_id
+ * (mode and riwaya default to the ijaza settings). See services/quranGroupIsnad.
+ */
+async function quranGroupData(userId, query) {
+  const groupId = Number(query.group_id);
+  const [groups, riwayat, stored] = await Promise.all([Quran.allGroups(), Quran.allRiwayat(), Settings.get(userId, 'ijaza')]);
+  const group = groups.find(g => Number(g.id) === groupId);
+  if (!group) throw new HttpError(404, 'المجموعة غير موجودة');
+  const defaults = IS.mergeSettings(stored).quran_group;
+  const mode = QGI.MODES.includes(query.mode) ? query.mode : defaults.mode;
+  const choices = QGI.groupRiwayat(group, riwayat);
+  const riwayaId = QGI.chooseRiwaya(choices, Number(query.riwaya_id) || defaults.riwaya_id);
+  let paths = [];
+  if (mode === 'riwaya') {
+    if (riwayaId) paths = (await quranData(userId, { riwaya_id: riwayaId, group_id: groupId })).paths;
+  } else if (mode === 'all') {
+    for (const m of group.items) {
+      const want = m.riwaya_id ? { riwaya_id: m.riwaya_id } : { qiraa_id: m.qiraa_id };
+      paths.push(...(await quranData(userId, { ...want, group_id: groupId })).paths);
+    }
+  } else {
+    const [edges, pMap, riwayaQiraa] = await Promise.all([GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap()]);
+    const byGroup = new Map(groups.map(g => [Number(g.id), g]));
+    const scoped = e => ({ ...e, items: QG.expandItems(e.items, (e.groups || []).map(g => g.group_id), byGroup) });
+    const mine = edges.filter(e => Number(e.from_person_id) === 0 && QGI.hasGroup(e, groupId));
+    const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QGI.carriesGroup(scoped(e), group, riwayat, riwayaQiraa))
+      .map(e => ({ ...e, books: undefined }));
+    const raw = buildPaths([...mine, ...upper], 0, QGI.meetingPoints(mine, upper), null, null, null, pMap, null, null);
+    paths = QGI.withStop(raw.map(g => formatPath(g, pMap)), defaults.stop_text);
+  }
+  return {
+    group: { id: group.id, name_ar: group.name_ar, text_ar: group.text_ar, books: group.books },
+    mode, riwaya_id: riwayaId,
+    riwayat: choices.map(r => ({ id: r.id, name_ar: r.name_ar, qiraa_name: r.qiraa_name })),
+    paths,
+  };
+}
+exports.quranGroupData = quranGroupData;
+
+exports.quranGroupPaths = async (req, res) => res.json(await quranGroupData(req.user.id, req.query));
 
 // «أعلى أسانيدك»: fewest wasait to each matn's author and, per riwaya of my Quran links, to the Prophet ﷺ
 exports.heights = async (req, res) => {
