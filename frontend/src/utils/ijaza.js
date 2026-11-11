@@ -123,13 +123,7 @@ export function readOnLink(link, option, lists) {
   if (!items.length) return '';
   // a group ijaza: a link naming every member reads the group
   if (group && wanted.every(m => items.some(it => holds(m, it)))) return groupReading({ text: group.text_ar || group.name_ar });
-  const phrase = it => {
-    const q = Q.get(qiraaOf(it))?.name_ar, r = R.get(riwayaOf(it))?.name_ar, t = T.get(Number(it.tariq_id))?.name_ar;
-    if (!r) return q ? withWord(q, 'قراءة') : '';
-    const imam = bare(q, 'قراءة');
-    const rw = withWord(r, 'رواية');
-    return `${rw}${imam && !rw.includes(' عن ') ? ` عن ${imam}` : ''}${t ? ` من ${withWord(t, 'طريق')}` : ''}`;
-  };
+  const phrase = it => readingWords(Q.get(qiraaOf(it))?.name_ar, R.get(riwayaOf(it))?.name_ar, T.get(Number(it.tariq_id))?.name_ar);
   const parts = [...new Set(items.map(phrase).filter(Boolean))];
   return parts.length ? `ب${parts.join(' و')}` : '';
 }
@@ -162,6 +156,27 @@ export function withReads(chains, option, lists) {
 }
 
 const bare = (name, word) => String(name || '').replace(new RegExp(`^${word}\\s+`), '');
+
+/** «رواية حفص عن عاصم من طريق عبيد», «قراءة عاصم» (no «ب»): names as stored, with or without their word. */
+export function readingWords(qiraa, riwaya, tariq) {
+  if (!riwaya) return qiraa ? withWord(qiraa, 'قراءة') : '';
+  const imam = bare(qiraa, 'قراءة');
+  const rw = withWord(riwaya, 'رواية');
+  return `${rw}${imam && !rw.includes(' عن ') ? ` عن ${imam}` : ''}${tariq ? ` من ${withWord(tariq, 'طريق')}` : ''}`;
+}
+
+/**
+ * Several choices in one ijaza: one paragraph per choice, «وإسنادي في رواية قالون عن نافع: …».
+ * sections: [{ label, text }]; one section → its text alone (the template's «وإسنادي فيه: …» stays).
+ */
+export function isnadSections(sections) {
+  const list = sections.filter(x => x.text);
+  if (sections.length <= 1) return list[0]?.text || '';
+  return list.map(x => `وإسنادي في ${x.label}: ${x.text}`).join('.\n\n');
+}
+
+/** With several choices the paragraphs say «وإسنادي في …» themselves: drop the template's «وإسنادي فيه:». */
+export const multiIsnadTemplate = tpl => String(tpl).replace(/وإسنادي\s+فيه\s*:\s*\{الإسناد\}/, '{الإسناد}');
 
 /**
  * The teachers paragraph, or '' when fewer than two shuyukh (then it is left out).

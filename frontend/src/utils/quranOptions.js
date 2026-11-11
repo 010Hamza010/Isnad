@@ -1,4 +1,5 @@
 import { isMe } from './text.js';
+import { readingWords, groupReading } from './ijaza.js';
 
 /**
  * «أسانيدي» for the Quran: what my own links name, one entry per riwaya, grouped by qiraa label:
@@ -82,3 +83,51 @@ export function quranPathParams(opt) {
 /** Flatten /graph/*\/paths groups into full chains for the text renderer. */
 export const groupsToChains = groups =>
   groups.flatMap(g => (g.chains.length ? g.chains.map(c => [g.firstEdge, ...c]) : [[g.firstEdge]]));
+
+/**
+ * Everything an ijaza can be given for, from my own links: groups, whole qiraat (a link naming all of
+ * a qiraa that has riwayat, or a group holding it) and riwayat / turuq (quranOptions). Each:
+ * { key, kind: 'group'|'whole'|'riwaya', label (no «ب»), name (for the picker), books, readOption,
+ *   url (its paths), qiraa_id }.
+ */
+export function ijazaChoices(conns, lists) {
+  const { qiraat, riwayat, groups = [] } = lists;
+  const out = quranGroupOptions(conns, groups).map(o => ({
+    key: o.key, kind: 'group', label: o.groupText, name: `◆ ${o.groupLabel}`, books: o.books,
+    readOption: { group_id: o.group_id }, url: `/graph/quran/group-paths?group_id=${o.group_id}`,
+  }));
+  const withRiwayat = new Set(riwayat.map(r => Number(r.qiraa_id)));
+  const byGroup = new Map(groups.map(g => [Number(g.id), g]));
+  const whole = new Set();
+  conns.filter(c => isMe(c.from_person_id)).forEach(c => {
+    (c.items || []).forEach(it => { if (it.qiraa_id && !it.riwaya_id && !it.tariq_id) whole.add(Number(it.qiraa_id)); });
+    (c.groups || []).forEach(ref => (byGroup.get(Number(ref.group_id ?? ref))?.items || []).forEach(m => { if (m.qiraa_id && !m.riwaya_id) whole.add(Number(m.qiraa_id)); }));
+  });
+  qiraat.filter(q => whole.has(Number(q.id)) && withRiwayat.has(Number(q.id))).forEach(q => out.push({
+    key: `w${q.id}`, kind: 'whole', qiraa_id: Number(q.id), label: readingWords(q.name_ar), name: `${readingWords(q.name_ar)} — كل رواياتها`,
+    books: [], readOption: { qiraa_id: Number(q.id) }, url: `/graph/quran/group-paths?qiraa_id=${q.id}`,
+  }));
+  quranOptions(conns, lists).forEach(([, opts]) => opts.forEach(o => out.push({
+    key: o.key, kind: 'riwaya', qiraa_id: o.qiraa_id, riwaya_id: o.riwaya_id, tariq_id: o.tariq_id,
+    label: readingWords(o.qiraaLabel, o.riwayaLabel, o.tariqLabel),
+    name: [o.riwayaLabel || o.qiraaLabel, o.tariqLabel].filter(Boolean).join(' — '),
+    books: [], readOption: o, url: `/graph/quran/paths?${quranPathParams(o)}`,
+  })));
+  return out;
+}
+
+/** Adds a choice to the picked keys: a whole qiraa replaces its riwayat; a riwaya under a picked whole qiraa is not added. */
+export function addChoice(picked, key, choices) {
+  const byKey = new Map(choices.map(c => [c.key, c]));
+  const c = byKey.get(key);
+  if (!c || picked.includes(key)) return picked;
+  if (c.kind === 'riwaya' && picked.some(k => byKey.get(k)?.kind === 'whole' && byKey.get(k).qiraa_id === Number(c.qiraa_id))) return picked;
+  const rest = c.kind === 'whole' ? picked.filter(k => !(byKey.get(k)?.kind === 'riwaya' && Number(byKey.get(k).qiraa_id) === c.qiraa_id)) : picked;
+  return [...rest, key];
+}
+
+/** «برواية قالون عن نافع ورواية حفص عن عاصم»; withBooks: a group's books «بمضمن …» after it. */
+export function choicesReading(picked, { withBooks = false } = {}) {
+  const parts = picked.map(c => (withBooks && c.books?.length ? groupReading({ text: c.label, books: c.books }).slice(1) : c.label)).filter(Boolean);
+  return parts.length ? `ب${parts.join(' و')}` : '';
+}

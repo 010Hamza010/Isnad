@@ -294,3 +294,41 @@ test('withReads: plain from the rawi upward (rawi, imam and their shaykhs)', () 
   ];
   assert.deepEqual(withReads([chain], HAFS, lists)[0].map(e => e.read_with), ['بقراءة عاصم', 'بها', undefined, undefined, undefined]);
 });
+
+test('readingWords and isnadSections', async () => {
+  const { readingWords, isnadSections, multiIsnadTemplate } = await import('../src/utils/ijaza.js');
+  assert.equal(readingWords('قراءة نافع', 'رواية قالون'), 'رواية قالون عن نافع');
+  assert.equal(readingWords('عاصم'), 'قراءة عاصم');
+  assert.equal(isnadSections([{ label: 'رواية حفص', text: 'قرأتُ على أ' }]), 'قرأتُ على أ');
+  assert.equal(isnadSections([{ label: 'رواية قالون عن نافع', text: 'قرأتُ على أ' }, { label: 'رواية حفص عن عاصم', text: 'قرأتُ على ب' }]),
+    'وإسنادي في رواية قالون عن نافع: قرأتُ على أ.\n\nوإسنادي في رواية حفص عن عاصم: قرأتُ على ب');
+  assert.equal(multiIsnadTemplate('…\n\nوإسنادي فيه: {الإسناد}.\n\n…'), '…\n\n{الإسناد}.\n\n…');
+});
+
+test('ijazaChoices: groups, whole qiraat that have riwayat, riwayat; addChoice and choicesReading', async () => {
+  const { ijazaChoices, addChoice, choicesReading } = await import('../src/utils/quranOptions.js');
+  const lists = {
+    qiraat: [{ id: 1, name_ar: 'قراءة عاصم' }, { id: 2, name_ar: 'قراءة نافع' }],
+    riwayat: [{ id: 11, qiraa_id: 1, name_ar: 'رواية حفص' }, { id: 12, qiraa_id: 1, name_ar: 'رواية شعبة' }, { id: 21, qiraa_id: 2, name_ar: 'رواية قالون' }],
+    turuq: [], groups: [{ id: 3, name_ar: 'الصغرى', text_ar: 'القراءات العشر الصغرى', items: [{ qiraa_id: 2 }] }],
+  };
+  const conns = [
+    { from_person_id: 0, to_name: 'أ', items: [{ qiraa_id: 1 }] },
+    { from_person_id: 0, to_name: 'ب', items: [], groups: [{ group_id: 3 }], books: [{ matn_id: 9, title: 'الشاطبية' }] },
+  ];
+  const ch = ijazaChoices(conns, lists);
+  assert.deepEqual(ch.map(c => [c.key, c.kind, c.label]), [
+    ['g3', 'group', 'القراءات العشر الصغرى'],
+    ['w1', 'whole', 'قراءة عاصم'], ['w2', 'whole', 'قراءة نافع'],
+    ['r11-t0', 'riwaya', 'رواية حفص عن عاصم'], ['r12-t0', 'riwaya', 'رواية شعبة عن عاصم'], ['r21-t0', 'riwaya', 'رواية قالون عن نافع'],
+  ]);
+  assert.match(ch[1].url, /group-paths\?qiraa_id=1/);
+  let picked = addChoice([], 'r11-t0', ch);
+  picked = addChoice(picked, 'r21-t0', ch);
+  assert.deepEqual(picked, ['r11-t0', 'r21-t0']);
+  assert.deepEqual(addChoice(picked, 'w1', ch), ['r21-t0', 'w1']);           // the whole qiraa replaces حفص
+  assert.deepEqual(addChoice(['w1'], 'r12-t0', ch), ['w1']);                 // already covered
+  const byKey = k => ch.find(c => c.key === k);
+  assert.equal(choicesReading(['r21-t0', 'r11-t0'].map(byKey)), 'برواية قالون عن نافع ورواية حفص عن عاصم');
+  assert.equal(choicesReading([byKey('g3')], { withBooks: true }), 'بالقراءات العشر الصغرى بمضمن الشاطبية');
+});
