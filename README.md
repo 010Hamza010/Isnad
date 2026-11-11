@@ -46,25 +46,24 @@ Requirements: Node.js 18+ and MySQL 8 or MariaDB.
 Use your own MySQL server, or start the one in `docker-compose.yml`:
 
 ```bash
-docker compose up -d db        # MySQL on :3306, loads schema.sql on first start
+docker compose up -d db        # MySQL on :3306 with an empty isnad_db
 ```
 
-Without Docker, create the database and load the schema:
+Without Docker, create an empty database:
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE isnad_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-mysql -u root -p isnad_db < schema.sql
 ```
 
-`schema.sql` contains the base tables and the seed data (transmission types, etc.). The newer changes live in `backend/migrations/` and are applied in step 2.
+The tables are created in step 2 by `npm run migrate`. `migrations/000_base.sql` holds the base schema and the reference data (the ten qurra and their rawis, qiraat / riwayat / turuq, common mutoon and their authors, transmission types). The later files add everything since then.
 
 ### 2. Backend
 
 ```bash
 cd backend
-cp .env.example .env           # set DB_* and a long random JWT_SECRET
+cp .env.example .env           # set DB_* and JWT_SECRET (see below)
 npm install
-npm run migrate                # apply pending migrations (safe to re-run)
+npm run migrate                # create / update the tables (safe to re-run)
 npm run dev                    # API on http://localhost:4000
 ```
 
@@ -103,22 +102,23 @@ For production, run `npm run build` in `frontend/` and serve `frontend/dist/` be
 | `DB_USER`     | `root`       |                                         |
 | `DB_PASSWORD` |              |                                         |
 | `DB_NAME`     | `isnad_db`   |                                         |
-| `JWT_SECRET`  |              | Required                                |
+| `JWT_SECRET`  |              | Required, 32+ characters. The server refuses to start without it or with the example value |
 | `JWT_EXPIRES` | `7d`         | Session length without «remember me» (with it: 30 days) |
 | `QR_SECRET`   | `JWT_SECRET` | Optional. Signs the ijaza QR codes; keep it stable or old QR codes stop verifying |
 
-Never commit `.env`.
+Generate a secret with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. Never commit `.env`.
+
+**Existing database?** `npm run migrate` records `000_base.sql` as applied without running it when the tables already exist, so your data is not touched.
 
 ## Project structure
 
 ```
 .
-├── schema.sql                     base schema + seed data
 ├── docker-compose.yml
 ├── Isnad-API.postman_collection.json
 ├── backend/
 │   ├── config/db.js
-│   ├── migrations/                NNN_name.sql, applied by scripts/migrate.js
+│   ├── migrations/                000_base.sql (schema + reference data), then NNN_name.sql
 │   ├── scripts/                   migrate.js, backup.js
 │   ├── src/
 │   │   ├── index.js               Express app, routes mounted under /api

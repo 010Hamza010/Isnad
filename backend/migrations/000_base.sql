@@ -1,108 +1,21 @@
--- phpMyAdmin SQL Dump
--- version 5.2.3
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1:3306
--- Generation Time: Apr 23, 2026 at 08:14 AM
--- Server version: 11.7.2-MariaDB-ubu2404
--- PHP Version: 8.3.26
+-- Base schema and reference data (qurra and their rawis, qiraat / riwayat / turuq, mutoon and
+-- their authors, transmission types). Later migrations build on it.
+-- Re-runnable, but scripts/migrate.js records it without running it on a database that
+-- already has tables, so rows deleted there are not brought back.
+-- No account and no links: the account is created on first run.
+SET FOREIGN_KEY_CHECKS = 0;
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
-
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-
---
--- Database: `isnad_db`
---
-
--- --------------------------------------------------------
-
---
--- Table structure for table `matn_connections`
---
-
-CREATE TABLE `matn_connections` (
-  `id` int(11) NOT NULL,
-  `from_person_id` int(11) NOT NULL,
-  `to_person_id` int(11) NOT NULL,
-  `matn_id` int(11) DEFAULT NULL,
-  `transmission_type_id` int(11) DEFAULT NULL,
-  `is_general_ijaza` tinyint(1) DEFAULT 0,
-  `reading_mode` enum('heart','looking') DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(80) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `matn_connections`
---
-
-INSERT INTO `matn_connections` (`id`, `from_person_id`, `to_person_id`, `matn_id`, `transmission_type_id`, `is_general_ijaza`, `description`, `created_at`) VALUES
-(15, 0, 223, 10, 2, 0, 'في دمشق', '2026-04-22 13:20:21'),
-(16, 223, 210, NULL, NULL, 1, NULL, '2026-04-22 13:21:14');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `mutoon`
---
-
-CREATE TABLE `mutoon` (
-  `id` int(11) NOT NULL,
-  `title` varchar(300) NOT NULL,
-  `author_id` int(11) DEFAULT NULL,
-  `subject` varchar(100) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `mutoon`
---
-
-INSERT INTO `mutoon` (`id`, `title`, `author_id`, `subject`, `description`, `created_at`) VALUES
-(1, 'تحفة الأطفال', 203, 'تجويد', '61 بيتاً في أحكام التجويد لحفص عن عاصم، للجمزوري', '2026-04-21 10:32:09'),
-(2, 'الجزرية', 201, 'تجويد', 'مقدمة ابن الجزري في التجويد، 107 أبيات', '2026-04-21 10:32:09'),
-(3, 'الشاطبية', 202, 'قراءات', 'حرز الأماني ووجه التهاني في القراءات السبع، 1173 بيتاً', '2026-04-21 10:32:09'),
-(4, 'طيبة النشر', 201, 'قراءات', 'منظومة في القراءات العشر الكبرى، 1014 بيتاً لابن الجزري', '2026-04-21 10:32:09'),
-(5, 'الدرة المضية', 201, 'قراءات', 'منظومة في القراءات الثلاث المتممة للعشر، لابن الجزري', '2026-04-21 10:32:09'),
-(6, 'مورد الظمآن', 205, 'رسم', 'منظومة في رسم المصحف وضبطه، للخراز', '2026-04-21 10:32:09'),
-(10, 'الأربعون النووية', 210, 'حديث', '42 حديثاً نبوياً في مختلف أبواب الدين، للنووي', '2026-04-21 10:32:09'),
-(11, 'بلوغ المرام', 211, 'حديث', 'أحاديث الأحكام من كتب الأئمة الأعلام، لابن حجر العسقلاني', '2026-04-21 10:32:09'),
-(12, 'عمدة الأحكام', NULL, 'حديث', 'متن في أحاديث الأحكام الفقهية، للحافظ عبد الغني المقدسي', '2026-04-21 10:32:09'),
-(13, 'الألفية في مصطلح الحديث', 215, 'مصطلح', 'ألفية العراقي في علوم الحديث، 1000 بيت', '2026-04-21 10:32:09'),
-(14, 'نخبة الفكر', 211, 'مصطلح', 'متن في مصطلح الحديث لابن حجر العسقلاني', '2026-04-21 10:32:09'),
-(20, 'متن الآجرومية', 227, 'نحو', 'مقدمة الصنهاجي في النحو، من أشهر المتون المبتدئة', '2026-04-21 10:32:09'),
-(21, 'رسالة ابن أبي زيد', 226, 'فقه', 'الرسالة القيروانية في فقه المالكية للمبتدئين', '2026-04-21 10:32:09'),
-(22, 'مختصر خليل', 225, 'فقه', 'المختصر الفقهي المالكي الشهير، متن مركزي في الفقه المالكي', '2026-04-21 10:32:09'),
-(23, 'المرشد المعين', 224, 'فقه', 'منظومة في الفقه والعقيدة والتصوف على مذهب الإمام مالك، لابن عاشر', '2026-04-21 10:32:09'),
-(24, 'عمدة الفقه', 223, 'فقه', 'متن فقهي حنبلي للمبتدئين، لابن قدامة المقدسي', '2026-04-21 10:32:09'),
-(25, 'زاد المستقنع', NULL, 'فقه', 'مختصر المقنع في الفقه الحنبلي، للحجاوي', '2026-04-21 10:32:09'),
-(26, 'متن الورقات', NULL, 'أصول', 'مقدمة في أصول الفقه للجويني، من أهم متون الأصول', '2026-04-21 10:32:09'),
-(30, 'ألفية ابن مالك', 230, 'نحو', 'ألفية في النحو والصرف، 1002 بيت، أشمل المتون النحوية', '2026-04-21 10:32:09'),
-(31, 'قطر الندى', 231, 'نحو', 'متن ابن هشام في النحو، شرحه المؤلف نفسه', '2026-04-21 10:32:09'),
-(32, 'ملحة الإعراب', 232, 'نحو', 'منظومة في النحو للحريري، مناسبة للمبتدئين', '2026-04-21 10:32:09'),
-(41, 'العقيدة الطحاوية', 241, 'عقيدة', 'متن في عقيدة أهل السنة والجماعة، للطحاوي', '2026-04-21 10:32:09'),
-(42, 'لمعة الاعتقاد', NULL, 'عقيدة', 'متن في العقيدة الحنبلية لابن قدامة المقدسي', '2026-04-21 10:32:09'),
-(43, 'الواسطية', NULL, 'عقيدة', 'متن في العقيدة السلفية لشيخ الإسلام ابن تيمية', '2026-04-21 10:32:09'),
-(44, 'الحموية', NULL, 'عقيدة', 'رسالة في الصفات لابن تيمية', '2026-04-21 10:32:09'),
-(50, 'البردة', 250, 'سيرة', 'قصيدة البردة للبوصيري في مدح النبي ﷺ، 160 بيتاً', '2026-04-21 10:32:09'),
-(51, 'الهمزية', 250, 'سيرة', 'قصيدة الهمزية للبوصيري في السيرة النبوية', '2026-04-21 10:32:09');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `persons`
---
-
-CREATE TABLE `persons` (
-  `id` int(11) NOT NULL,
+CREATE TABLE IF NOT EXISTS `persons` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `name_ar` varchar(200) NOT NULL,
   `name_latin` varchar(200) DEFAULT NULL,
   `gender` enum('M','F') NOT NULL DEFAULT 'M',
@@ -113,14 +26,139 @@ CREATE TABLE `persons` (
   `region` varchar(150) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `primary_qiraa_id` int(11) DEFAULT NULL
+  `primary_qiraa_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `primary_qiraa_id` (`primary_qiraa_id`),
+  CONSTRAINT `persons_ibfk_1` FOREIGN KEY (`primary_qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `persons`
---
+CREATE TABLE IF NOT EXISTS `qiraat` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name_ar` varchar(150) NOT NULL,
+  `imam_id` int(11) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `imam_id` (`imam_id`),
+  CONSTRAINT `qiraat_ibfk_1` FOREIGN KEY (`imam_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `persons` (`id`, `name_ar`, `name_latin`, `kunya`, `nisba`, `century`, `death_year`, `region`, `description`, `created_at`, `primary_qiraa_id`) VALUES
+CREATE TABLE IF NOT EXISTS `riwayat` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name_ar` varchar(150) NOT NULL,
+  `qiraa_id` int(11) NOT NULL,
+  `rawi_id` int(11) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `qiraa_id` (`qiraa_id`),
+  KEY `rawi_id` (`rawi_id`),
+  CONSTRAINT `riwayat_ibfk_1` FOREIGN KEY (`qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `riwayat_ibfk_2` FOREIGN KEY (`rawi_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `turuq` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name_ar` varchar(150) NOT NULL,
+  `riwaya_id` int(11) DEFAULT NULL,
+  `parent_id` int(11) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `riwaya_id` (`riwaya_id`),
+  KEY `parent_id` (`parent_id`),
+  CONSTRAINT `turuq_ibfk_1` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `turuq_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `turuq` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `transmission_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name_ar` varchar(80) NOT NULL,
+  `name_en` varchar(80) DEFAULT NULL,
+  `kind` varchar(20) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `applies_to` enum('both','mutoon','quran') DEFAULT 'both',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mutoon` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(300) NOT NULL,
+  `author_id` int(11) DEFAULT NULL,
+  `subject` varchar(100) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `author_id` (`author_id`),
+  CONSTRAINT `mutoon_ibfk_1` FOREIGN KEY (`author_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `matn_connections` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `from_person_id` int(11) NOT NULL,
+  `to_person_id` int(11) NOT NULL,
+  `matn_id` int(11) DEFAULT NULL,
+  `transmission_type_id` int(11) DEFAULT NULL,
+  `is_general_ijaza` tinyint(1) DEFAULT 0,
+  `reading_mode` enum('heart','looking') DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `to_person_id` (`to_person_id`),
+  KEY `matn_id` (`matn_id`),
+  KEY `transmission_type_id` (`transmission_type_id`),
+  CONSTRAINT `matn_connections_ibfk_1` FOREIGN KEY (`to_person_id`) REFERENCES `persons` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `matn_connections_ibfk_2` FOREIGN KEY (`matn_id`) REFERENCES `mutoon` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `matn_connections_ibfk_3` FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `quran_connections` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `from_person_id` int(11) NOT NULL,
+  `to_person_id` int(11) NOT NULL,
+  `transmission_type_id` int(11) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `khatmat_count` int(11) DEFAULT 1 COMMENT 'عدد الختمات',
+  `ijaza_date` varchar(20) DEFAULT NULL COMMENT 'تاريخ الإجازة هجري',
+  `meeting_mode` enum('حضوراً','عن بُعد','مختلط') DEFAULT 'حضوراً' COMMENT 'الوسيلة',
+  `reading_mode` enum('heart','looking') DEFAULT NULL COMMENT 'حفظاً / نظراً',
+  `notes` text DEFAULT NULL COMMENT 'ملاحظات التلاوة',
+  `user_id` int(11) NOT NULL DEFAULT 1 COMMENT 'FK to users table',
+  PRIMARY KEY (`id`),
+  KEY `to_person_id` (`to_person_id`),
+  KEY `transmission_type_id` (`transmission_type_id`),
+  CONSTRAINT `quran_connections_ibfk_1` FOREIGN KEY (`to_person_id`) REFERENCES `persons` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `quran_connections_ibfk_5` FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `quran_connection_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `connection_id` int(11) NOT NULL,
+  `qiraa_id` int(11) DEFAULT NULL,
+  `riwaya_id` int(11) DEFAULT NULL,
+  `tariq_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `connection_id` (`connection_id`),
+  KEY `qiraa_id` (`qiraa_id`),
+  KEY `riwaya_id` (`riwaya_id`),
+  KEY `tariq_id` (`tariq_id`),
+  CONSTRAINT `quran_connection_items_ibfk_1` FOREIGN KEY (`connection_id`) REFERENCES `quran_connections` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `quran_connection_items_ibfk_2` FOREIGN KEY (`qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `quran_connection_items_ibfk_3` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `quran_connection_items_ibfk_4` FOREIGN KEY (`tariq_id`) REFERENCES `turuq` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `transmission_types` (`id`, `name_ar`, `name_en`, `description`, `applies_to`) VALUES
+(1, 'سماع', 'Sama\'', NULL, 'both'),
+(2, 'قراءة على الشيخ', 'Qira\'a', NULL, 'both'),
+(3, 'إجازة', 'Ijaza', NULL, 'both'),
+(4, 'إجازة عامة', 'General Ijaza', NULL, 'both'),
+(5, 'مناولة', 'Munawala', NULL, 'mutoon'),
+(6, 'كتابة', 'Kitaba', NULL, 'mutoon'),
+(7, 'وجادة', 'Wijada', NULL, 'mutoon'),
+(8, 'إعلام', 'I\'lam', NULL, 'mutoon'),
+(9, 'عرض', 'Ard', NULL, 'quran'),
+(10, 'قراءة عليه وأنا أسمع', 'Qira''a by another, while listening', NULL, 'both');
+
+INSERT IGNORE INTO `persons` (`id`, `name_ar`, `name_latin`, `kunya`, `nisba`, `century`, `death_year`, `region`, `description`, `created_at`, `primary_qiraa_id`) VALUES
 (-3, 'رب العزة', 'Allah (The Almighty)', NULL, NULL, NULL, NULL, NULL, 'الله جل جلاله، كلامه القرآن الكريم، منه بدأ وإليه ينتهي', '2026-04-22 13:35:23', NULL),
 (-2, 'جبريل عليه السلام', 'Jibril (Gabriel) AS', NULL, NULL, NULL, NULL, NULL, 'الأمين على الوحي، نزل بالقرآن على النبي ﷺ بأمر ربه', '2026-04-22 13:35:23', NULL),
 (-1, 'النبي ﷺ', 'The Prophet ﷺ', NULL, NULL, NULL, NULL, NULL, 'محمد بن عبد الله ﷺ، خاتم الأنبياء والمرسلين، تلقى القرآن عن جبريل عليه السلام', '2026-04-22 13:35:23', NULL),
@@ -184,24 +222,7 @@ INSERT INTO `persons` (`id`, `name_ar`, `name_latin`, `kunya`, `nisba`, `century
 (260, 'الإمام ابن القيم', 'Ibn al-Qayyim', 'أبو عبد الله', 'الجوزية', 8, '751هـ', 'دمشق', 'محمد بن أبي بكر ابن قيم الجوزية، صاحب مدارج السالكين وزاد المعاد', '2026-04-21 10:32:09', NULL),
 (261, 'الإمام الغزالي', 'al-Ghazali', 'أبو حامد', 'الطوسي', 5, '505هـ', 'خراسان', 'محمد بن محمد الغزالي، حجة الإسلام، صاحب إحياء علوم الدين', '2026-04-21 10:32:09', NULL);
 
--- --------------------------------------------------------
-
---
--- Table structure for table `qiraat`
---
-
-CREATE TABLE `qiraat` (
-  `id` int(11) NOT NULL,
-  `name_ar` varchar(150) NOT NULL,
-  `imam_id` int(11) DEFAULT NULL,
-  `description` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `qiraat`
---
-
-INSERT INTO `qiraat` (`id`, `name_ar`, `imam_id`, `description`) VALUES
+INSERT IGNORE INTO `qiraat` (`id`, `name_ar`, `imam_id`, `description`) VALUES
 (1, 'قراءة نافع', 101, 'من القراءات السبع المتواترة، إمامها نافع بن عبد الرحمن بن أبي نعيم المدني'),
 (2, 'قراءة ابن كثير', 102, 'من القراءات السبع المتواترة، إمامها عبد الله بن كثير المكي'),
 (3, 'قراءة أبي عمرو', 103, 'من القراءات السبع المتواترة، إمامها أبو عمرو بن العلاء البصري'),
@@ -213,87 +234,7 @@ INSERT INTO `qiraat` (`id`, `name_ar`, `imam_id`, `description`) VALUES
 (9, 'قراءة يعقوب', 109, 'من القراءات العشر، إمامها يعقوب بن إسحاق الحضرمي البصري'),
 (10, 'قراءة خلف العاشر', 110, 'من القراءات العشر، إمامها خلف بن هشام البزار البغدادي');
 
--- --------------------------------------------------------
-
---
--- Table structure for table `quran_connections`
---
-
-CREATE TABLE `quran_connections` (
-  `id` int(11) NOT NULL,
-  `from_person_id` int(11) NOT NULL,
-  `to_person_id` int(11) NOT NULL,
-  `transmission_type_id` int(11) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `khatmat_count` int(11) DEFAULT 1 COMMENT 'عدد الختمات',
-  `ijaza_date` varchar(20) DEFAULT NULL COMMENT 'تاريخ الإجازة هجري',
-  `meeting_mode` enum('حضوراً','عن بُعد','مختلط') DEFAULT 'حضوراً' COMMENT 'الوسيلة',
-  `reading_mode` enum('heart','looking') DEFAULT NULL COMMENT 'حفظاً / نظراً',
-  `notes` text DEFAULT NULL COMMENT 'ملاحظات التلاوة',
-  `user_id` int(11) NOT NULL DEFAULT 1 COMMENT 'FK to users table'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `quran_connections`
---
-
-INSERT INTO `quran_connections` (`id`, `from_person_id`, `to_person_id`, `transmission_type_id`, `description`, `created_at`, `khatmat_count`, `ijaza_date`, `meeting_mode`, `notes`, `user_id`) VALUES
-(28, 0, 223, NULL, NULL, '2026-04-22 14:24:26', 1, NULL, 'حضوراً', NULL, 1),
-(29, 223, 106, NULL, NULL, '2026-04-22 14:25:06', 1, NULL, 'حضوراً', NULL, 1),
-(30, 106, -1, NULL, NULL, '2026-04-22 14:25:29', 1, NULL, 'حضوراً', NULL, 1),
-(31, -1, -2, NULL, NULL, '2026-04-22 14:25:44', 1, NULL, 'حضوراً', NULL, 1),
-(32, -2, -3, NULL, NULL, '2026-04-22 14:25:55', 1, NULL, 'حضوراً', NULL, 1),
-(33, 223, 101, NULL, NULL, '2026-04-22 14:36:37', 1, NULL, 'حضوراً', NULL, 1),
-(34, 101, -1, NULL, NULL, '2026-04-22 14:36:49', 1, NULL, 'حضوراً', NULL, 1),
-(35, 0, 227, NULL, NULL, '2026-04-22 14:38:35', 1, NULL, 'حضوراً', NULL, 1),
-(36, 227, 223, NULL, NULL, '2026-04-22 14:39:19', 1, NULL, 'حضوراً', NULL, 1);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `quran_connection_items`
---
-
-CREATE TABLE `quran_connection_items` (
-  `id` int(11) NOT NULL,
-  `connection_id` int(11) NOT NULL,
-  `qiraa_id` int(11) DEFAULT NULL,
-  `riwaya_id` int(11) DEFAULT NULL,
-  `tariq_id` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `quran_connection_items`
---
-
-INSERT INTO `quran_connection_items` (`id`, `connection_id`, `qiraa_id`, `riwaya_id`, `tariq_id`) VALUES
-(4, 28, 1, NULL, NULL),
-(5, 28, 6, NULL, NULL),
-(6, 29, 6, NULL, NULL),
-(7, 33, 1, NULL, NULL),
-(9, 36, 1, NULL, NULL),
-(11, 35, NULL, 1, NULL);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `riwayat`
---
-
-CREATE TABLE `riwayat` (
-  `id` int(11) NOT NULL,
-  `name_ar` varchar(150) NOT NULL,
-  `qiraa_id` int(11) NOT NULL,
-  `rawi_id` int(11) DEFAULT NULL,
-  `description` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `riwayat`
---
-
-INSERT INTO `riwayat` (`id`, `name_ar`, `qiraa_id`, `rawi_id`, `description`) VALUES
+INSERT IGNORE INTO `riwayat` (`id`, `name_ar`, `qiraa_id`, `rawi_id`, `description`) VALUES
 (1, 'قالون عن نافع', 1, 111, 'أكثر الروايات انتشاراً في العالم الإسلامي اليوم'),
 (2, 'ورش عن نافع', 1, 112, 'الرواية الثانية لعاصم، منتشرة في بعض مناطق المغرب'),
 (3, 'البزي عن ابن كثير', 2, 113, 'أكثر روايات نافع انتشاراً في المغرب العربي وأفريقيا'),
@@ -315,56 +256,7 @@ INSERT INTO `riwayat` (`id`, `name_ar`, `qiraa_id`, `rawi_id`, `description`) VA
 (19, 'إسحاق عن خلف', 10, 129, 'الرواية الأولى لخلف العاشر'),
 (20, 'إدريس عن خلف', 10, 130, 'الرواية الثانية لخلف العاشر');
 
--- --------------------------------------------------------
-
---
--- Table structure for table `transmission_types`
---
-
-CREATE TABLE `transmission_types` (
-  `id` int(11) NOT NULL,
-  `name_ar` varchar(80) NOT NULL,
-  `name_en` varchar(80) DEFAULT NULL,
-  `kind` varchar(20) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `applies_to` enum('both','mutoon','quran') DEFAULT 'both'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `transmission_types`
---
-
-INSERT INTO `transmission_types` (`id`, `name_ar`, `name_en`, `description`, `applies_to`) VALUES
-(1, 'سماع', 'Sama\'', NULL, 'both'),
-(2, 'قراءة على الشيخ', 'Qira\'a', NULL, 'both'),
-(3, 'إجازة', 'Ijaza', NULL, 'both'),
-(4, 'إجازة عامة', 'General Ijaza', NULL, 'both'),
-(5, 'مناولة', 'Munawala', NULL, 'mutoon'),
-(6, 'كتابة', 'Kitaba', NULL, 'mutoon'),
-(7, 'وجادة', 'Wijada', NULL, 'mutoon'),
-(8, 'إعلام', 'I\'lam', NULL, 'mutoon'),
-(9, 'عرض', 'Ard', NULL, 'quran'),
-(10, 'قراءة عليه وأنا أسمع', 'Qira''a by another, while listening', NULL, 'both');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `turuq`
---
-
-CREATE TABLE `turuq` (
-  `id` int(11) NOT NULL,
-  `name_ar` varchar(150) NOT NULL,
-  `riwaya_id` int(11) DEFAULT NULL,
-  `parent_id` int(11) DEFAULT NULL,
-  `description` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `turuq`
---
-
-INSERT INTO `turuq` (`id`, `name_ar`, `riwaya_id`, `parent_id`, `description`) VALUES
+INSERT IGNORE INTO `turuq` (`id`, `name_ar`, `riwaya_id`, `parent_id`, `description`) VALUES
 (1, 'طريق الشاطبية', 1, NULL, 'طريق حفص من الشاطبية — أشهر الطرق وأوسعها تداولاً'),
 (2, 'طريق الطيبة', 1, NULL, 'طريق حفص من طيبة النشر لابن الجزري'),
 (3, 'طريق الشاطبية', 2, NULL, 'طريق شعبة من الشاطبية'),
@@ -426,304 +318,33 @@ INSERT INTO `turuq` (`id`, `name_ar`, `riwaya_id`, `parent_id`, `description`) V
 (2001, 'طريق الدرة', 20, NULL, 'من الدرة المضية'),
 (2002, 'طريق الطيبة', 20, NULL, 'من طيبة النشر');
 
--- --------------------------------------------------------
+INSERT IGNORE INTO `mutoon` (`id`, `title`, `author_id`, `subject`, `description`, `created_at`) VALUES
+(1, 'تحفة الأطفال', 203, 'تجويد', '61 بيتاً في أحكام التجويد لحفص عن عاصم، للجمزوري', '2026-04-21 10:32:09'),
+(2, 'الجزرية', 201, 'تجويد', 'مقدمة ابن الجزري في التجويد، 107 أبيات', '2026-04-21 10:32:09'),
+(3, 'الشاطبية', 202, 'قراءات', 'حرز الأماني ووجه التهاني في القراءات السبع، 1173 بيتاً', '2026-04-21 10:32:09'),
+(4, 'طيبة النشر', 201, 'قراءات', 'منظومة في القراءات العشر الكبرى، 1014 بيتاً لابن الجزري', '2026-04-21 10:32:09'),
+(5, 'الدرة المضية', 201, 'قراءات', 'منظومة في القراءات الثلاث المتممة للعشر، لابن الجزري', '2026-04-21 10:32:09'),
+(6, 'مورد الظمآن', 205, 'رسم', 'منظومة في رسم المصحف وضبطه، للخراز', '2026-04-21 10:32:09'),
+(10, 'الأربعون النووية', 210, 'حديث', '42 حديثاً نبوياً في مختلف أبواب الدين، للنووي', '2026-04-21 10:32:09'),
+(11, 'بلوغ المرام', 211, 'حديث', 'أحاديث الأحكام من كتب الأئمة الأعلام، لابن حجر العسقلاني', '2026-04-21 10:32:09'),
+(12, 'عمدة الأحكام', NULL, 'حديث', 'متن في أحاديث الأحكام الفقهية، للحافظ عبد الغني المقدسي', '2026-04-21 10:32:09'),
+(13, 'الألفية في مصطلح الحديث', 215, 'مصطلح', 'ألفية العراقي في علوم الحديث، 1000 بيت', '2026-04-21 10:32:09'),
+(14, 'نخبة الفكر', 211, 'مصطلح', 'متن في مصطلح الحديث لابن حجر العسقلاني', '2026-04-21 10:32:09'),
+(20, 'متن الآجرومية', 227, 'نحو', 'مقدمة الصنهاجي في النحو، من أشهر المتون المبتدئة', '2026-04-21 10:32:09'),
+(21, 'رسالة ابن أبي زيد', 226, 'فقه', 'الرسالة القيروانية في فقه المالكية للمبتدئين', '2026-04-21 10:32:09'),
+(22, 'مختصر خليل', 225, 'فقه', 'المختصر الفقهي المالكي الشهير، متن مركزي في الفقه المالكي', '2026-04-21 10:32:09'),
+(23, 'المرشد المعين', 224, 'فقه', 'منظومة في الفقه والعقيدة والتصوف على مذهب الإمام مالك، لابن عاشر', '2026-04-21 10:32:09'),
+(24, 'عمدة الفقه', 223, 'فقه', 'متن فقهي حنبلي للمبتدئين، لابن قدامة المقدسي', '2026-04-21 10:32:09'),
+(25, 'زاد المستقنع', NULL, 'فقه', 'مختصر المقنع في الفقه الحنبلي، للحجاوي', '2026-04-21 10:32:09'),
+(26, 'متن الورقات', NULL, 'أصول', 'مقدمة في أصول الفقه للجويني، من أهم متون الأصول', '2026-04-21 10:32:09'),
+(30, 'ألفية ابن مالك', 230, 'نحو', 'ألفية في النحو والصرف، 1002 بيت، أشمل المتون النحوية', '2026-04-21 10:32:09'),
+(31, 'قطر الندى', 231, 'نحو', 'متن ابن هشام في النحو، شرحه المؤلف نفسه', '2026-04-21 10:32:09'),
+(32, 'ملحة الإعراب', 232, 'نحو', 'منظومة في النحو للحريري، مناسبة للمبتدئين', '2026-04-21 10:32:09'),
+(41, 'العقيدة الطحاوية', 241, 'عقيدة', 'متن في عقيدة أهل السنة والجماعة، للطحاوي', '2026-04-21 10:32:09'),
+(42, 'لمعة الاعتقاد', NULL, 'عقيدة', 'متن في العقيدة الحنبلية لابن قدامة المقدسي', '2026-04-21 10:32:09'),
+(43, 'الواسطية', NULL, 'عقيدة', 'متن في العقيدة السلفية لشيخ الإسلام ابن تيمية', '2026-04-21 10:32:09'),
+(44, 'الحموية', NULL, 'عقيدة', 'رسالة في الصفات لابن تيمية', '2026-04-21 10:32:09'),
+(50, 'البردة', 250, 'سيرة', 'قصيدة البردة للبوصيري في مدح النبي ﷺ، 160 بيتاً', '2026-04-21 10:32:09'),
+(51, 'الهمزية', 250, 'سيرة', 'قصيدة الهمزية للبوصيري في السيرة النبوية', '2026-04-21 10:32:09');
 
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `username` varchar(80) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `users`
---
-
-
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `matn_connections`
---
-ALTER TABLE `matn_connections`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `to_person_id` (`to_person_id`),
-  ADD KEY `matn_id` (`matn_id`),
-  ADD KEY `transmission_type_id` (`transmission_type_id`);
-
---
--- Indexes for table `mutoon`
---
-ALTER TABLE `mutoon`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `author_id` (`author_id`);
-
---
--- Indexes for table `persons`
---
-ALTER TABLE `persons`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `primary_qiraa_id` (`primary_qiraa_id`);
-
---
--- Indexes for table `qiraat`
---
-ALTER TABLE `qiraat`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `imam_id` (`imam_id`);
-
---
--- Indexes for table `quran_connections`
---
-ALTER TABLE `quran_connections`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `to_person_id` (`to_person_id`),
-  ADD KEY `transmission_type_id` (`transmission_type_id`);
-
---
--- Indexes for table `quran_connection_items`
---
-ALTER TABLE `quran_connection_items`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `connection_id` (`connection_id`),
-  ADD KEY `qiraa_id` (`qiraa_id`),
-  ADD KEY `riwaya_id` (`riwaya_id`),
-  ADD KEY `tariq_id` (`tariq_id`);
-
---
--- Indexes for table `riwayat`
---
-ALTER TABLE `riwayat`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `qiraa_id` (`qiraa_id`),
-  ADD KEY `rawi_id` (`rawi_id`);
-
---
--- Indexes for table `transmission_types`
---
-ALTER TABLE `transmission_types`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `turuq`
---
-ALTER TABLE `turuq`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `riwaya_id` (`riwaya_id`),
-  ADD KEY `parent_id` (`parent_id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `matn_connections`
---
-ALTER TABLE `matn_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
-
---
--- AUTO_INCREMENT for table `mutoon`
---
-ALTER TABLE `mutoon`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
-
---
--- AUTO_INCREMENT for table `persons`
---
-ALTER TABLE `persons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=265;
-
---
--- AUTO_INCREMENT for table `qiraat`
---
-ALTER TABLE `qiraat`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
-
---
--- AUTO_INCREMENT for table `quran_connections`
---
-ALTER TABLE `quran_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
-
---
--- AUTO_INCREMENT for table `quran_connection_items`
---
-ALTER TABLE `quran_connection_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
-
---
--- AUTO_INCREMENT for table `riwayat`
---
-ALTER TABLE `riwayat`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
-
---
--- AUTO_INCREMENT for table `transmission_types`
---
-ALTER TABLE `transmission_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
-
---
--- AUTO_INCREMENT for table `turuq`
---
-ALTER TABLE `turuq`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2003;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `matn_connections`
---
-ALTER TABLE `matn_connections`
-  ADD CONSTRAINT `matn_connections_ibfk_1` FOREIGN KEY (`to_person_id`) REFERENCES `persons` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `matn_connections_ibfk_2` FOREIGN KEY (`matn_id`) REFERENCES `mutoon` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `matn_connections_ibfk_3` FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `mutoon`
---
-ALTER TABLE `mutoon`
-  ADD CONSTRAINT `mutoon_ibfk_1` FOREIGN KEY (`author_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `persons`
---
-ALTER TABLE `persons`
-  ADD CONSTRAINT `persons_ibfk_1` FOREIGN KEY (`primary_qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `qiraat`
---
-ALTER TABLE `qiraat`
-  ADD CONSTRAINT `qiraat_ibfk_1` FOREIGN KEY (`imam_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `quran_connections`
---
-ALTER TABLE `quran_connections`
-  ADD CONSTRAINT `quran_connections_ibfk_1` FOREIGN KEY (`to_person_id`) REFERENCES `persons` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `quran_connections_ibfk_5` FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `quran_connection_items`
---
-ALTER TABLE `quran_connection_items`
-  ADD CONSTRAINT `quran_connection_items_ibfk_1` FOREIGN KEY (`connection_id`) REFERENCES `quran_connections` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `quran_connection_items_ibfk_2` FOREIGN KEY (`qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `quran_connection_items_ibfk_3` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `quran_connection_items_ibfk_4` FOREIGN KEY (`tariq_id`) REFERENCES `turuq` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `riwayat`
---
-ALTER TABLE `riwayat`
-  ADD CONSTRAINT `riwayat_ibfk_1` FOREIGN KEY (`qiraa_id`) REFERENCES `qiraat` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `riwayat_ibfk_2` FOREIGN KEY (`rawi_id`) REFERENCES `persons` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `turuq`
---
-ALTER TABLE `turuq`
-  ADD CONSTRAINT `turuq_ibfk_1` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `turuq_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `turuq` (`id`) ON DELETE SET NULL;
-
--- Per-user settings (JSON stored as text so it works on MySQL 8 and MariaDB).
--- First use: isnad_text (keywords and style for chain ↔ text).
-CREATE TABLE IF NOT EXISTS `user_settings` (
-  `user_id` int(11) NOT NULL,
-  `setting_key` varchar(64) NOT NULL,
-  `value` longtext NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`user_id`, `setting_key`),
-  CONSTRAINT `user_settings_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- Register of ijazat issued by a user (the rendered text is stored as a snapshot).
-CREATE TABLE IF NOT EXISTS `ijazat` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `student_name` varchar(200) NOT NULL,
-  `module` enum('mutoon','quran','general') NOT NULL,
-  `style` enum('normal','detailed') NOT NULL DEFAULT 'normal',
-  `matn_id` int(11) DEFAULT NULL,
-  `qiraa_id` int(11) DEFAULT NULL,
-  `riwaya_id` int(11) DEFAULT NULL,
-  `tariq_id` int(11) DEFAULT NULL,
-  `transmission_type_id` int(11) DEFAULT NULL,
-  `title` varchar(300) DEFAULT NULL,
-  `body` longtext NOT NULL,
-  `details` longtext DEFAULT NULL,
-  `issued_at` date NOT NULL,
-  `issued_hijri` varchar(60) DEFAULT NULL,
-  `place` varchar(150) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `public_token` varchar(32) DEFAULT NULL,
-  `short_code` varchar(16) DEFAULT NULL,
-  `revoked_at` datetime DEFAULT NULL,
-  `revoke_reason` varchar(255) DEFAULT NULL,
-  `scan_count` int(11) NOT NULL DEFAULT 0,
-  `last_scanned_at` datetime DEFAULT NULL,
-  `frozen_html` longtext DEFAULT NULL,
-  `content_hash` char(64) DEFAULT NULL,
-  `frozen_at` datetime DEFAULT NULL,
-  `detailed_html` longtext DEFAULT NULL,
-  `detailed_hash` char(64) DEFAULT NULL,
-  `detailed_frozen_at` datetime DEFAULT NULL,
-  `replaces_id` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `ijazat_replaces` (`replaces_id`),
-  UNIQUE KEY `ijazat_public_token` (`public_token`),
-  UNIQUE KEY `ijazat_short_code` (`short_code`),
-  KEY `ijazat_user` (`user_id`, `issued_at`),
-  CONSTRAINT `ijazat_user_fk`   FOREIGN KEY (`user_id`)   REFERENCES `users` (`id`)   ON DELETE CASCADE,
-  CONSTRAINT `ijazat_matn_fk`   FOREIGN KEY (`matn_id`)   REFERENCES `mutoon` (`id`)  ON DELETE SET NULL,
-  CONSTRAINT `ijazat_qiraa_fk`  FOREIGN KEY (`qiraa_id`)  REFERENCES `qiraat` (`id`)  ON DELETE SET NULL,
-  CONSTRAINT `ijazat_riwaya_fk` FOREIGN KEY (`riwaya_id`) REFERENCES `riwayat` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `ijazat_tariq_fk`  FOREIGN KEY (`tariq_id`)  REFERENCES `turuq` (`id`)   ON DELETE SET NULL,
-  CONSTRAINT `ijazat_tx_fk`     FOREIGN KEY (`transmission_type_id`) REFERENCES `transmission_types` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `ijazat_replaces_fk` FOREIGN KEY (`replaces_id`) REFERENCES `ijazat` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
-CREATE TABLE IF NOT EXISTS `ijaza_files` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `ijaza_id` int(11) NOT NULL,
-  `kind` enum('pdf','pdf_detailed') NOT NULL DEFAULT 'pdf',
-  `filename` varchar(200) DEFAULT NULL,
-  `size` int(11) NOT NULL,
-  `sha256` char(64) NOT NULL,
-  `data` longblob NOT NULL,
-  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ijaza_files_one` (`ijaza_id`, `kind`),
-  CONSTRAINT `ijaza_files_ijaza_fk` FOREIGN KEY (`ijaza_id`) REFERENCES `ijazat` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+SET FOREIGN_KEY_CHECKS = 1;
