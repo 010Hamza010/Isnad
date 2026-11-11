@@ -195,3 +195,41 @@ test('GET /graph/quran/paths: the imam\'s shaykhs per riwaya (عاصم: حفص v
   const people = p.flatMap(g => g.chains.map(c => [g.firstEdge, ...c].map(x => x.to_person_id)));
   assert.deepEqual(people, [[9, 51, 50, 60, -1, -2, -3]]);
 });
+
+describe('GET /graph/quran/group-paths for a whole qiraa', () => {
+  // qiraa 5 (عاصم, imam 50) with riwayat 1 حفص (rawi 51) and 2 شعبة (rawi 52)
+  const RIW = [{ id: 1, qiraa_id: 5, name_ar: 'رواية حفص' }, { id: 2, qiraa_id: 5, name_ar: 'رواية شعبة' }];
+  const EDGES = [
+    e(0, 9, [{ qiraa_id: 5 }]),                          // I read all of عاصم on 9
+    e(0, 8, [{ riwaya_id: 1 }]),                         // only حفص on 8: not «the whole qiraa»
+    { ...e(9, 10, [{ qiraa_id: 5 }]), is_general: 0 },   // 10: the meeting point
+    { ...e(10, 51, [{ riwaya_id: 1 }]), is_general: 0 },   // above 10: per riwaya
+    { ...e(10, 52, [{ riwaya_id: 2 }]), is_general: 0 },
+    { ...e(8, 51), is_general: 1 },
+  ];
+  const run = async (t, query) => {
+    mockQuran(t, EDGES, []);
+    t.mock.method(Quran, 'allRiwayat', async () => RIW);
+    t.mock.method(GM, 'getQiraaById', async () => ({ id: 5, name_ar: 'قراءة عاصم', imam_id: 50 }));
+    GM.getRiwayaById.mock.mockImplementation(async id => ({ id: Number(id), qiraa_id: 5, imam_id: 50, rawi_id: Number(id) === 1 ? 51 : 52 }));
+    let body;
+    await graph.quranGroupPaths({ user: { id: 1 }, query: { qiraa_id: '5', ...query } }, { json: b => { body = b; } });
+    return body;
+  };
+  const people = p => p.flatMap(gr => gr.chains.map(c => [gr.firstEdge, ...c].map(x => x.to_person_id)));
+
+  test('stop: my links carrying all of عاصم, up to where it splits', async (t) => {
+    const b = await run(t, { mode: 'stop' });
+    assert.equal(b.group.qiraa_id, 5);
+    assert.deepEqual(people(b.paths), [[9, 10, -9]]);
+  });
+  test('all: one isnad per riwaya, only through my whole-qiraa links', async (t) => {
+    const b = await run(t, { mode: 'all' });
+    assert.deepEqual(people(b.paths).map(c => c.slice(0, 3)), [[9, 10, 51], [9, 10, 52]]);
+  });
+  test('riwaya: the chosen one (default حفص)', async (t) => {
+    const b = await run(t, { mode: 'riwaya' });
+    assert.equal(b.riwaya_id, 1);
+    assert.deepEqual(people(b.paths).map(c => c.slice(0, 3)), [[9, 10, 51]]);
+  });
+});
