@@ -44,7 +44,9 @@ async function quranData(userId, query) {
 
   const [edges, pMap, riwayaQiraa] = await Promise.all([GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap()]);
   const mine  = edges.filter(e => Number(e.from_person_id) === 0 && QC.startCovers(e, { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
-  const upper = edges.filter(e => Number(e.from_person_id) !== 0).map(e => ({ ...e, items: [], books: undefined }));   // complete: read everything
+  const want  = { qiraa_id: qiraaId, riwaya_id };
+  const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QC.upperCovers(e, want, riwayaQiraa))
+    .map(e => ({ ...e, books: undefined }));
 
   const target = rawiId ?? imamId ?? QC.PROPHET;
   const raw = buildPaths([...mine, ...upper], 0, [target], null, null, null, pMap, null, null);

@@ -48,26 +48,61 @@ test('every alternative above completes every route (keys follow their chains)',
   assert.deepEqual(done[0].keys, ['0.9.51', '0.9.51']);
 });
 
-test('GET /graph/quran/paths: whole-qiraa link of mine, complete links above, chain through حفص', async (t) => {
+test('links above mine: «عام» carries everything, otherwise what they name (a tariq does not matter)', () => {
+  const want = { qiraa_id: 5, riwaya_id: 1 };
+  assert.equal(QC.upperCovers({ is_general: 1, items: [] }, want, riwayaQiraa), true);
+  assert.equal(QC.upperCovers({ is_general: 0, items: [{ qiraa_id: 5 }] }, want, riwayaQiraa), true);
+  assert.equal(QC.upperCovers({ is_general: 0, items: [{ riwaya_id: 1, tariq_id: 4 }] }, want, riwayaQiraa), true);
+  assert.equal(QC.upperCovers({ is_general: 0, items: [{ qiraa_id: 6 }] }, want, riwayaQiraa), false);
+  assert.equal(QC.upperCovers({ is_general: 0, items: [] }, want, riwayaQiraa), false);
+});
+
+test('saving: my link names what I read; a link above mine names it or is «عام»', () => {
+  const bad = body => assert.throws(() => QC.checkScope(body), e => e.status === 400);
+  bad({ from_person_id: 0, items: [] });
+  bad({ from_person_id: 0, is_general: 1, items: [] });          // no «عام» for me
+  bad({ from_person_id: 9, items: [{ qiraa_id: '' }] });
+  assert.equal(QC.checkScope({ from_person_id: 0, items: [{ riwaya_id: 1 }] }), 0);
+  assert.equal(QC.checkScope({ from_person_id: 0, is_general: true, items: [{ riwaya_id: 1 }] }), 0);
+  assert.equal(QC.checkScope({ from_person_id: 9, is_general: true, items: [] }), 1);
+  assert.equal(QC.checkScope({ from_person_id: 9, items: [{ qiraa_id: 5 }] }), 0);
+});
+
+const mockQuran = (t, edges) => {
   t.mock.method(GM, 'getRiwayaById', async () => ({ id: 1, qiraa_id: 5, imam_id: 50, rawi_id: 51 }));
-  t.mock.method(GM, 'getQuranEdgesForUser', async () => [
-    e(0, 9, [{ qiraa_id: 5 }]),                  // I read عاصم (both riwayat) on 9
-    e(0, 8),                                     // nothing chosen: not used
-    e(9, 10, [{ riwaya_id: 3 }]),                // above me: complete, whatever it says
-    e(10, 51),
-    e(8, 51),
-  ]);
+  t.mock.method(GM, 'getQuranEdgesForUser', async () => edges);
   t.mock.method(GM, 'getAllPersons', async () => new Map([[9, { name_ar: 'شيخي' }], [10, { name_ar: 'شيخه' }],
-    [51, { name_ar: 'حفص' }], [50, { name_ar: 'عاصم' }]]));
+    [11, { name_ar: 'شيخ آخر' }], [51, { name_ar: 'حفص' }], [50, { name_ar: 'عاصم' }]]));
   t.mock.method(GM, 'getRiwayaQiraaMap', async () => riwayaQiraa);
   t.mock.method(Settings, 'get', async () => null);
+};
+const paths = async query => {
   let body;
-  await graph.quranPaths({ user: { id: 1 }, query: { riwaya_id: '1' } }, { json: b => { body = b; } });
-  assert.equal(body.paths.length, 1);
-  const p = body.paths[0];
-  assert.deepEqual([p.firstEdge.to_person_id, ...p.chains[0].map(x => x.to_person_id)], [9, 10, 51, 50, -1, -2, -3]);
-  const [toImam, jump] = p.chains[0].slice(2, 4);
+  await graph.quranPaths({ user: { id: 1 }, query }, { json: b => { body = b; } });
+  return body.paths;
+};
+
+test('GET /graph/quran/paths: whole-qiraa link of mine, links above as entered, chain through حفص', async (t) => {
+  mockQuran(t, [
+    e(0, 9, [{ qiraa_id: 5 }]),                  // I read عاصم (both riwayat) on 9
+    e(0, 8),                                     // nothing named: not used
+    { ...e(9, 10, [{ qiraa_id: 5 }]), is_general: 0 },   // شيخي read عاصم on 10
+    { ...e(10, 51), is_general: 1 },             // «عام»
+    { ...e(9, 11, [{ qiraa_id: 6 }]), is_general: 0 },   // only حمزة: not for حفص
+    { ...e(11, 51), is_general: 1 },
+    { ...e(8, 51), is_general: 1 },
+  ]);
+  const p = await paths({ riwaya_id: '1' });
+  assert.equal(p.length, 1);
+  assert.equal(p[0].chains.length, 1);
+  assert.deepEqual([p[0].firstEdge.to_person_id, ...p[0].chains[0].map(x => x.to_person_id)], [9, 10, 51, 50, -1, -2, -3]);
+  const [toImam, jump] = p[0].chains[0].slice(2, 4);
   assert.deepEqual([toImam.to_name, toImam.auto, toImam.tx_kind], ['عاصم', true, 'qiraa']);
   assert.deepEqual([jump.to_name, jump.munqati], ['النبي ﷺ', true]);
-  assert.deepEqual(p.chains[0][1].items, []);   // links above me carry no scope
+  assert.deepEqual(p[0].chains[0][0].items, [{ qiraa_id: 5 }]);   // what my shaykh read stays visible
+});
+
+test('GET /graph/quran/paths: a link above naming another qiraa breaks the route', async (t) => {
+  mockQuran(t, [e(0, 9, [{ riwaya_id: 1 }]), { ...e(9, 51, [{ qiraa_id: 6 }]), is_general: 0 }]);
+  assert.deepEqual(await paths({ riwaya_id: '1' }), []);
 });

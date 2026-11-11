@@ -101,9 +101,10 @@ exports.apply = async (plan, userId) => {
     for (const l of plan.quranLinks) {
       if (l.exists) continue;
       const [r] = await conn.query(
-        `INSERT INTO quran_connections (user_id, from_person_id, to_person_id, transmission_type_id, reading_mode, description, ijaza_date, khatmat_count, meeting_mode)
-         VALUES (?,?,?,?,?,?,?,?,COALESCE(?, 'حضوراً'))`,
-        [userId, id(l.from), id(l.to), l.transmission_type_id, l.reading_mode, l.description, l.ijaza_date, l.khatmat_count ?? 1, l.meeting_mode]);
+        `INSERT INTO quran_connections (user_id, from_person_id, to_person_id, is_general, transmission_type_id, reading_mode, description, ijaza_date, khatmat_count, meeting_mode)
+         VALUES (?,?,?,?,?,?,?,?,?,COALESCE(?, 'حضوراً'))`,
+        // a link above mine with nothing named is «عام» (services/quranChain)
+        [userId, id(l.from), id(l.to), id(l.from) !== 0 && !l.items.length ? 1 : 0, l.transmission_type_id, l.reading_mode, l.description, l.ijaza_date, l.khatmat_count ?? 1, l.meeting_mode]);
       for (const it of l.items)
         await conn.query('INSERT INTO quran_connection_items (connection_id, qiraa_id, riwaya_id, tariq_id) VALUES (?,?,?,?)', [r.insertId, id(it.qiraa), id(it.riwaya), id(it.tariq)]);
       links++;

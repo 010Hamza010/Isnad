@@ -54,9 +54,9 @@ exports.create = async (userId, fields, items, books) => {
     await conn.beginTransaction();
     const [result] = await conn.query(`
       INSERT INTO quran_connections
-        (user_id,from_person_id,to_person_id,transmission_type_id,khatmat_count,ijaza_date,meeting_mode,reading_mode,notes,description)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [userId, fields.from_person_id ?? 0, fields.to_person_id,
+        (user_id,from_person_id,to_person_id,is_general,transmission_type_id,khatmat_count,ijaza_date,meeting_mode,reading_mode,notes,description)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [userId, fields.from_person_id ?? 0, fields.to_person_id, fields.is_general ? 1 : 0,
        fields.transmission_type_id||null, fields.khatmat_count||1,
        fields.ijaza_date||null, fields.meeting_mode||'حضوراً', fields.reading_mode||null,
        fields.notes||null, fields.description||null]
@@ -82,10 +82,10 @@ exports.update = async (id, userId, fields, items, books) => {
     await conn.beginTransaction();
     await conn.query(`
       UPDATE quran_connections SET
-        from_person_id=?,to_person_id=?,transmission_type_id=?,
+        from_person_id=?,to_person_id=?,is_general=?,transmission_type_id=?,
         khatmat_count=?,ijaza_date=?,meeting_mode=?,reading_mode=?,notes=?,description=?
       WHERE id=? AND user_id=?`,
-      [fields.from_person_id ?? 0, fields.to_person_id,
+      [fields.from_person_id ?? 0, fields.to_person_id, fields.is_general ? 1 : 0,
        fields.transmission_type_id||null, fields.khatmat_count||1,
        fields.ijaza_date||null, fields.meeting_mode||'حضوراً', fields.reading_mode||null,
        fields.notes||null, fields.description||null,

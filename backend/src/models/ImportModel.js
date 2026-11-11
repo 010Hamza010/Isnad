@@ -41,9 +41,11 @@ exports.apply = async (plan, opts) => {
       if (e.exists) continue;
       const [from, to] = [idOf(e.from), idOf(e.to)];
       if (target === 'quran') {
+        const hasItems = items.some(it => it.qiraa_id || it.riwaya_id || it.tariq_id);
         const [r] = await conn.query(
-          'INSERT INTO quran_connections (user_id, from_person_id, to_person_id, transmission_type_id, reading_mode) VALUES (?,?,?,?,?)',
-          [userId, from, to, e.transmission_type_id, e.reading_mode]);
+          'INSERT INTO quran_connections (user_id, from_person_id, to_person_id, is_general, transmission_type_id, reading_mode) VALUES (?,?,?,?,?,?)',
+          // a link above mine with nothing named is «عام» (services/quranChain)
+          [userId, from, to, from !== 0 && !hasItems ? 1 : 0, e.transmission_type_id, e.reading_mode]);
         for (const it of items) {
           if (!it.qiraa_id && !it.riwaya_id && !it.tariq_id) continue;
           await conn.query('INSERT INTO quran_connection_items (connection_id, qiraa_id, riwaya_id, tariq_id) VALUES (?,?,?,?)',
