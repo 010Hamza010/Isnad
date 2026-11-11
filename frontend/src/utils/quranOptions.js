@@ -50,6 +50,25 @@ export function quranOptions(conns, { qiraat, riwayat, turuq, groups = [] }) {
   return [...grouped.entries()];
 }
 
+/**
+ * The groups my own links were read with, as ijaza options:
+ * [{ key: 'g<id>', group_id, groupLabel, groupText, books, teachers }]. books: those of my links
+ * read with the group (they include the group's own), once each.
+ */
+export function quranGroupOptions(conns, groups = []) {
+  const byId = new Map(groups.map(g => [Number(g.id), g]));
+  const seen = new Map();
+  conns.filter(c => isMe(c.from_person_id)).forEach(conn => (conn.groups || []).forEach(ref => {
+    const id = Number(ref.group_id ?? ref);
+    const g = byId.get(id) || ref;
+    if (!seen.has(id)) seen.set(id, { key: `g${id}`, group_id: id, groupLabel: g.name_ar, groupText: g.text_ar || g.name_ar, books: [], teachers: [] });
+    const opt = seen.get(id);
+    (conn.books || []).forEach(b => { if (!opt.books.some(x => Number(x.matn_id) === Number(b.matn_id))) opt.books.push(b); });
+    if (!opt.teachers.includes(conn.to_name)) opt.teachers.push(conn.to_name);
+  }));
+  return [...seen.values()].sort((a, b) => String(a.groupLabel).localeCompare(String(b.groupLabel), 'ar'));
+}
+
 /** Query string for /graph/quran/paths (tariq_id=0: my links of the riwaya without a tariq). */
 export function quranPathParams(opt) {
   const p = new URLSearchParams();

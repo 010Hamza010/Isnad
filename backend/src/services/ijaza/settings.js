@@ -31,6 +31,12 @@ function mergeSettings(stored) {
     if (typeof stored.teachers_sentence?.[m] === 'string') s.teachers_sentence[m] = stored.teachers_sentence[m];
   });
   if ((stored.templates_version || 1) < DEFAULTS.templates_version) upgradeTemplates(s.templates, stored.templates_version || 1);
+  const g = stored.quran_group;
+  if (g && typeof g === 'object') {
+    if (['stop', 'all', 'riwaya'].includes(g.mode)) s.quran_group.mode = g.mode;
+    if (g.riwaya_id === null || Number.isInteger(Number(g.riwaya_id)) && Number(g.riwaya_id) > 0) s.quran_group.riwaya_id = g.riwaya_id == null ? null : Number(g.riwaya_id);
+    if (typeof g.stop_text === 'string' && g.stop_text.trim()) s.quran_group.stop_text = g.stop_text.trim();
+  }
   if (stored.shaykh_gender === 'F' || stored.shaykh_gender === 'M') s.shaykh_gender = stored.shaykh_gender;
   if (typeof stored.teachers_title_f === 'string') s.teachers_title_f = stored.teachers_title_f;
   if (Array.isArray(stored.designs) && stored.designs.length) s.designs = stored.designs.map(mergeDesign);
@@ -69,6 +75,7 @@ function validateSettings(input) {
     if (t && !t.includes('{الشيوخ}')) throw new HttpError(400, 'جملة الشيوخ يجب أن تحتوي على {الشيوخ}');
     s.teachers_sentence[m] = t;
   });
+  if (s.quran_group.stop_text.length > 300) throw new HttpError(400, 'نص ما بعد نقطة الالتقاء طويل جداً');
   const titles = Object.fromEntries(MODULES.map(m => [m, validateTitle(s.titles[m], m)]));
   const designs = validateDesigns(s.designs);
   const default_design = designs.some(d => d.id === s.default_design) ? s.default_design : designs[0].id;
@@ -76,6 +83,7 @@ function validateSettings(input) {
     templates_version: DEFAULTS.templates_version, shaykh_name: s.shaykh_name.trim(), place: s.place.trim(),
     teachers_title: s.teachers_title.trim(), teachers_title_f: s.teachers_title_f.trim(), shaykh_gender: s.shaykh_gender,
     templates: s.templates, titles, teachers_sentence: s.teachers_sentence, designs, default_design,
+    quran_group: s.quran_group,
   };
 }
 

@@ -130,20 +130,24 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const who = label(caseAfter(kw));
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
-  }).map((t, i) => (edges[i].munqatiAfter ? `${t}. ${munqatiNote(edges[i])}` : t));
+  }).map((t, i) => `${t}${edges[i].noteAfter || ''}`);
 }
 
 /** Where a Quran chain stops: the imam's sanad to the Prophet ﷺ is not entered yet. */
 const munqatiNote = e => `[لم يُدخَل بعدُ سند ${/^الإمام\s/.test(e.to_name || '') ? '' : 'الإمام '}${e.to_name} إلى النبي ﷺ]`;
 
 /**
- * A chain with a made-up «منقطع» jump (quranChain: imam → النبي ﷺ) stops at the imam with a note:
- * no fake step to the Prophet ﷺ and no جبريل tail after it.
+ * Where a Quran chain is cut, the link before is written with a note after it:
+ *  - a made-up «منقطع» jump (quranChain: imam → النبي ﷺ): «… نافع. [لم يُدخَل بعدُ سند …]», no fake
+ *    step to the Prophet ﷺ and no جبريل tail;
+ *  - the stop of a group's isnad (quranGroupIsnad): «… ابن الجزري، بأسانيده … إلى الأئمة».
  */
-function cutMunqati(chain) {
-  const i = chain.findIndex(e => e?.munqati);
+function cutChain(chain, s) {
+  const i = chain.findIndex(e => e?.munqati || e?.group_stop);
   if (i <= 0) return chain;
-  return [...chain.slice(0, i - 1), { ...chain[i - 1], munqatiAfter: true }];
+  const prev = chain[i - 1];
+  const noteAfter = chain[i].munqati ? `. ${munqatiNote(prev)}` : `${s.style.separator}${String(chain[i].note || '').trim()}`;
+  return [...chain.slice(0, i - 1), { ...prev, noteAfter }];
 }
 
 function renderChainWith(edges, s, ctx) {
@@ -161,7 +165,8 @@ function renderChainWith(edges, s, ctx) {
  * If the chain starts at me (person 0) the speaker is implicit: «أخبرنا شيخنا فلان، عن فلان…».
  */
 function renderChain(edges, settings) {
-  return renderChainWith(cutMunqati(edges || []), mergeSettings(settings), newContext());
+  const s = mergeSettings(settings);
+  return renderChainWith(cutChain(edges || [], s), s, newContext());
 }
 
 const pid = e => String(e.to_person_id);
@@ -235,7 +240,7 @@ function meetText(meetEdges, s, ctx) {
   const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
   meetEdges.forEach(e => ctx.written.add(linkKey(e)));
   const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
-  const note = x.munqatiAfter ? `. ${munqatiNote(x)}` : '';
+  const note = x.noteAfter || '';
   return `${joinWord(meetEdges.length, allF)} ${joinedText ? joinedText.replace(NAME_SLOT, who) : `عن ${who}`}${note}`;
 }
 
@@ -397,7 +402,7 @@ function renderSet(chains, s, ctx, scope) {
 /** Several alternative chains → one text using تحويل (see renderSet). */
 function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
-  const list = (chains || []).filter(c => c?.length).map(cutMunqati);
+  const list = (chains || []).filter(c => c?.length).map(c => cutChain(c, s));
   if (!list.length) return '';
   const first = list[0][0];
   const clean = t => t.split(ALSO_MARK).join('');

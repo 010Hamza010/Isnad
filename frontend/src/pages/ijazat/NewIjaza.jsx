@@ -9,17 +9,21 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
+import { fillTemplate, readingPhrase, groupReading, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
-import { quranOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
+import { quranOptions, quranGroupOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
 
 
 // keep only what the certificate needs (tree + notes) in the saved snapshot
-const slimChain = c => c.map(e => ({
+const slimChain = c => c.filter(e => !e.group_stop).map(e => ({
   from_person_id: e.from_person_id, from_name: e.from_name, from_death_year: e.from_death_year || null,
   to_person_id: e.to_person_id, to_name: e.to_name, to_death_year: e.to_death_year || null, tx_name: e.tx_name || null, tx_kind: e.tx_kind || null,
 }));
+
+// the picker key of an issued ijaza (for a correction)
+const keyOf = c => (c.details?.group?.id ? `g${c.details.group.id}`
+  : c.riwaya_id ? `r${c.riwaya_id}-t${c.tariq_id || 0}` : c.qiraa_id ? `q${c.qiraa_id}` : '');
 
 const MODULES = [
   { value: 'mutoon', label: 'متن' },
@@ -56,7 +60,11 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const [student, setStudent] = useState(c0?.student_name || '');
   const [studentGender, setStudentGender] = useState('M');
   const [matnId, setMatnId]   = useState(c0?.matn_id || '');
-  const [quranKey, setQuranKey] = useState(c0?.module === 'quran' ? `q${c0.qiraa_id || null}-r${c0.riwaya_id || null}-t${c0.tariq_id || null}` : '');
+  const [quranKey, setQuranKey] = useState(c0?.module === 'quran' ? keyOf(c0) : '');
+  // a group: what follows the meeting point for this ijaza (null = the settings' default)
+  const [groupMode, setGroupMode] = useState(c0?.details?.group?.mode ?? null);
+  const [groupRiwaya, setGroupRiwaya] = useState(c0?.details?.group?.riwaya_id ?? null);
+  const [groupInfo, setGroupInfo] = useState(null);   // { mode, riwaya_id, riwayat } from the server
   const [txId, setTxId]       = useState(c0?.transmission_type_id ?? null);
   const [correctionReason, setCorrectionReason] = useState('');
   // default «كيف أخذ عنك»: this database's قراءة type (ids differ between databases)
@@ -82,7 +90,10 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const [saving, setSaving]   = useState(false);
 
   const qOpts = useMemo(() => quranOptions(refs.conns, refs), [refs]);
+  const gOpts = useMemo(() => quranGroupOptions(refs.conns, refs.groups), [refs]);
+  const groupOpt = gOpts.find(o => o.key === quranKey);
   const quranOpt = qOpts.flatMap(([, o]) => o).find(o => o.key === quranKey);
+  const quranSel = groupOpt || quranOpt;   // something chosen in «القراءة / الرواية»
   const matn = refs.mutoon.find(m => String(m.id) === String(matnId));
 
   // my teachers' order for this matn / riwaya (saved, reused by later ijazat): the teachers paragraph
@@ -97,8 +108,9 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
 
   // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
   const teachersRaw = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
-    matnId, option: quranOpt, riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
-  }), [module, matnId, quranOpt?.key, refs]);
+    matnId, option: groupOpt ? { group_id: groupOpt.group_id } : quranOpt, groups: refs.groups,
+    riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
+  }), [module, matnId, quranSel?.key, refs]);
   const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds).filter(t => !isHidden(t.id)),
     [teachersRaw, orderIds.join(','), hiddenIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
@@ -114,23 +126,36 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   // load the isnad paths for the chosen matn / riwaya
   useEffect(() => {
     setGroups([]); setChosen(new Set()); setIsnadText('');
+    const groupQuery = () => {
+      const p = new URLSearchParams({ group_id: groupOpt.group_id });
+      if (groupMode) p.append('mode', groupMode);
+      if (groupRiwaya) p.append('riwaya_id', groupRiwaya);
+      return p.toString();
+    };
     const url = module === 'mutoon' && matnId ? `/graph/matn/${matnId}/paths`
+              : module === 'quran' && groupOpt ? `/graph/quran/group-paths?${groupQuery()}`
               : module === 'quran' && quranOpt ? `/graph/quran/paths?${quranPathParams(quranOpt)}` : null;
     if (!url) return;
     let alive = true;
     setPathsLoading(true);
     api.get(url)
-      .then(r => { if (!alive) return; setGroups(r.data.paths); setChosen(new Set(r.data.paths.map((_, i) => i))); })
+      .then(r => {
+        if (!alive) return;
+        setGroups(r.data.paths); setChosen(new Set(r.data.paths.map((_, i) => i)));
+        setGroupInfo(r.data.group ? { mode: r.data.mode, riwaya_id: r.data.riwaya_id, riwayat: r.data.riwayat } : null);
+      })
       .catch(e => alive && notifyError(e))
       .finally(() => alive && setPathsLoading(false));
     return () => { alive = false; };
-  }, [module, matnId, quranKey]);
+  }, [module, matnId, quranKey, groupMode, groupRiwaya]);
 
   // render the chosen chains to prose with the user's keyword settings + this ijaza's style
   const shuyukh = useMemo(() => orderablePeople(groups, teachersRaw, orderIds), [groups, teachersRaw, orderIds.join(',')]);
   const routeOrder = shuyukh.flatMap(p => p.routes);               // group indices in my order
   const chosenKey = useDebounced(`${[...chosen].sort().join(',')}|${routeOrder.join(',')}`, 200);
   const chains = useMemo(() => groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i])), [groups, chosenKey]);
+  // the tree shows people only: not the stop of a group's isnad
+  const treeChains = useMemo(() => chains.map(c => c.filter(e => !e.group_stop)), [chains]);
 
   const saveOrder = (key, ids) => {
     setOrders(o => ({ ...o, [key]: ids }));
@@ -166,17 +191,23 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
     return () => { alive = false; };
   }, [chains, clearWords, deathYears, listsTeachers, matn?.author_id]);
 
-  const reading = quranOpt ? readingPhrase({
-    qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
-  }) : '';
+  // a group: «بالقراءات العشر الصغرى» (title), with its books in the text «… بمضمن الشاطبية والدرة»
+  const reading = groupOpt ? groupReading({ text: groupOpt.groupText })
+    : quranOpt ? readingPhrase({
+      qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
+    }) : '';
+  const readWith = groupOpt ? groupReading({ text: groupOpt.groupText, books: groupOpt.books }) : reading;
+  // the Quran is always «قرأ» for now
+  const qiraaTx = refs.txTypes.find(t => t.kind === 'qiraa')?.id ?? txId;
+  const effTx = module === 'quran' ? qiraaTx : txId;
   const dates = formatDates(date);
 
   const values = {
     'الطالب': student.trim(),
-    'كيفية_الأخذ': takhammulPhrase(kindOfType(refs.txTypes, txId), studentGender),
+    'كيفية_الأخذ': takhammulPhrase(kindOfType(refs.txTypes, effTx), studentGender),
     'المتن': matn?.title, 'المؤلف': matn?.author_name,
     // an unrestricted (مطلق) Quran connection has no riwaya to name
-    'ما_قرئ': reading || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
+    'ما_قرئ': readWith || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
     'الرواية': quranOpt?.riwayaLabel, 'الطريق': quranOpt?.tariqLabel,
     'الإسناد': isnadText, 'المجيز': settings.shaykh_name, 'المكان': place,
     'شيوخ_القراءة': teachersText,
@@ -211,7 +242,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
         qiraa_id: module === 'quran' ? quranOpt?.qiraa_id : null,
         riwaya_id: module === 'quran' ? quranOpt?.riwaya_id : null,
         tariq_id: module === 'quran' ? quranOpt?.tariq_id : null,
-        transmission_type_id: module === 'general' ? null : txId,
+        transmission_type_id: module === 'general' ? null : effTx,
         issued_at: date, issued_hijri: hijri, place,
         style: 'normal',
         ...(correction ? { replaces_id: correction.id, correction_reason: correctionReason } : {}),
@@ -219,6 +250,10 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
         // dual: issued as a normal (printed, one page) and a detailed (footnotes + tree) version
         details: {
           notes, chains: chains.map(slimChain), design: designFinal, people, dual: module !== 'general',
+          ...(module === 'quran' && groupOpt ? { group: {
+            id: groupOpt.group_id, name_ar: groupOpt.groupLabel, text_ar: groupOpt.groupText,
+            mode: groupInfo?.mode ?? groupMode, riwaya_id: groupInfo?.mode === 'riwaya' ? groupInfo.riwaya_id : null,
+          } } : {}),
           ...(module !== 'general' && bodyDetailed !== body ? { body_detailed: bodyDetailed } : {}),
           ...(titleStyle ? { titleStyle } : {}),
           scale,
@@ -279,9 +314,14 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           </Field>
         )}
         {module === 'quran' && (
-          <Field label="القراءة / الرواية" hint={!qOpts.length ? 'سجّل قراءتك على شيوخك أولاً' : undefined}>
-            <select className="select" value={quranKey} onChange={e => { setQuranKey(e.target.value); resetText(); }}>
+          <Field label="القراءة / الرواية" hint={!qOpts.length && !gOpts.length ? 'سجّل قراءتك على شيوخك أولاً' : undefined}>
+            <select className="select" value={quranKey} onChange={e => { setQuranKey(e.target.value); setGroupMode(null); setGroupRiwaya(null); resetText(); }}>
               <option value="">— اختر —</option>
+              {gOpts.length > 0 && (
+                <optgroup label="المجموعات">
+                  {gOpts.map(o => <option key={o.key} value={o.key}>◆ {o.groupLabel}</option>)}
+                </optgroup>
+              )}
               {qOpts.map(([label, opts]) => (
                 <optgroup key={label} label={label}>
                   {opts.map(o => <option key={o.key} value={o.key}>{[o.riwayaLabel || o.qiraaLabel, o.tariqLabel].filter(Boolean).join(' — ')}</option>)}
@@ -290,7 +330,19 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
             </select>
           </Field>
         )}
-        {module !== 'general' && (
+        {module === 'quran' && groupOpt && (
+          <Field label="الإسناد بعد نقطة الالتقاء" hint="بعد آخر شيخ يجمع المجموعة كلها (كابن الجزري). الافتراضي من تبويب «القوالب».">
+            <select className="select" value={groupInfo?.mode ?? groupMode ?? ''} onChange={e => { setGroupMode(e.target.value); resetText(); }}>
+              {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            {(groupInfo?.mode ?? groupMode) === 'riwaya' && (groupInfo?.riwayat?.length ?? 0) > 0 && (
+              <select className="select" style={{ marginTop: 6 }} value={groupInfo?.riwaya_id ?? ''} onChange={e => { setGroupRiwaya(Number(e.target.value)); resetText(); }}>
+                {groupInfo.riwayat.map(r => <option key={r.id} value={r.id}>{r.name_ar}{r.qiraa_name ? ` — ${r.qiraa_name}` : ''}</option>)}
+              </select>
+            )}
+          </Field>
+        )}
+        {module === 'mutoon' && (
           <Field label="كيف أخذ عنك">
             <select className="select" value={txId ?? ''} onChange={e => setTxId(Number(e.target.value))}>
               {txOpts.map(o => <option key={o.value} value={o.value}>{o.label} — «{takhammulPhrase(kindOfType(refs.txTypes, o.value), studentGender)}»</option>)}
@@ -347,6 +399,9 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           <div className="callout" style={{ marginBottom: 14 }}>
             سيُذكر قبل الإسناد أنك قرأت على {teachers.length} من الشيوخ: {teachers.map(t => t.name).join('، ')}.
           </div>
+        )}
+        {module === 'quran' && groupOpt && !pathsLoading && !groups.length && (
+          <div className="munqati" style={{ marginBottom: 14 }}><Icon name="alert" size={16} /> لا يوجد سند لهذه المجموعة من اتصالاتك</div>
         )}
         {module === 'mutoon' && matnId && !pathsLoading && !groups.length && (
           <div className="munqati" style={{ marginBottom: 14 }}><Icon name="alert" size={16} /> لا يوجد سند متصل لهذا المتن</div>
@@ -449,7 +504,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           <div className="small muted">صُغّر الخط إلى {Math.round(fitInfo.fit * 100)}% ليتّسع في صفحة واحدة.</div>
         )}
         <Certificate key={detailed ? 'd' : 'n'} title={title} body={detailed ? bodyDetailed : body} variant={detailed ? 'detailed' : 'normal'}
-          notes={notes} chains={chains} design={designFinal} people={people} verification={{ placeholder: true }} scale={scale[ver]}
+          notes={notes} chains={treeChains} design={designFinal} people={people} verification={{ placeholder: true }} scale={scale[ver]}
           fitOnePage={!detailed} onFit={info => { setPages(pg => ({ ...pg, [ver]: info.pages })); if (!detailed) setFitInfo(info); }} />
         <p className="small muted">
           الصيغ في نص الإسناد تُضبط من <Link to="/settings">الإعدادات</Link>، ونص الإجازة من تبويب «القوالب». بعد «حفظ وإصدار» تُفتح الإجازة برمزها (QR) للطباعة أو الحفظ كـ PDF.

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fillTemplate, readingPhrase, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph, applyGender } from '../src/utils/ijaza.js';
-import { quranOptions, quranPathParams, groupsToChains } from '../src/utils/quranOptions.js';
+import { fillTemplate, readingPhrase, groupReading, takhammulPhrase, formatDates, ijazaTitle, joinArabic, readingTeachers, teachersParagraph, applyGender } from '../src/utils/ijaza.js';
+import { quranOptions, quranGroupOptions, quranPathParams, groupsToChains } from '../src/utils/quranOptions.js';
 
 test('fillTemplate replaces known keys and reports missing ones', () => {
   const r = fillTemplate('قرأ {الطالب} متن «{المتن}» على {المجيز}', { 'الطالب': 'أحمد', 'المتن': 'الآجرومية', 'المجيز': '' });
@@ -193,4 +193,39 @@ test('teacher order: key per matn / riwaya; saved order first, the rest after in
 test('a title template keeps its line breaks (long matn names on their own line)', async () => {
   const { titleFromTemplate } = await import('../src/utils/ijaza.js');
   assert.equal(titleFromTemplate({ text: 'إجازة في متن  \n «{المتن}»\n' }, 'mutoon', { 'المتن': 'المنظومة' }), 'إجازة في متن\n«المنظومة»');
+});
+
+test('readingTeachers (quran): a group option takes the links read with it; a link\'s groups count as their members', () => {
+  const groups = [{ id: 3, items: [{ qiraa_id: 1 }] }];
+  const conns = [
+    conn(1, 'أ', 2, { items: [], groups: [{ group_id: 3 }] }),   // read with the group
+    conn(2, 'ب', 2, { items: [{ riwaya_id: 2 }] }),              // a riwaya only
+    conn(3, 'ج', 2, { items: [], groups: [{ group_id: 4 }] }),   // another group (unknown members)
+  ];
+  assert.deepEqual(readingTeachers(conns, 'quran', { option: { group_id: 3 }, groups }).map(t => t.name), ['أ']);
+  // riwaya 2 of qiraa 1: the group's qiraa covers it; a link of another group does not count as «مطلق»
+  assert.deepEqual(readingTeachers(conns, 'quran', { option: { qiraa_id: 1, riwaya_id: 2 }, riwayaQiraa: () => 1, groups }).map(t => t.name), ['أ', 'ب']);
+});
+
+test('quranGroupOptions: the groups my links were read with, their books once, their teachers', () => {
+  const groups = [{ id: 3, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى' }, { id: 4, name_ar: 'الحرميان', text_ar: null }];
+  const conns = [
+    { from_person_id: 0, to_name: 'أ', groups: [{ group_id: 3 }], books: [{ matn_id: 1, title: 'الشاطبية' }, { matn_id: 2, title: 'الدرة' }] },
+    { from_person_id: 0, to_name: 'ب', groups: [{ group_id: 3 }, { group_id: 4 }], books: [{ matn_id: 1, title: 'الشاطبية' }] },
+    { from_person_id: 5, to_name: 'ج', groups: [{ group_id: 4 }] },   // not mine
+  ];
+  const opts = quranGroupOptions(conns, groups);
+  assert.deepEqual(opts.map(o => o.key), ['g4', 'g3']);
+  const ten = opts.find(o => o.key === 'g3');
+  assert.equal(ten.groupText, 'القراءات العشر الصغرى');
+  assert.deepEqual(ten.books.map(b => b.title), ['الشاطبية', 'الدرة']);
+  assert.deepEqual(ten.teachers, ['أ', 'ب']);
+  assert.equal(opts.find(o => o.key === 'g4').groupText, 'الحرميان');
+});
+
+test('groupReading: «ب» + the group text, with its books «بمضمن»', () => {
+  assert.equal(groupReading({ text: 'القراءات العشر الصغرى' }), 'بالقراءات العشر الصغرى');
+  assert.equal(groupReading({ text: 'القراءات العشر الصغرى', books: [{ title: 'الشاطبية' }, { title: 'الدرة' }] }),
+    'بالقراءات العشر الصغرى بمضمن الشاطبية والدرة');
+  assert.equal(groupReading({}), '');
 });

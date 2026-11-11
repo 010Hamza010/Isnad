@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const QC = require('../src/services/quranChain');
 const graph = require('../src/controllers/graphController');
@@ -126,4 +126,58 @@ test('GET /graph/quran/paths: a link read with a group carries its members; the 
 test('saving: a group names what was read', () => {
   assert.equal(QC.checkScope({ from_person_id: 0, items: [], groups: [3] }), 0);
   assert.equal(QC.checkScope({ from_person_id: 9, groups: [3] }), 0);
+});
+
+describe('GET /graph/quran/group-paths', () => {
+  // group 3 = عاصم (5) + حمزة (6); riwaya 1 حفص of عاصم, 2 خلف of حمزة
+  const GROUP = { id: 3, name_ar: 'المجموعة', text_ar: 'قراءة عاصم وحمزة', books: [], items: [{ qiraa_id: 5, riwaya_id: null }, { qiraa_id: 6, riwaya_id: null }] };
+  const RIW = [{ id: 1, qiraa_id: 5, name_ar: 'رواية حفص' }, { id: 2, qiraa_id: 6, name_ar: 'رواية خلف' }];
+  const g = { group_id: 3 };
+  const EDGES = [
+    { ...e(0, 9), groups: [g] },                                  // I read the group on 9
+    { ...e(9, 10), groups: [g], is_general: 0 },                  // 9 on 10 (the meeting point)
+    { ...e(10, 51, [{ qiraa_id: 5 }]), is_general: 0 },           // above 10: per qiraa
+    { ...e(10, 11, [{ qiraa_id: 6 }]), is_general: 0 },
+  ];
+  const groupPaths = async (t, query, stored = null) => {
+    mockQuran(t, EDGES, [GROUP]);
+    t.mock.method(Quran, 'allRiwayat', async () => RIW);
+    t.mock.method(GM, 'getQiraaById', async id => ({ id: Number(id), imam_id: Number(id) === 5 ? 51 : 11 }));
+    Settings.get.mock.mockImplementation(async (_, key) => (key === 'ijaza' ? stored : null));
+    let body;
+    await graph.quranGroupPaths({ user: { id: 1 }, query: { group_id: '3', ...query } }, { json: b => { body = b; } });
+    return body;
+  };
+  const people = p => p.flatMap(gr => gr.chains.map(c => [gr.firstEdge, ...c].map(x => x.to_person_id)));
+
+  test('stop (the default): up to the meeting point, then the stop step', async (t) => {
+    const b = await groupPaths(t, {});
+    assert.equal(b.mode, 'stop');
+    assert.deepEqual(people(b.paths), [[9, 10, -9]]);
+    const stop = b.paths[0].chains[0].at(-1);
+    assert.equal(stop.group_stop, true);
+    assert.match(stop.note, /بأسانيده/);
+    assert.deepEqual(b.riwayat.map(r => r.id), [1, 2]);
+  });
+
+  test('riwaya: the chosen riwaya through my group links (default حفص), from the settings too', async (t) => {
+    const b = await groupPaths(t, { mode: 'riwaya' });
+    assert.equal(b.riwaya_id, 1);
+    assert.deepEqual(people(b.paths)[0].slice(0, 3), [9, 10, 51]);
+    t.mock.restoreAll();
+    const s = await groupPaths(t, {}, { quran_group: { mode: 'riwaya', riwaya_id: 2 } });
+    assert.deepEqual([s.mode, s.riwaya_id], ['riwaya', 2]);
+  });
+
+  test('all: one route per member', async (t) => {
+    const b = await groupPaths(t, { mode: 'all' });
+    assert.equal(b.paths.length, 2);
+    assert.deepEqual(people(b.paths).map(c => c.slice(0, 3)), [[9, 10, 51], [9, 10, 11]]);
+  });
+
+  test('an unknown group is 404', async (t) => {
+    mockQuran(t, EDGES, [GROUP]);
+    t.mock.method(Quran, 'allRiwayat', async () => RIW);
+    await assert.rejects(graph.quranGroupPaths({ user: { id: 1 }, query: { group_id: '99' } }, { json: () => {} }), e => e.status === 404);
+  });
 });

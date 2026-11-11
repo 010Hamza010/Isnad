@@ -50,10 +50,18 @@ export const joinArabic = items => items.map((x, i) => (i === 0 ? x : `و${x}`))
 // By transmission *kind* (from the API), never by type id: ids differ between databases.
 const READ_KINDS = new Set(['qiraa', 'ard']);
 
-/** Does a Quran connection cover the chosen qiraa/riwaya? An unscoped (مطلق) connection covers all. */
-function coversQuran(conn, opt, riwayaQiraa) {
-  if (!conn.items?.length || (!opt.qiraa_id && !opt.riwaya_id)) return true;
-  return conn.items.some(it => {
+const groupIdOf = g => Number(g?.group_id ?? g);
+
+/**
+ * Does a Quran connection cover the chosen option? A group option: the links read with that group.
+ * Otherwise a link's groups count as their members; an unscoped (مطلق) connection covers all.
+ */
+function coversQuran(conn, opt, riwayaQiraa, groups = []) {
+  if (opt.group_id) return (conn.groups || []).some(g => groupIdOf(g) === Number(opt.group_id));
+  const byId = new Map(groups.map(g => [Number(g.id), g]));
+  const items = [...(conn.items || []), ...(conn.groups || []).flatMap(g => byId.get(groupIdOf(g))?.items || [])];
+  if ((!items.length && !conn.groups?.length) || (!opt.qiraa_id && !opt.riwaya_id)) return true;
+  return items.some(it => {
     if (opt.riwaya_id && it.riwaya_id) return String(it.riwaya_id) === String(opt.riwaya_id);
     const q = it.qiraa_id || (it.riwaya_id && riwayaQiraa(it.riwaya_id));
     return !q || String(q) === String(opt.qiraa_id);
@@ -62,14 +70,14 @@ function coversQuran(conn, opt, riwayaQiraa) {
 
 /**
  * The shuyukh I read this matn / riwaya on, from my direct connections (one entry per shaykh).
- * module 'mutoon': { matnId }; module 'quran': { option, riwayaQiraa(id) → qiraa_id }.
+ * module 'mutoon': { matnId }; module 'quran': { option, riwayaQiraa(id) → qiraa_id, groups (with items) }.
  */
-export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = () => null } = {}) {
+export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = () => null, groups = [] } = {}) {
   const seen = new Map();
   conns.forEach(c => {
     if (Number(c.from_person_id) !== 0 || !READ_KINDS.has(c.tx_kind)) return;
     if (module === 'mutoon' && String(c.matn_id) !== String(matnId)) return;
-    if (module === 'quran' && (!option || !coversQuran(c, option, riwayaQiraa))) return;
+    if (module === 'quran' && (!option || !coversQuran(c, option, riwayaQiraa, groups))) return;
     if (module !== 'mutoon' && module !== 'quran') return;
     const prev = seen.get(c.to_person_id);
     if (!prev || (!prev.reading_mode && c.reading_mode)) {
@@ -114,6 +122,20 @@ export function readingPhrase({ qiraa, riwaya, tariq } = {}) {
   else if (qiraa) parts.push(`ب${withWord(qiraa, 'قراءة')}`);
   if (tariq) parts.push(`من ${withWord(tariq, 'طريق')}`);
   return parts.join(' ');
+}
+
+/** A group's isnad after the meeting point (ابن الجزري…); the default is in the ijaza settings. */
+export const GROUP_MODES = [
+  { value: 'stop', label: 'التوقف عند نقطة الالتقاء («بأسانيده…»)' },
+  { value: 'all', label: 'إسناد كل إمام (مع التحويل ح)' },
+  { value: 'riwaya', label: 'إسناد رواية واحدة' },
+];
+
+/** A group read: «بالقراءات العشر الصغرى بمضمن الشاطبية والدرة» (books optional). */
+export function groupReading({ text, books = [] } = {}) {
+  if (!text) return '';
+  const titles = books.map(b => b.title ?? b).filter(Boolean);
+  return `ب${text}${titles.length ? ` بمضمن ${titles.join(' و')}` : ''}`;
 }
 
 /** ISO date (YYYY-MM-DD) → { gregorian, hijri } in Arabic with Latin digits. */
