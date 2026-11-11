@@ -9,9 +9,9 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, groupReading, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, withReads, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
+import { fillTemplate, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, withReads, isnadSections, multiIsnadTemplate, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
-import { quranOptions, quranGroupOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
+import { ijazaChoices, addChoice, choicesReading, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
 
 
@@ -21,9 +21,10 @@ const slimChain = c => c.filter(e => !e.group_stop).map(e => ({
   to_person_id: e.to_person_id, to_name: e.to_name, to_death_year: e.to_death_year || null, tx_name: e.tx_name || null, tx_kind: e.tx_kind || null,
 }));
 
-// the picker key of an issued ijaza (for a correction)
-const keyOf = c => (c.details?.group?.id ? `g${c.details.group.id}`
-  : c.riwaya_id ? `r${c.riwaya_id}-t${c.tariq_id || 0}` : c.qiraa_id ? `q${c.qiraa_id}` : '');
+// the picked choices of an issued ijaza (for a correction); older ijazat had one choice
+const keysOf = c => (c.details?.choices?.length ? c.details.choices.map(x => x.key)
+  : c.details?.group?.id ? [`g${c.details.group.id}`]
+  : c.riwaya_id ? [`r${c.riwaya_id}-t${c.tariq_id || 0}`] : c.qiraa_id ? [`q${c.qiraa_id}`] : []);
 
 const MODULES = [
   { value: 'mutoon', label: 'متن' },
@@ -60,11 +61,13 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const [student, setStudent] = useState(c0?.student_name || '');
   const [studentGender, setStudentGender] = useState('M');
   const [matnId, setMatnId]   = useState(c0?.matn_id || '');
-  const [quranKey, setQuranKey] = useState(c0?.module === 'quran' ? keyOf(c0) : '');
-  // a group: what follows the meeting point for this ijaza (null = the settings' default)
-  const [groupMode, setGroupMode] = useState(c0?.details?.group?.mode ?? null);
-  const [groupRiwaya, setGroupRiwaya] = useState(c0?.details?.group?.riwaya_id ?? null);
-  const [groupInfo, setGroupInfo] = useState(null);   // { mode, riwaya_id, riwayat } from the server
+  // Quran: what the ijaza is given for — several groups, whole qiraat, riwayat (keys of ijazaChoices)
+  const [picked, setPicked] = useState(c0?.module === 'quran' ? keysOf(c0) : []);
+  // a group or whole qiraa: what follows the meeting point for this ijaza (null = the settings' default),
+  // and the riwaya to continue with, per choice
+  const [groupMode, setGroupMode] = useState(c0?.details?.group_mode ?? c0?.details?.group?.mode ?? null);
+  const [riwayaFor, setRiwayaFor] = useState(c0?.details?.riwaya_for ?? {});
+  const [infos, setInfos] = useState({});   // key → { mode, riwaya_id, riwayat } from the server
   const [txId, setTxId]       = useState(c0?.transmission_type_id ?? null);
   const [correctionReason, setCorrectionReason] = useState('');
   // default «كيف أخذ عنك»: this database's قراءة type (ids differ between databases)
@@ -89,31 +92,42 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const [customOpen, setCustomOpen] = useState(false);
   const [saving, setSaving]   = useState(false);
 
-  const qOpts = useMemo(() => quranOptions(refs.conns, refs), [refs]);
-  const gOpts = useMemo(() => quranGroupOptions(refs.conns, refs.groups), [refs]);
-  const groupOpt = gOpts.find(o => o.key === quranKey);
-  const quranOpt = qOpts.flatMap(([, o]) => o).find(o => o.key === quranKey);
-  const quranSel = groupOpt || quranOpt;   // something chosen in «القراءة / الرواية»
-  const readOption = groupOpt ? { group_id: groupOpt.group_id } : quranOpt;
+  const choices = useMemo(() => ijazaChoices(refs.conns, refs), [refs]);
+  const pickedChoices = picked.map(k => choices.find(c => c.key === k)).filter(Boolean);
+  const pickedKey = pickedChoices.map(c => c.key).join('+');
+  const single = pickedChoices.length === 1 ? pickedChoices[0] : null;
   const matn = refs.mutoon.find(m => String(m.id) === String(matnId));
+  // where the isnad comes from: the matn, or each Quran choice (one paragraph each)
+  const sources = module === 'mutoon' && matnId ? [{ key: 'm', url: `/graph/matn/${matnId}/paths`, label: '' }]
+    : module === 'quran' ? pickedChoices : [];
+  const riwayaQiraa = id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id;
 
   // my teachers' order for this matn / riwaya (saved, reused by later ijazat): the teachers paragraph
   // and the routes of the isnad follow it
   const [orders, setOrders] = useState({});
   useEffect(() => { setOrders(refs.orders || {}); }, [refs.orders]);
-  const orderKey = teacherOrderKey(module, { matnId, quranKey });
+  const orderKey = teacherOrderKey(module, { matnId, quranKey: pickedKey });
   const orderIds = (orderKey && orders[orderKey]) || [];
   // teachers I left out of the teachers paragraph (also saved per matn / riwaya)
   const hiddenIds = (orderKey && orders[`${orderKey}.hidden`]) || [];
   const isHidden = id => hiddenIds.some(h => String(h) === String(id));
 
   // shuyukh I read this matn / riwaya on — listed before the isnad when there are two or more
-  const teachersRaw = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
-    matnId, option: groupOpt ? { group_id: groupOpt.group_id } : quranOpt, groups: refs.groups,
-    riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
-    // what I read on each shaykh: a group holding this ijaza's choice first, else only what concerns it
-    readOf: module === 'quran' && quranSel ? links => readOnShaykh(links, readOption, refs) : null,
-  }), [module, matnId, quranSel?.key, refs]);
+  const teachersRaw = useMemo(() => {
+    if (module === 'mutoon') return readingTeachers(refs.matnConns, module, { matnId });
+    if (module !== 'quran') return [];
+    // every choice's shuyukh, once each, with what I read on him for each choice
+    // (a group holding the choice first, else only what concerns it)
+    const merged = new Map();
+    pickedChoices.forEach(c => readingTeachers(refs.conns, module, {
+      option: c.readOption, groups: refs.groups, riwayaQiraa, readOf: links => readOnShaykh(links, c.readOption, refs),
+    }).forEach(t => {
+      const prev = merged.get(t.id);
+      merged.set(t.id, !prev ? t : { ...prev, reading_mode: prev.reading_mode || t.reading_mode,
+        read: [...new Set([prev.read, t.read].filter(Boolean))].join(' و') || null });
+    }));
+    return [...merged.values()];
+  }, [module, matnId, pickedKey, refs]); // eslint-disable-line react-hooks/exhaustive-deps
   const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds).filter(t => !isHidden(t.id)),
     [teachersRaw, orderIds.join(','), hiddenIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const teachersText = teachersParagraph(teachers, settings.teachers_sentence?.[module],
@@ -126,41 +140,42 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   // Hijri follows the Gregorian date; it stays editable (moon sighting may differ by a day)
   const changeDate = v => { setDate(v); setHijri(formatDates(v).hijri); };
 
-  // load the isnad paths for the chosen matn / riwaya
+  // load the isnad paths of every source; each route keeps its source (pick)
+  const riwayaForKey = JSON.stringify(riwayaFor);
   useEffect(() => {
-    setGroups([]); setChosen(new Set()); setIsnadText('');
-    const groupQuery = () => {
-      const p = new URLSearchParams({ group_id: groupOpt.group_id });
-      if (groupMode) p.append('mode', groupMode);
-      if (groupRiwaya) p.append('riwaya_id', groupRiwaya);
-      return p.toString();
-    };
-    const url = module === 'mutoon' && matnId ? `/graph/matn/${matnId}/paths`
-              : module === 'quran' && groupOpt ? `/graph/quran/group-paths?${groupQuery()}`
-              : module === 'quran' && quranOpt ? `/graph/quran/paths?${quranPathParams(quranOpt)}` : null;
-    if (!url) return;
+    setGroups([]); setChosen(new Set()); setIsnadText(''); setInfos({});
+    if (!sources.length) return;
     let alive = true;
     setPathsLoading(true);
-    api.get(url)
-      .then(r => {
+    const urlOf = src => {
+      if (!src.url.includes('group-paths')) return src.url;
+      const p = new URLSearchParams();
+      if (groupMode) p.append('mode', groupMode);
+      if (riwayaFor[src.key]) p.append('riwaya_id', riwayaFor[src.key]);
+      return p.toString() ? `${src.url}&${p}` : src.url;
+    };
+    Promise.all(sources.map(src => api.get(urlOf(src)).then(r => ({ key: src.key, data: r.data }))))
+      .then(res => {
         if (!alive) return;
-        setGroups(r.data.paths); setChosen(new Set(r.data.paths.map((_, i) => i)));
-        setGroupInfo(r.data.group ? { mode: r.data.mode, riwaya_id: r.data.riwaya_id, riwayat: r.data.riwayat } : null);
+        const all = res.flatMap(x => x.data.paths.map(g => ({ ...g, pick: x.key })));
+        setGroups(all); setChosen(new Set(all.map((_, i) => i)));
+        setInfos(Object.fromEntries(res.filter(x => x.data.group).map(x => [x.key, { mode: x.data.mode, riwaya_id: x.data.riwaya_id, riwayat: x.data.riwayat }])));
       })
       .catch(e => alive && notifyError(e))
       .finally(() => alive && setPathsLoading(false));
     return () => { alive = false; };
-  }, [module, matnId, quranKey, groupMode, groupRiwaya]);
+  }, [module, matnId, pickedKey, groupMode, riwayaForKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // render the chosen chains to prose with the user's keyword settings + this ijaza's style
   const shuyukh = useMemo(() => orderablePeople(groups, teachersRaw, orderIds), [groups, teachersRaw, orderIds.join(',')]);
   const routeOrder = shuyukh.flatMap(p => p.routes);               // group indices in my order
   const chosenKey = useDebounced(`${[...chosen].sort().join(',')}|${routeOrder.join(',')}`, 200);
-  // Quran: every link says what was read on it, «قرأ بقراءة عاصم على فلان، وهو قرأ بها على …»
-  const chains = useMemo(() => {
-    const list = groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i]));
-    return module === 'quran' && readOption ? withReads(list, readOption, refs) : list;
-  }, [groups, chosenKey, module, readOption?.key, readOption?.group_id, refs]); // eslint-disable-line react-hooks/exhaustive-deps
+  // one section per source; Quran: every link says what was read on it, «قرأ بقراءة عاصم على فلان، وهو قرأ بها على …»
+  const sections = useMemo(() => sources.map(src => {
+    const list = groupsToChains(routeOrder.filter(i => chosen.has(i) && groups[i].pick === src.key).map(i => groups[i]));
+    return { key: src.key, label: src.label, chains: module === 'quran' ? withReads(list, src.readOption, refs) : list };
+  }), [groups, chosenKey, module, pickedKey, refs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const chains = useMemo(() => sections.flatMap(x => x.chains), [sections]);
   // the tree shows people only: not the stop of a group's isnad
   const treeChains = useMemo(() => chains.map(c => c.filter(e => !e.group_stop)), [chains]);
 
@@ -183,27 +198,30 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
     const renderStyle = { clear: clearWords, deathYears, noteMarkers: true, hideMyReadingMode: listsTeachers };
     // the matn's author is written «المؤلف فلان» in his own colour
     const authorId = module === 'mutoon' ? matn?.author_id ?? null : null;
-    Promise.all([
-      api.post('/isnad-text/render', { chains, style: renderStyle, authorId }),
-      api.post('/isnad-text/render', { chains, style: { ...renderStyle, fullNames: true }, authorId }),
-    ])
-      .then(([r, full]) => {
+    // each section is rendered on its own: several Quran choices → «وإسنادي في رواية قالون: …» paragraphs
+    const parts = sections.filter(x => x.chains.length);
+    Promise.all(parts.map(x => Promise.all([
+      api.post('/isnad-text/render', { chains: x.chains, style: renderStyle, authorId }),
+      api.post('/isnad-text/render', { chains: x.chains, style: { ...renderStyle, fullNames: true }, authorId }),
+    ])))
+      .then(res => {
         if (!alive) return;
-        setIsnadText(r.data.text);
-        setIsnadFull({ text: full.data.text, names: full.data.names || [] });
-        setAuthorNames([...new Set([...(r.data.authorNames || []), ...(full.data.authorNames || [])])]);
-        setNotes(Object.fromEntries(r.data.persons.filter(p => p.description).map(p => [p.id, p])));
+        // every source in its place (one without a route is left out of the paragraphs); v: 0 normal, 1 full names
+        const textOf = v => isnadSections(sections.map(x => ({ label: x.label, text: parts.includes(x) ? res[parts.indexOf(x)][v].data.text : '' })));
+        setIsnadText(textOf(0));
+        setIsnadFull({ text: textOf(1),
+          names: [...new Set(res.flatMap(([, full]) => full.data.names || []))] });
+        setAuthorNames([...new Set(res.flatMap(([r, full]) => [...(r.data.authorNames || []), ...(full.data.authorNames || [])]))]);
+        setNotes(Object.fromEntries(res.flatMap(([r]) => r.data.persons).filter(p => p.description).map(p => [p.id, p])));
       })
       .catch(e => alive && notifyError(e));
     return () => { alive = false; };
-  }, [chains, clearWords, deathYears, listsTeachers, matn?.author_id]);
+  }, [sections, clearWords, deathYears, listsTeachers, matn?.author_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // a group: «بالقراءات العشر الصغرى» (title), with its books in the text «… بمضمن الشاطبية والدرة»
-  const reading = groupOpt ? groupReading({ text: groupOpt.groupText })
-    : quranOpt ? readingPhrase({
-      qiraa: quranOpt.qiraa_id ? quranOpt.qiraaLabel : null, riwaya: quranOpt.riwayaLabel, tariq: quranOpt.tariqLabel,
-    }) : '';
-  const readWith = groupOpt ? groupReading({ text: groupOpt.groupText, books: groupOpt.books }) : reading;
+  // «برواية قالون عن نافع ورواية حفص عن عاصم» (title); in the text a group's books «… بمضمن الشاطبية والدرة»
+  const reading = module === 'quran' ? choicesReading(pickedChoices) : '';
+  const readWith = module === 'quran' ? choicesReading(pickedChoices, { withBooks: true }) : '';
+  const one = single?.kind === 'riwaya' ? single.readOption : null;   // one riwaya: its own placeholders
   // the Quran is always «قرأ» for now
   const qiraaTx = refs.txTypes.find(t => t.kind === 'qiraa')?.id ?? txId;
   const effTx = module === 'quran' ? qiraaTx : txId;
@@ -214,8 +232,8 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
     'كيفية_الأخذ': takhammulPhrase(kindOfType(refs.txTypes, effTx), studentGender),
     'المتن': matn?.title, 'المؤلف': matn?.author_name,
     // an unrestricted (مطلق) Quran connection has no riwaya to name
-    'ما_قرئ': readWith || (quranOpt ? 'بما قرأ به عليّ' : ''), 'القراءة': quranOpt?.qiraa_id ? quranOpt.qiraaLabel : '',
-    'الرواية': quranOpt?.riwayaLabel, 'الطريق': quranOpt?.tariqLabel,
+    'ما_قرئ': readWith, 'القراءة': one?.qiraa_id ? one.qiraaLabel : single?.kind === 'whole' ? single.label : '',
+    'الرواية': one?.riwayaLabel, 'الطريق': one?.tariqLabel,
     'الإسناد': isnadText, 'المجيز': settings.shaykh_name, 'المكان': place,
     'شيوخ_القراءة': teachersText,
     'التاريخ': dates.gregorian, 'التاريخ_الهجري': hijri,
@@ -224,10 +242,12 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
     optional: ['شيوخ_القراءة'],
     genders: { 'المجاز': studentGender, 'المجيز': settings.shaykh_gender || 'M' },
   };
-  const filled = fillTemplate(settings.templates[module], values, fillOpts);
+  // several choices: the paragraphs say «وإسنادي في …» themselves
+  const template = module === 'quran' && sources.length > 1 ? multiIsnadTemplate(settings.templates[module]) : settings.templates[module];
+  const filled = fillTemplate(template, values, fillOpts);
   const body = manual.normal ?? filled.text;
   // the detailed version names everyone in full (kunya + nisba); each version can be edited by hand
-  const generatedDetailed = fillTemplate(settings.templates[module], { ...values, 'الإسناد': isnadFull.text || isnadText }, fillOpts).text;
+  const generatedDetailed = fillTemplate(template, { ...values, 'الإسناد': isnadFull.text || isnadText }, fillOpts).text;
   const bodyDetailed = manual.detailed ?? generatedDetailed;
   const generatedTitle = titleFromTemplate(settings.titles?.[module], module, { ...values, 'القراءة_والرواية': reading });
   const title = titleText ?? generatedTitle;
@@ -241,14 +261,16 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const save = async () => {
     if (!student.trim()) return toast('اكتب اسم المجاز', 'error');
     if (module === 'mutoon' && !matnId) return toast('اختر المتن', 'error');
+    if (module === 'quran' && !pickedChoices.length) return toast('اختر ما قرأ', 'error');
     setSaving(true);
     try {
       const { data: saved } = await api.post('/ijazat', {
         student_name: student, module, title, body,
         matn_id: module === 'mutoon' ? matnId : null,
-        qiraa_id: module === 'quran' ? quranOpt?.qiraa_id : null,
-        riwaya_id: module === 'quran' ? quranOpt?.riwaya_id : null,
-        tariq_id: module === 'quran' ? quranOpt?.tariq_id : null,
+        // one riwaya or whole qiraa: also in the columns (search, older views); several: in details.choices
+        qiraa_id: module === 'quran' ? (one?.qiraa_id || (single?.kind === 'whole' ? single.qiraa_id : null)) : null,
+        riwaya_id: module === 'quran' ? one?.riwaya_id || null : null,
+        tariq_id: module === 'quran' ? one?.tariq_id || null : null,
         transmission_type_id: module === 'general' ? null : effTx,
         issued_at: date, issued_hijri: hijri, place,
         style: 'normal',
@@ -257,10 +279,11 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
         // dual: issued as a normal (printed, one page) and a detailed (footnotes + tree) version
         details: {
           notes, chains: chains.map(slimChain), design: designFinal, people, dual: module !== 'general',
-          ...(module === 'quran' && groupOpt ? { group: {
-            id: groupOpt.group_id, name_ar: groupOpt.groupLabel, text_ar: groupOpt.groupText,
-            mode: groupInfo?.mode ?? groupMode, riwaya_id: groupInfo?.mode === 'riwaya' ? groupInfo.riwaya_id : null,
-          } } : {}),
+          ...(module === 'quran' ? {
+            choices: pickedChoices.map(c => ({ key: c.key, kind: c.kind, label: c.label })),
+            ...(Object.keys(infos).length ? { group_mode: Object.values(infos)[0].mode,
+              riwaya_for: Object.fromEntries(Object.entries(infos).filter(([, i]) => i.mode === 'riwaya').map(([k, i]) => [k, i.riwaya_id])) } : {}),
+          } : {}),
           ...(module !== 'general' && bodyDetailed !== body ? { body_detailed: bodyDetailed } : {}),
           ...(titleStyle ? { titleStyle } : {}),
           scale,
@@ -321,32 +344,36 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
           </Field>
         )}
         {module === 'quran' && (
-          <Field label="القراءة / الرواية" hint={!qOpts.length && !gOpts.length ? 'سجّل قراءتك على شيوخك أولاً' : undefined}>
-            <select className="select" value={quranKey} onChange={e => { setQuranKey(e.target.value); setGroupMode(null); setGroupRiwaya(null); resetText(); }}>
-              <option value="">— اختر —</option>
-              {gOpts.length > 0 && (
-                <optgroup label="المجموعات">
-                  {gOpts.map(o => <option key={o.key} value={o.key}>◆ {o.groupLabel}</option>)}
-                </optgroup>
-              )}
-              {qOpts.map(([label, opts]) => (
-                <optgroup key={label} label={label}>
-                  {opts.map(o => <option key={o.key} value={o.key}>{[o.riwayaLabel || o.qiraaLabel, o.tariqLabel].filter(Boolean).join(' — ')}</option>)}
-                </optgroup>
+          <Field label="ما قرأ عليّ" hint={!choices.length ? 'سجّل قراءتك على شيوخك أولاً' : 'مجموعة، أو قراءة كاملة، أو رواية أو أكثر — لكلٍّ إسناده'}>
+            <Combobox value="" allowClear={false} placeholder="أضف مجموعة أو قراءة أو رواية…"
+              opts={choices.filter(c => !picked.includes(c.key)).map(c => ({ value: c.key, label: c.name, sub: c.kind === 'group' ? 'مجموعة' : c.kind === 'whole' ? 'قراءة كاملة' : undefined }))}
+              onChange={k => { if (k) { setPicked(p => addChoice(p, k, choices)); resetText(); } }} />
+            <div className="chips scope-chips">
+              {pickedChoices.map(c => (
+                <span key={c.key} className={`badge scope-chip ${c.kind === 'group' ? 'badge-purple' : 'badge-accent'}`}>
+                  {c.name}
+                  <button type="button" className="chip-x" aria-label={`إزالة ${c.name}`} title="إزالة"
+                    onClick={() => { setPicked(p => p.filter(k => k !== c.key)); resetText(); }}><Icon name="x" size={12} /></button>
+                </span>
               ))}
-            </select>
+            </div>
           </Field>
         )}
-        {module === 'quran' && groupOpt && (
-          <Field label="الإسناد بعد نقطة الالتقاء" hint="بعد آخر شيخ يجمع المجموعة كلها (كابن الجزري). الافتراضي من تبويب «القوالب».">
-            <select className="select" value={groupInfo?.mode ?? groupMode ?? ''} onChange={e => { setGroupMode(e.target.value); resetText(); }}>
+        {module === 'quran' && pickedChoices.some(c => c.kind !== 'riwaya') && (
+          <Field label="الإسناد بعد نقطة الالتقاء" hint="للمجموعات والقراءات الكاملة: بعد آخر شيخ يجمعها كلها (كابن الجزري). الافتراضي من تبويب «القوالب».">
+            <select className="select" value={groupMode ?? Object.values(infos)[0]?.mode ?? settings.quran_group?.mode ?? 'stop'}
+              onChange={e => { setGroupMode(e.target.value); resetText(); }}>
               {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
-            {(groupInfo?.mode ?? groupMode) === 'riwaya' && (groupInfo?.riwayat?.length ?? 0) > 0 && (
-              <select className="select" style={{ marginTop: 6 }} value={groupInfo?.riwaya_id ?? ''} onChange={e => { setGroupRiwaya(Number(e.target.value)); resetText(); }}>
-                {groupInfo.riwayat.map(r => <option key={r.id} value={r.id}>{r.name_ar}{r.qiraa_name ? ` — ${r.qiraa_name}` : ''}</option>)}
-              </select>
-            )}
+            {pickedChoices.filter(c => infos[c.key]?.mode === 'riwaya' && infos[c.key].riwayat?.length > 1).map(c => (
+              <label key={c.key} className="row small" style={{ gap: 8, marginTop: 6 }}>
+                <span style={{ minWidth: 120 }}>{c.name}:</span>
+                <select className="select" value={infos[c.key].riwaya_id ?? ''}
+                  onChange={e => { setRiwayaFor(f => ({ ...f, [c.key]: Number(e.target.value) })); resetText(); }}>
+                  {infos[c.key].riwayat.map(r => <option key={r.id} value={r.id}>{r.name_ar}{r.qiraa_name ? ` — ${r.qiraa_name}` : ''}</option>)}
+                </select>
+              </label>
+            ))}
           </Field>
         )}
         {module === 'mutoon' && (
@@ -390,7 +417,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
                             <input type="checkbox" checked={chosen.has(gi)} onChange={e => setChosen(s => {
                               const n = new Set(s); if (e.target.checked) n.add(gi); else n.delete(gi); return n;
                             })} />
-                            <span>في الإسناد{groups[gi].chains.length > 1 && <span className="muted"> · {groups[gi].chains.length} طرق</span>}</span>
+                            <span>في الإسناد{pickedChoices.length > 1 && <> — {pickedChoices.find(c => c.key === groups[gi].pick)?.name}</>}{groups[gi].chains.length > 1 && <span className="muted"> · {groups[gi].chains.length} طرق</span>}</span>
                           </label>
                         </>
                       ))}
@@ -407,9 +434,9 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
             سيُذكر قبل الإسناد أنك قرأت على {teachers.length} من الشيوخ: {teachers.map(t => t.name).join('، ')}.
           </div>
         )}
-        {module === 'quran' && groupOpt && !pathsLoading && !groups.length && (
-          <div className="munqati" style={{ marginBottom: 14 }}><Icon name="alert" size={16} /> لا يوجد سند لهذه المجموعة من اتصالاتك</div>
-        )}
+        {module === 'quran' && !pathsLoading && pickedChoices.filter(c => !groups.some(g => g.pick === c.key)).map(c => (
+          <div key={c.key} className="munqati" style={{ marginBottom: 14 }}><Icon name="alert" size={16} /> لا يوجد سند لـ«{c.name}» من اتصالاتك</div>
+        ))}
         {module === 'mutoon' && matnId && !pathsLoading && !groups.length && (
           <div className="munqati" style={{ marginBottom: 14 }}><Icon name="alert" size={16} /> لا يوجد سند متصل لهذا المتن</div>
         )}

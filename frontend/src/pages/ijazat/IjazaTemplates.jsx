@@ -96,9 +96,9 @@ export default function IjazaTemplates({ settings, options, onSaved }) {
           )}
           {which === 'quran' && (
             <>
-              <div className="section-label">إجازة المجموعات (كالعشر الصغرى)</div>
+              <div className="section-label">إجازة المجموعات والقراءات الكاملة (كالعشر الصغرى، قراءة عاصم)</div>
               <Field label="الإسناد بعد نقطة الالتقاء"
-                hint="نقطة الالتقاء: آخر شيخ تحمل اتصالاتُه المجموعةَ كلها (كابن الجزري). يمكن تغييره لكل إجازة على حدة.">
+                hint="نقطة الالتقاء: آخر شيخ تحمل اتصالاتُه المجموعةَ أو القراءةَ كلها (كابن الجزري). «رواية واحدة»: الرواية المختارة إن كانت فيها، وإلا حفص، وإلا أولها. يمكن تغييره لكل إجازة على حدة.">
                 <select className="select" value={group.mode} onChange={e => setGroup({ mode: e.target.value })}>
                   {GROUP_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
