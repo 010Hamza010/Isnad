@@ -2,6 +2,8 @@ const GM = require('../models/GraphModel');
 const { buildPaths, formatPath } = require('../services/graphService');
 const Settings = require('../models/SettingsModel');
 const DR = require('../services/disabledRoutes');
+const H = require('../services/heights');
+const Mutoon = require('../models/MutoonModel');
 
 const DISABLED_KEY = 'disabled_routes';
 const disabledIn = async (userId, scope) => ((await Settings.get(userId, DISABLED_KEY)) || {})[scope] || [];
@@ -113,6 +115,32 @@ async function quranData(userId, query) {
 exports.quranData = quranData;
 
 exports.quranPaths = async (req, res) => res.json(await quranData(req.user.id, req.query));
+
+// «أعلى أسانيدك»: fewest wasait to each matn's author and, per riwaya of my Quran links, to the Prophet ﷺ
+exports.heights = async (req, res) => {
+  const userId = req.user.id;
+  const [mutoon, allEdges, pMap, disabled, items] = await Promise.all([
+    Mutoon.findAll(), GM.getAllMatnEdges(), GM.getAllPersons(),
+    Settings.get(userId, DISABLED_KEY), GM.getMyQuranItems(userId),
+  ]);
+  const mutoonRows = [];
+  for (const m of mutoon) {
+    if (!m.author_id) continue;
+    // same edges as getMatnWithEdges: this matn's, and the general ones
+    const edges = allEdges.filter(e => Number(e.matn_id) === Number(m.id) || e.matn_id == null || Number(e.is_general_ijaza));
+    const raw = buildPaths(edges, 0, [m.author_id], null, null, null, pMap, null, null);
+    if (!raw.length) continue;
+    const { paths } = DR.applyDisabled(raw.map(g => formatPath(g, pMap)), (disabled || {})[DR.matnScope(m.id)] || []);
+    const h = H.fewest(paths);
+    if (h) mutoonRows.push({ id: m.id, label: m.title, author_name: m.author_name, ...h });
+  }
+  const quranRows = [];
+  for (const o of H.quranOptions(items)) {
+    const h = H.fewest((await quranData(userId, o)).paths, -1);
+    if (h) quranRows.push({ ...o, ...h });
+  }
+  res.json({ mutoon: H.byHeight(mutoonRows), quran: H.byHeight(quranRows) });
+};
 
 exports.fullGraph = async (req, res) => res.json(await GM.getFullGraphData(req.user.id, req.query.module || 'both'));
 // body: { keys: [routeKey], disabled: true|false } → { keys: the scope's disabled routes }

@@ -14,6 +14,26 @@ exports.getMatnWithEdges = async (matnId) => {
   return { matn, edges: await TxType.annotate(edges) };
 };
 
+/** Every matn connection, to compute the routes of all mutoon at once (see getMatnWithEdges). */
+exports.getAllMatnEdges = async () => {
+  const [edges] = await db.query(
+    `SELECT mc.*, tt.name_ar as tx_name FROM matn_connections mc
+     LEFT JOIN transmission_types tt ON mc.transmission_type_id = tt.id`);
+  return TxType.annotate(edges);
+};
+
+/** Qiraa / riwaya items of my own Quran links (from me, person 0). */
+exports.getMyQuranItems = async (userId) => {
+  const [rows] = await db.query(
+    `SELECT DISTINCT i.qiraa_id, i.riwaya_id, rv.name_ar AS riwaya_name, q.name_ar AS qiraa_name
+     FROM quran_connections qc
+     JOIN quran_connection_items i ON i.connection_id = qc.id
+     LEFT JOIN riwayat rv ON rv.id = i.riwaya_id
+     LEFT JOIN qiraat q ON q.id = COALESCE(rv.qiraa_id, i.qiraa_id)
+     WHERE qc.user_id = ? AND qc.from_person_id = 0`, [userId]);
+  return rows;
+};
+
 exports.getQuranEdgesForUser = async (userId) => {
   const [edges] = await db.query(
     `SELECT qc.*, tt.name_ar as tx_name FROM quran_connections qc
