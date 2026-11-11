@@ -30,18 +30,40 @@ export function itemLabel(item, lists, { short = false } = {}) {
   return (short ? parts.map(p => p.replace(/^(قراءة|رواية|طريق)\s+/, '')) : parts).join(' › ');
 }
 
+const groupId = g => Number(g?.group_id ?? g);
+
+/** A link's items with the members of its groups (lists.groups: [{ id, items }]). */
+export function linkItems(link, lists) {
+  const byId = new Map((lists.groups || []).map(g => [Number(g.id), g]));
+  return [...(link.items || []), ...(link.groups || []).flatMap(g => byId.get(groupId(g))?.items || [])];
+}
+
+/** «القراءات العشر الصغرى وقراءة يعقوب» — the groups by their text, then the other items. */
+export function scopeText(link, lists) {
+  const byId = new Map((lists.groups || []).map(g => [Number(g.id), g]));
+  const groups = (link.groups || []).map(g => {
+    const full = byId.get(groupId(g)) || g;
+    return full.text_ar || full.name_ar;
+  }).filter(Boolean);
+  const items = (link.items || []).map(it => itemLabel(it, lists)).filter(Boolean);
+  return [...groups, ...items].join(' و');
+}
+
 /**
- * Every qiraa, then its riwayat, then their turuq, as Combobox options:
- * { value: itemKey, label, sub, item }. The sub line says what a broader pick covers.
+ * Every group (value «g<id>», with `group`), then every qiraa, its riwayat and their turuq, as
+ * Combobox options: { value, label, sub, item | group }. The sub line says what a broader pick covers.
+ * withTuruq: false for a group's members (qiraat and riwayat only).
  */
-export function scopeOptions(lists) {
+export function scopeOptions(lists, { withTuruq = true } = {}) {
   const { qiraat, riwayat, turuq } = lists;
-  const out = [];
+  const out = (lists.groups || []).map(g => ({
+    value: `g${g.id}`, label: `◆ ${g.name_ar}`, sub: `مجموعة — ${g.items?.length || 0}`, group: g,
+  }));
   const opt = (item, sub) => out.push({ value: itemKey(item), label: itemLabel(item, lists), sub, item });
   for (const q of qiraat) {
     opt({ qiraa_id: Number(q.id), riwaya_id: null, tariq_id: null }, 'كل الروايات');
     for (const r of riwayat.filter(x => Number(x.qiraa_id) === Number(q.id))) {
-      const own = turuq.filter(t => Number(t.riwaya_id) === Number(r.id));
+      const own = withTuruq ? turuq.filter(t => Number(t.riwaya_id) === Number(r.id)) : [];
       opt({ qiraa_id: Number(q.id), riwaya_id: Number(r.id), tariq_id: null }, own.length ? 'كل الطرق' : undefined);
       for (const t of own) opt({ qiraa_id: Number(q.id), riwaya_id: Number(r.id), tariq_id: Number(t.id) });
     }
@@ -67,7 +89,7 @@ export function addItem(items, item, lists) {
  */
 export function linkMatchesScope(link, filter, lists) {
   if (!filter || Number(link.is_general)) return true;
-  const items = link.items || [];
+  const items = linkItems(link, lists);
   if (!items.length) return false;
   const want = Number(filter.slice(1));
   return items.some(raw => {

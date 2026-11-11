@@ -9,6 +9,7 @@ import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import { personOptions, rowOptions } from '../../utils/options';
+import QuranGroups from './QuranGroups';
 
 const TYPES = {
   qiraat:  { label: 'القراءات', one: 'قراءة', icon: 'quran' },
@@ -71,15 +72,21 @@ export default function QuranMasterData() {
   const openAdd  = () => setForm({ type: tab, name_ar: '', description: '' });
   const openEdit = row => setForm({ type: tab, ...clean(row) });
   const rows = tab === 'qiraat' ? qiraat : tab === 'riwayat' ? riwayat : turuq;
+  const tabs = (
+    <Segmented value={tab} onChange={setTab} options={[
+      { value: 'qiraat', label: 'القراءات', count: qiraat.length },
+      { value: 'riwayat', label: 'الروايات', count: riwayat.length },
+      { value: 'turuq', label: 'الطرق', count: turuq.length },
+      { value: 'groups', label: 'المجموعات' },
+    ]} />
+  );
+
+  if (tab === 'groups') return <><div className="toolbar">{tabs}</div><QuranGroups qiraat={qiraat} riwayat={riwayat} /></>;
 
   return (
     <>
       <div className="toolbar">
-        <Segmented value={tab} onChange={setTab} options={[
-          { value: 'qiraat', label: 'القراءات', count: qiraat.length },
-          { value: 'riwayat', label: 'الروايات', count: riwayat.length },
-          { value: 'turuq', label: 'الطرق', count: turuq.length },
-        ]} />
+        {tabs}
         <div className="spacer" />
         <button className="btn btn-primary" onClick={openAdd}><Icon name="plus" size={16} /> {TYPES[tab].one} جديدة</button>
       </div>

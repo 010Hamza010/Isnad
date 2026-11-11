@@ -8,29 +8,29 @@ import ShareButton from '../../components/isnad/ShareButton';
 import EmptyState from '../../components/ui/EmptyState';
 import { countLabel } from '../../utils/text';
 import { quranOptions, quranPathParams } from '../../utils/quranOptions';
+import { scopeText } from '../../utils/quranScope';
 
 const PATH_FORMS = ['سند واحد', 'سندان', 'أسانيد', 'سنداً'];
 
 export default function QuranIsnads() {
   const { notifyError } = useUI();
   const { data, loading: listLoading } = useLoad(async () => {
-    const [c, q, r, t] = await Promise.all([
+    const [c, q, r, t, g] = await Promise.all([
       api.get('/quran-connections'), api.get('/quran/qiraat'),
-      api.get('/quran/riwayat'), api.get('/quran/turuq'),
+      api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/quran/groups'),
     ]);
-    return { conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data };
-  }, [], { conns: [], qiraat: [], riwayat: [], turuq: [] });
-  const { conns, qiraat, riwayat, turuq } = data;
+    return { conns: c.data, qiraat: q.data, riwayat: r.data, turuq: t.data, groups: g.data };
+  }, [], { conns: [], qiraat: [], riwayat: [], turuq: [], groups: [] });
+  const { conns, qiraat, riwayat, turuq, groups } = data;
 
   const [selected, setSelected] = useState(null);
   const [result, setResult]     = useState(null);
   const [loading, setLoading]   = useState(false);
 
   const qMap = useMemo(() => new Map(qiraat.map(q => [Number(q.id), q])), [qiraat]);
-  const rMap = useMemo(() => new Map(riwayat.map(r => [Number(r.id), r])), [riwayat]);
-  const tMap = useMemo(() => new Map(turuq.map(t => [Number(t.id), t])), [turuq]);
 
-  const options = useMemo(() => quranOptions(conns, { qiraat, riwayat, turuq }), [conns, qiraat, riwayat, turuq]);
+  const lists = useMemo(() => ({ qiraat, riwayat, turuq, groups }), [qiraat, riwayat, turuq, groups]);
+  const options = useMemo(() => quranOptions(conns, lists), [conns, lists]);
 
   // quiet: reload in place (after a route is switched off/on) without the skeleton
   const load = async (opt, { quiet = false } = {}) => {
@@ -43,14 +43,9 @@ export default function QuranIsnads() {
     finally { if (!quiet) setLoading(false); }
   };
 
-  // what I read on my shaykh, and the books «بمضمنها» (links above mine carry neither)
+  // what was read on each step («القراءات العشر الصغرى»), and the books «بمضمنها» on my link
   const scopeOf = edge => {
-    const read = (edge.items || []).map(it => {
-      const r = it.riwaya_id ? rMap.get(Number(it.riwaya_id)) : null;
-      const q = qMap.get(Number(r?.qiraa_id || it.qiraa_id));
-      const t = it.tariq_id ? tMap.get(Number(it.tariq_id)) : null;
-      return [q?.name_ar, r?.name_ar, t?.name_ar].filter(Boolean).join(' · ');
-    }).filter(Boolean).join('، ');
+    const read = scopeText(edge, lists);
     const books = edge.books?.length ? `بمضمن ${edge.books.map(b => b.title).join(' و')}` : '';
     return [read, books].filter(Boolean).join(' — ') || null;
   };

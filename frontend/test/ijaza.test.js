@@ -65,6 +65,15 @@ test('quranOptions: what my links name, a whole qiraa split into its riwayat, on
   assert.equal(quranPathParams(groups[2][1][0]), 'qiraa_id=9');
 });
 
+test('quranOptions: a link read with a group counts as its members', () => {
+  const lookups = {
+    qiraat: [{ id: 5, name_ar: 'قراءة عاصم' }], riwayat: [{ id: 6, name_ar: 'رواية شعبة', qiraa_id: 5 }, { id: 7, name_ar: 'رواية حفص', qiraa_id: 5 }],
+    turuq: [], groups: [{ id: 3, items: [{ qiraa_id: 5, riwaya_id: null }] }],
+  };
+  const groups = quranOptions([{ from_person_id: 0, to_name: 'الشيخ د', items: [], groups: [{ group_id: 3 }] }], lookups);
+  assert.deepEqual(groups[0][1].map(o => o.riwayaLabel), ['رواية شعبة', 'رواية حفص']);
+});
+
 test('groupsToChains prepends the first edge and keeps direct links', () => {
   const f = { to_person_id: 1 };
   assert.deepEqual(groupsToChains([{ firstEdge: f, chains: [[{ to_person_id: 2 }]] }, { firstEdge: f, chains: [] }]),

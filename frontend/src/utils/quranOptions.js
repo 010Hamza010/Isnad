@@ -8,7 +8,7 @@ import { isMe } from './text.js';
  * option: { key, qiraa_id, riwaya_id, tariq_id, qiraaLabel, riwayaLabel, tariqLabel, teachers }
  * (tariq_id 0 = my links of that riwaya without a tariq).
  */
-export function quranOptions(conns, { qiraat, riwayat, turuq }) {
+export function quranOptions(conns, { qiraat, riwayat, turuq, groups = [] }) {
   const qMap = new Map(qiraat.map(q => [Number(q.id), q]));
   const rMap = new Map(riwayat.map(r => [Number(r.id), r]));
   const tMap = new Map(turuq.map(t => [Number(t.id), t]));
@@ -27,8 +27,11 @@ export function quranOptions(conns, { qiraat, riwayat, turuq }) {
     if (!opt.teachers.includes(conn.to_name)) opt.teachers.push(conn.to_name);
   };
 
+  const groupsById = new Map((groups || []).map(g => [Number(g.id), g]));
   conns.filter(c => isMe(c.from_person_id)).forEach(conn => {
-    (conn.items || []).forEach(it => {
+    // a group counts as its members (qiraat or riwayat)
+    const fromGroups = (conn.groups || []).flatMap(g => groupsById.get(Number(g.group_id ?? g))?.items || []);
+    [...(conn.items || []), ...fromGroups].forEach(it => {
       const tariq = it.tariq_id ? tMap.get(Number(it.tariq_id)) : null;
       const riwaya_id = Number(it.riwaya_id || tariq?.riwaya_id) || null;
       const qiraa_id = Number(rMap.get(riwaya_id)?.qiraa_id || it.qiraa_id) || null;
