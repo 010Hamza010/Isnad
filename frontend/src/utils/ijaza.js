@@ -72,19 +72,59 @@ function coversQuran(conn, opt, riwayaQiraa, groups = []) {
  * The shuyukh I read this matn / riwaya on, from my direct connections (one entry per shaykh).
  * module 'mutoon': { matnId }; module 'quran': { option, riwayaQiraa(id) → qiraa_id, groups (with items) }.
  */
-export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = () => null, groups = [] } = {}) {
+export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = () => null, groups = [], readOf = null } = {}) {
   const seen = new Map();
+  const linksTo = new Map();   // each shaykh's links that count (for readOf)
   conns.forEach(c => {
     if (Number(c.from_person_id) !== 0 || !READ_KINDS.has(c.tx_kind)) return;
     if (module === 'mutoon' && String(c.matn_id) !== String(matnId)) return;
     if (module === 'quran' && (!option || !coversQuran(c, option, riwayaQiraa, groups))) return;
     if (module !== 'mutoon' && module !== 'quran') return;
+    linksTo.set(c.to_person_id, [...(linksTo.get(c.to_person_id) || []), c]);
     const prev = seen.get(c.to_person_id);
     if (!prev || (!prev.reading_mode && c.reading_mode)) {
       seen.set(c.to_person_id, { id: c.to_person_id, name: c.to_name, gender: c.to_gender === 'F' ? 'F' : 'M', reading_mode: c.reading_mode || null });
     }
   });
-  return [...seen.values()];
+  const out = [...seen.values()];
+  // Quran: what I read on each of them («بالقراءات العشر الصغرى»), see readOnShaykh
+  return readOf ? out.map(t => ({ ...t, read: readOf(linksTo.get(t.id)) || null })) : out;
+}
+
+/**
+ * What I read on a shaykh, for this ijaza: a group read on him that covers the ijaza's choice comes
+ * first («بالقراءات العشر الصغرى»), else only what the ijaza is about («برواية حفص عن عاصم») — never
+ * the other qiraat read on him. links: my links to him; option: the ijaza's choice ({ group_id } or
+ * { qiraa_id, riwaya_id }); fallback: the phrase for the choice (teacherReading).
+ */
+export function readOnShaykh(links, option, { groups = [], fallback = '' } = {}) {
+  if (!option) return '';
+  const byId = new Map(groups.map(g => [Number(g.id), g]));
+  const covers = g => (option.group_id ? Number(g.id) === Number(option.group_id)
+    : (g.items || []).some(m => (m.riwaya_id ? Number(m.riwaya_id) === Number(option.riwaya_id)
+      : Number(m.qiraa_id) === Number(option.qiraa_id))));
+  for (const c of links || []) {
+    for (const ref of c.groups || []) {
+      const g = byId.get(groupIdOf(ref)) || ref;
+      if (g && covers(g)) return groupReading({ text: g.text_ar || g.name_ar });
+    }
+  }
+  return fallback;
+}
+
+const bare = (name, word) => String(name || '').replace(new RegExp(`^${word}\\s+`), '');
+
+/** The phrase for an ijaza's Quran choice, per shaykh: «برواية حفص عن عاصم من طريق …», «بقراءة نافع», «بالقراءات العشر الصغرى». */
+export function teacherReading(opt) {
+  if (!opt) return '';
+  if (opt.group_id) return groupReading({ text: opt.groupText });
+  const imam = bare(opt.qiraaLabel, 'قراءة');
+  if (opt.riwayaLabel) {
+    const r = withWord(opt.riwayaLabel, 'رواية');
+    const tariq = opt.tariqLabel ? ` من ${withWord(opt.tariqLabel, 'طريق')}` : '';
+    return `ب${r}${imam && !r.includes(' عن ') ? ` عن ${imam}` : ''}${tariq}`;
+  }
+  return opt.qiraaLabel ? `ب${withWord(opt.qiraaLabel, 'قراءة')}` : '';
 }
 
 /**
@@ -98,7 +138,7 @@ export function teachersParagraph(teachers, sentence, words = {}, titles = { M: 
   const items = teachers.map(t => {
     const mode = { heart: words.heart, looking: words.looking }[t.reading_mode];
     const title = t2[t.gender === 'F' ? 'F' : 'M'];
-    const name = title ? `${title} ${t.name}` : t.name;
+    const name = `${title ? `${title} ${t.name}` : t.name}${t.read ? ` ${t.read}` : ''}`;
     return mode ? `${name} ${mode}` : name;
   });
   return sentence.replace('{الشيوخ}', joinArabic(items));
