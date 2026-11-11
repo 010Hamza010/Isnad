@@ -1,133 +1,160 @@
-# إسناد — Isnad Management App
+# إسناد — Isnad
 
-A full-stack web application for managing **أسانيد** (chains of transmission) for both **متون** (classical texts) and **قرآن** (Quranic recitation).
+A personal web app for a shaykh or student to record their **أسانيد** (chains of transmission) for **المتون** (classical texts) and the **قرآن** (qiraat / riwayat / turuq), see every chain up to the author or to the Prophet ﷺ, and issue verifiable **إجازات** to students.
+
+You only enter direct links (who you read with, and who they read with). The app builds the full chains by itself.
+
+The interface is Arabic and right-to-left. One instance belongs to one person: the account is created on first run and there is no public registration.
 
 ## Features
 
-- **متون module** — manage matn chains: add connections, auto-resolve complete paths to the author
-- **قرآن module** — manage Quran chains by قراءة / رواية / طريق
-- **Shared persons** — one profile per person, used across both modules
-- **Graph view** — vis-network interactive graph of the full transmission network
-- **Auto path resolution** — enter only direct connections, the app builds full chains automatically
-- **Munqatiʿ support** — incomplete chains are shown naturally when no path reaches the end
-- **JWT authentication** — secure login/register
+**Isnads**
+- **Persons (الأعلام)**: one profile per person (name, kunya, nisba, death year, region, gender, bio), shared by the mutoon and Quran modules. Each person has a permanent code so they can be matched across instances.
+- **Matn links**: a link is either for one matn or **general** («عام — لكل المتون»). A general link to your own shaykh opens every matn he holds. Links above him only count when they name the matn.
+- **Quran links**: one link can cover several qiraa / riwaya / tariq items, with nested turuq, khatmat count, date, meeting and reading mode.
+- **Automatic routes**: every path from you to the author or to the Prophet ﷺ is resolved, numbered and grouped by shaykh. Chains that stop short are shown as munqatiʿ. You can switch individual routes off per matn or per riwaya.
+- **Isnad views**: tree, prose text (configurable wording, tahwil «ح», restarts with «ويرويه»), reading mode and the full vis-network graph.
+- **Fast entry**: paste an isnad as text. Names are resolved against your persons, you review them, and the persons and links are saved in one step.
+
+**Ijazat**
+- Generate an ijaza from your isnad (normal or detailed with margin notes and a tree), with designs and templates. Export to PDF, freeze the document and keep it in the archive.
+- Every ijaza carries a signed QR code and a short code (`ISN-XXXX-XXXX`). The verification page checks whether it is valid, revoked or altered.
+
+**Data**
+- Share one isnad as a file (by names and person codes). The importer previews who is who before writing anything.
+- Export or import your whole **thabat** (mutoon, general and Quran links, master data, bios). The import merges and skips what already exists.
+- Full backup and restore from the settings page. The previous data is kept automatically before every restore.
+
+**Account**
+- Change your username or password, sign out other devices, and set your profile (full name, short name, gender, place) used in ijazat and isnad text.
 
 ## Stack
 
-| Layer    | Technology             |
-|----------|------------------------|
-| Backend  | Node.js + Express      |
-| Database | MySQL 8                |
-| Frontend | React 18 + Vite        |
-| Graph    | vis-network            |
-| Auth     | JWT + bcryptjs         |
-| Deploy   | Docker + docker-compose|
+| Layer    | Technology                                                        |
+|----------|-------------------------------------------------------------------|
+| Backend  | Node.js, Express, mysql2, JWT (jsonwebtoken), bcryptjs            |
+| Database | MySQL 8 / MariaDB                                                 |
+| Frontend | React 18, Vite, React Router, vis-network, jsPDF, html2canvas, qrcode |
+| Tests    | Node's built-in test runner (`node --test`)                       |
 
-## Quick Start (Docker)
+## Getting started
+
+Requirements: Node.js 18+ and MySQL 8 or MariaDB.
+
+### 1. Database
+
+Use your own MySQL server, or start the one in `docker-compose.yml`:
 
 ```bash
-# 1. Copy env file
-cp .env.example .env
-# Edit .env — set strong DB_PASSWORD and JWT_SECRET
-
-# 2. Build and run
-docker-compose up --build -d
-
-# 3. Open browser
-open http://localhost
-
-# 4. Register your account on the login page
+docker compose up -d db        # MySQL on :3306, loads schema.sql on first start
 ```
 
-## Local Development
+Without Docker, create the database and load the schema:
 
-### Backend
+```bash
+mysql -u root -p -e "CREATE DATABASE isnad_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+mysql -u root -p isnad_db < schema.sql
+```
+
+`schema.sql` contains the base tables and the seed data (transmission types, etc.). The newer changes live in `backend/migrations/` and are applied in step 2.
+
+### 2. Backend
+
 ```bash
 cd backend
-cp ../.env.example .env    # fill in your local MySQL credentials
+cp .env.example .env           # set DB_* and a long random JWT_SECRET
 npm install
-npm run dev                # runs on :4000
+npm run migrate                # apply pending migrations (safe to re-run)
+npm run dev                    # API on http://localhost:4000
 ```
 
-### Frontend
+### 3. Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev                # runs on :5173, proxies /api → :4000
+npm run dev                    # http://localhost:5173, proxies /api → :4000
 ```
 
-## Project Structure
+Open the app. On first run, the login page asks you to create the account.
+
+For production, run `npm run build` in `frontend/` and serve `frontend/dist/` behind a web server that proxies `/api` to the backend. The `backend` and `frontend` services in `docker-compose.yml` expect a `Dockerfile` in each folder, and none is included yet.
+
+## Scripts
+
+| Where      | Command                   | What it does                                                 |
+|------------|---------------------------|--------------------------------------------------------------|
+| `backend`  | `npm run dev` / `start`   | API with nodemon / plain node                                |
+| `backend`  | `npm test`                | Unit tests (no database needed)                              |
+| `backend`  | `npm run migrate`         | Apply pending `migrations/NNN_name.sql`                      |
+| `backend`  | `npm run migrate:status`  | List applied / pending migrations                            |
+| `backend`  | `npm run backup [-- file]`| Plain-SQL dump to `backend/backups/` (no mysqldump needed)   |
+| `frontend` | `npm run dev`             | Vite dev server                                              |
+| `frontend` | `npm run build`           | Production build to `frontend/dist/`                         |
+| `frontend` | `npm test`                | Unit tests                                                   |
+
+## Configuration (`backend/.env`)
+
+| Variable      | Default      | Notes                                   |
+|---------------|--------------|-----------------------------------------|
+| `PORT`        | `4000`       | API port                                |
+| `DB_HOST`     | `localhost`  |                                         |
+| `DB_PORT`     | `3306`       |                                         |
+| `DB_USER`     | `root`       |                                         |
+| `DB_PASSWORD` |              |                                         |
+| `DB_NAME`     | `isnad_db`   |                                         |
+| `JWT_SECRET`  |              | Required                                |
+| `JWT_EXPIRES` | `7d`         | Session length without «remember me» (with it: 30 days) |
+| `QR_SECRET`   | `JWT_SECRET` | Optional. Signs the ijaza QR codes; keep it stable or old QR codes stop verifying |
+
+Never commit `.env`.
+
+## Project structure
 
 ```
-isnad2/
-├── schema.sql                   ← DB schema + seed data
+.
+├── schema.sql                     base schema + seed data
 ├── docker-compose.yml
-├── .env.example
+├── Isnad-API.postman_collection.json
 ├── backend/
-│   ├── Dockerfile
-│   ├── package.json
 │   ├── config/db.js
-│   └── src/
-│       ├── index.js
-│       ├── middleware/auth.js
-│       └── routes/
-│           ├── auth.js
-│           ├── persons.js
-│           ├── txTypes.js
-│           ├── mutoon.js
-│           ├── matnConnections.js
-│           ├── quran.js             ← qiraat / riwayat / turuq
-│           ├── quranConnections.js
-│           └── graph.js             ← path traversal engine
+│   ├── migrations/                NNN_name.sql, applied by scripts/migrate.js
+│   ├── scripts/                   migrate.js, backup.js
+│   ├── src/
+│   │   ├── index.js               Express app, routes mounted under /api
+│   │   ├── routes/ controllers/   HTTP layer
+│   │   ├── models/                SQL access
+│   │   ├── services/              path engine, isnad text, ijaza, share/thabat, backup
+│   │   ├── middleware/            auth (JWT + token version), error handler
+│   │   └── utils/
+│   └── test/
 └── frontend/
-    ├── Dockerfile
-    ├── nginx.conf
     ├── vite.config.js
-    └── src/
-        ├── App.jsx
-        ├── context/AuthContext.jsx
-        ├── utils/api.js
-        ├── utils/pathResolver.js
-        ├── styles/globals.css
-        ├── components/shared/
-        │   ├── Sidebar.jsx
-        │   ├── Modal.jsx
-        │   ├── ChainTree.jsx
-        │   ├── PersonSelect.jsx
-        │   └── EmptyState.jsx
-        └── pages/
-            ├── shared/Login.jsx
-            ├── shared/Persons.jsx
-            ├── shared/Graph.jsx
-            ├── mutoon/MatnIsnads.jsx
-            ├── mutoon/MatnConnections.jsx
-            ├── mutoon/MatnList.jsx
-            ├── quran/QuranIsnads.jsx
-            ├── quran/QuranConnections.jsx
-            └── quran/QuranMasterData.jsx
+    ├── src/
+    │   ├── routes.js              navigation, titles
+    │   ├── pages/                 mutoon, quran, ijazat, shared (persons, graph, settings…)
+    │   ├── components/            isnad views, ijaza certificate, UI kit
+    │   ├── context/ hooks/ utils/
+    │   └── styles/
+    └── test/
 ```
 
-## API Reference
+## API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/register | Register user |
-| POST | /api/auth/login | Login |
-| GET/POST/PUT/DELETE | /api/persons | Persons CRUD |
-| GET/POST/PUT/DELETE | /api/mutoon | Mutoon CRUD |
-| GET/POST/PUT/DELETE | /api/matn-connections | Matn connections |
-| GET/POST/PUT/DELETE | /api/quran/qiraat | Qiraat CRUD |
-| GET/POST/PUT/DELETE | /api/quran/riwayat | Riwayat CRUD |
-| GET/POST/PUT/DELETE | /api/quran/turuq | Turuq CRUD |
-| GET/POST/PUT/DELETE | /api/quran-connections | Quran connections |
-| GET | /api/graph/matn/:id/paths | Resolve matn isnad paths |
-| GET | /api/graph/quran/paths?riwaya_id= | Resolve quran isnad paths |
-| GET | /api/graph/full?module= | Full graph data for vis-network |
+Every endpoint is under `/api` and needs `Authorization: Bearer <token>`, except `/health`, `/auth/status`, `/auth/setup` and `/auth/login`. In link bodies, `from_person_id: 0` means you.
 
-## Next Steps (future)
+| Area | Endpoints |
+|------|-----------|
+| Auth | `GET /auth/status` · `POST /auth/setup` · `POST /auth/login` · `GET /auth/me` · `PUT /auth/username` · `PUT /auth/password` · `POST /auth/logout-others` |
+| Profile | `GET/PUT /profile` |
+| Persons, mutoon | `GET/POST /persons`, `PUT/DELETE /persons/:id` · same for `/mutoon` |
+| Links | `/matn-connections`, `/quran-connections` (CRUD) |
+| Quran master data | `/quran/qiraat`, `/quran/riwayat`, `/quran/turuq` (CRUD) |
+| Transmission types | `GET /tx-types` · `GET /tx-types/kinds` · `PUT /tx-types/:id/kind` |
+| Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` |
+| Isnad text | `GET/PUT/DELETE /isnad-text/settings` · `POST /isnad-text/render` · `POST /isnad-text/parse` · `POST /isnad-text/import` |
+| Ijazat | `GET/PUT/DELETE /ijazat/settings` · `GET /ijazat/teacher-orders` · `PUT /ijazat/teacher-orders/:key` · `POST /ijazat/verify` · CRUD on `/ijazat` · `POST/DELETE /ijazat/:id/revoke` · `POST /ijazat/:id/freeze` · `GET /ijazat/:id/document` · `POST/GET /ijazat/:id/pdf` |
+| Share | `GET /share/matn/:id` · `GET /share/quran` · `POST /share/preview` · `POST /share/import` · `GET /share/thabat` · `POST /share/thabat/preview` · `POST /share/thabat/import` |
+| Backup | `GET /data/summary` · `GET /data/backup` · `GET /data/backup/pre-restore` · `POST /data/restore` |
 
-- Export isnad as PDF / image
-- Print-ready chain view
-- Multiple users with separate isnads
-- Quran: عدّ الآيات and رموز الضبط
-- Import from existing databases
+`Isnad-API.postman_collection.json` has a ready request for each endpoint. Run **Auth → Setup** (or **Login**) first: the token is stored in the `token` collection variable and sent with every other request.
