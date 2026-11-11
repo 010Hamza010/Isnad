@@ -619,22 +619,36 @@ describe('Quran «منقطع» jump', () => {
   });
 });
 
-describe('what I read on my shaykh (read_with)', () => {
+describe('what was read on each link (read_with)', () => {
   const q = (from, fromName, to, toName, extra = {}) => ({ ...e(from, fromName, to, toName, 2), ...extra });
+  const clear = { style: { clear: true, heartWord: 'غيباً' } };
 
-  test('written after my shaykh\'s name only, before the reading mode', () => {
-    const text = T.renderChain([q(0, 'أنا', 1, 'زيد', { read_with: 'بالقراءات العشر الصغرى', reading_mode: 'heart' }), q(1, '', 2, 'عمرو', { read_with: 'لا يُكتب' })],
-      { style: { clear: true, heartWord: 'غيباً' } });
-    assert.match(text, /زيد بالقراءات العشر الصغرى غيباً/);
-    assert.doesNotMatch(text, /لا يُكتب/);
+  test('before «على» on every level, «بها» as given, nothing on a plain link', () => {
+    const text = T.renderChain([
+      q(0, 'أنا', 1, 'زيد', { read_with: 'بقراءة عاصم', reading_mode: 'heart' }),
+      q(1, '', 2, 'عمرو', { read_with: 'بالقراءات العشر الصغرى' }),
+      q(2, '', 3, 'بكر', { read_with: 'بها' }),
+      q(3, '', 4, 'عاصم'),
+    ], clear);
+    assert.equal(text, 'قرأتُ بقراءة عاصم على شيخنا زيد غيباً، وهو قرأ بالقراءات العشر الصغرى على عمرو، وهو قرأ بها على بكر، وهو قرأ على عاصم');
   });
 
-  test('my shaykhs written together each keep theirs', () => {
-    const text = T.renderChains([
-      [q(0, 'أنا', 1, 'زيد', { read_with: 'بالقراءات العشر الصغرى' }), q(1, '', 3, 'بكر')],
-      [q(0, 'أنا', 2, 'عمرو', { read_with: 'برواية حفص عن عاصم' }), q(2, '', 3, 'بكر')],
-    ], { style: { clear: true } });
-    assert.match(text, /زيد بالقراءات العشر الصغرى/);
-    assert.match(text, /عمرو برواية حفص عن عاصم/);
+  test('a keyword without «على»: after the name', () => {
+    assert.equal(T.renderChain([q(0, 'أنا', 1, 'زيد', { read_with: 'بقراءة عاصم' })]), 'أخبرنا شيخنا زيد بقراءة عاصم');
+  });
+
+  test('my shaykhs together: the same read once before «على», different reads after each name', () => {
+    const same = T.renderChains([
+      [q(0, 'أنا', 1, 'زيد', { read_with: 'بقراءة عاصم' }), q(1, '', 3, 'بكر', { read_with: 'بها' })],
+      [q(0, 'أنا', 2, 'عمرو', { read_with: 'بقراءة عاصم' }), q(2, '', 3, 'بكر', { read_with: 'بها' })],
+    ], clear);
+    assert.equal(same, 'قرأتُ بقراءة عاصم على شيخنا زيد، وشيخنا عمرو، كلاهما قرأ بها على بكر');
+    const differ = T.renderChains([
+      [q(0, 'أنا', 1, 'زيد', { read_with: 'بالقراءات العشر الصغرى' }), q(1, '', 3, 'بكر', { read_with: 'بها' })],
+      [q(0, 'أنا', 2, 'عمرو', { read_with: 'بقراءة عاصم' }), q(2, '', 3, 'بكر')],
+    ], clear);
+    assert.match(differ, /زيد بالقراءات العشر الصغرى/);
+    assert.match(differ, /عمرو بقراءة عاصم/);
+    assert.match(differ, /كلاهما قرأ على بكر/);   // they read differently on him: not said
   });
 });
