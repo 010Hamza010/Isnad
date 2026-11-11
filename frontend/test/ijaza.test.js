@@ -282,3 +282,15 @@ test('readingTeachers with readOf, and the teachers paragraph names what was rea
     'منهم: {الشيوخ}.', { heart: 'غيباً' });
   assert.equal(p, 'منهم: الشيخ أ بالقراءات العشر الصغرى غيباً، والشيخ ب برواية حفص عن عاصم.');
 });
+
+test('withReads: plain from the rawi upward (rawi, imam and their shaykhs)', () => {
+  const lists = { ...L, riwayat: L.riwayat.map(r => (r.id === 11 ? { ...r, rawi_id: 51 } : r)), qiraat: L.qiraat.map(q => (q.id === 1 ? { ...q, imam_id: 50 } : q)) };
+  const chain = [
+    { from_person_id: 0, to_person_id: 9, items: [{ qiraa_id: 1 }] },
+    { from_person_id: 9, to_person_id: 51, items: [{ qiraa_id: 1 }] },          // on حفص: still said («بها»)
+    { from_person_id: 51, to_person_id: 50, items: [{ riwaya_id: 11 }] },       // حفص → عاصم: plain
+    { from_person_id: 50, to_person_id: 60, items: [{ riwaya_id: 11 }] },       // عاصم → السلمي: plain
+    { from_person_id: 60, to_person_id: 61, items: [{ qiraa_id: 1 }] },         // above: plain
+  ];
+  assert.deepEqual(withReads([chain], HAFS, lists)[0].map(e => e.read_with), ['بقراءة عاصم', 'بها', undefined, undefined, undefined]);
+});

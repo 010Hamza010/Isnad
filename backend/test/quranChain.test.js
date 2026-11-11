@@ -181,3 +181,17 @@ describe('GET /graph/quran/group-paths', () => {
     await assert.rejects(graph.quranGroupPaths({ user: { id: 1 }, query: { group_id: '99' } }, { json: () => {} }), e => e.status === 404);
   });
 });
+
+test('GET /graph/quran/paths: the imam\'s shaykhs per riwaya (عاصم: حفص via السلمي, شعبة via زر)', async (t) => {
+  mockQuran(t, [
+    e(0, 9, [{ riwaya_id: 1 }]),
+    { ...e(9, 51), is_general: 1 },
+    { ...e(50, 60, [{ riwaya_id: 1 }]), is_general: 0 },   // عاصم → السلمي: what became حفص
+    { ...e(50, 61, [{ riwaya_id: 2 }]), is_general: 0 },   // عاصم → زر: what became شعبة
+    { ...e(60, -1), is_general: 1 },
+    { ...e(61, -1), is_general: 1 },
+  ]);
+  const p = await paths({ riwaya_id: '1' });
+  const people = p.flatMap(g => g.chains.map(c => [g.firstEdge, ...c].map(x => x.to_person_id)));
+  assert.deepEqual(people, [[9, 51, 50, 60, -1, -2, -3]]);
+});

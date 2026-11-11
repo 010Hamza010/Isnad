@@ -141,12 +141,19 @@ export function readOnShaykh(links, option, lists) {
   return (viaGroup ? readOnLink(viaGroup, option, lists) : null) || reads[0] || '';
 }
 
-/** Each link of the chains gets what was read on it (read_with); the same as the level below → «بها». */
+/**
+ * Each link of the chains gets what was read on it (read_with); the same as the level below → «بها».
+ * From a rawi or an imam upward the links stay plain («وهو قرأ على الإمام عاصم، وهو قرأ على السلمي»):
+ * «برواية حفص عن عاصم» on عاصم's own link would be wrong. Rawis and imams come from lists.riwayat / qiraat.
+ */
 export function withReads(chains, option, lists) {
+  const top = new Set([...(lists.riwayat || []).map(r => Number(r.rawi_id)), ...(lists.qiraat || []).map(q => Number(q.imam_id))].filter(Boolean));
   return chains.map(c => {
     let prev = '';
+    let above = false;
     return c.map((e, i) => {
-      const read = readOnLink(e, option, lists);
+      above = above || top.has(Number(e.from_person_id));
+      const read = above ? '' : readOnLink(e, option, lists);
       const out = read && i > 0 && read === prev ? 'بها' : read;
       prev = read;
       return out ? { ...e, read_with: out } : e;
