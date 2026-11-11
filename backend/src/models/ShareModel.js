@@ -38,9 +38,10 @@ exports.quranNames = async ({ qiraa_id, riwaya_id, tariq_id }) => {
 
 /** Local ids for names written in a shared file (exact names, after normalising on the caller's side). */
 exports.lists = async () => {
-  const [[mutoon], [qiraat], [riwayat], [turuq]] = await Promise.all([
+  const [[mutoon], [qiraat], [riwayat], [turuq], [groups]] = await Promise.all([
     db.query('SELECT id, title FROM mutoon'), db.query('SELECT id, name_ar FROM qiraat'),
     db.query('SELECT id, name_ar, qiraa_id FROM riwayat'), db.query('SELECT id, name_ar, riwaya_id FROM turuq'),
+    db.query('SELECT id, name_ar FROM quran_groups'),
   ]);
-  return { mutoon, qiraat, riwayat, turuq };
+  return { mutoon, qiraat, riwayat, turuq, groups };
 };

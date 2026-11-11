@@ -6,8 +6,11 @@
  *     persons: { me|p<id>: {…} }, mutoon: { m<id>: { title, author, subject, description } },
  *     qiraat: { q<id>: { name_ar, imam } }, riwayat: { r<id>: { name_ar, qiraa, rawi } },
  *     turuq: { t<id>: { name_ar, riwaya, parent } },
+ *     groups: { g<id>: { name_ar, text_ar, description, items: [{ qiraa, riwaya }], books: [m<id>] } },   (v2)
  *     links: [{ from, to, matn|null, tx_kind, reading_mode, description }],          null matn = «عام»
- *     quran: [{ from, to, tx_kind, reading_mode, description, ijaza_date, khatmat_count, meeting_mode, items: [{ qiraa, riwaya, tariq }] }] }
+ *     quran: [{ from, to, tx_kind, reading_mode, description, ijaza_date, khatmat_count, meeting_mode, items: [{ qiraa, riwaya, tariq }],
+ *               is_general, books: [m<id>], groups: [g<id>] }] }                     (the last three: v2)
+ * Books (الشاطبية…) are mutoon of the file; a group is matched here by its name, else created.
  * Persons -1…-3 (النبي ﷺ، جبريل، رب العزة) are fixed everywhere: refs s1…s3, never reviewed.
  * Import never edits what the receiver wrote: existing connections are skipped, a matched
  * person only gets the fields that are empty here.
@@ -19,7 +22,7 @@ const { pickType } = require('./isnadImport');
 const { QURAN_KIND } = require('./quranReading');
 
 const FORMAT = 'isnad-thabat';
-const VERSION = 1;
+const VERSION = 2;   // 2: Quran books, groups and «عام»
 const ME = 'me';
 const REF_RE = /^[\w-]{1,40}$/;
 const UID_RE = /^[0-9a-zA-Z-]{8,36}$/;
@@ -32,6 +35,7 @@ const pref = id => (Number(id) === 0 ? ME : Number(id) < 0 ? `s${-Number(id)}` :
 const sacredId = ref => (/^s[123]$/.test(ref) ? -Number(ref.slice(1)) : null);
 const str = (v, max) => (v == null || v === '' ? null : String(v).slice(0, max));
 const norm = s => normalizeArabic(s || '');
+const groupId = g => Number(g?.group_id ?? g);
 
 /* ───────────── export ───────────── */
 
@@ -43,12 +47,16 @@ function selection(data, { mutoon = true, quran = true } = {}) {
   const ids = new Set();
   [...links, ...qlinks].forEach(c => { ids.add(Number(c.from_person_id)); ids.add(Number(c.to_person_id)); });
   const matnIds = new Set(links.filter(c => c.matn_id != null && !Number(c.is_general_ijaza)).map(c => Number(c.matn_id)));
+  // books read «بمضمنها» on a Quran link, or with a group it was read with
+  const groupIds = new Set(qlinks.flatMap(c => (c.groups || []).map(groupId)));
+  const groups = (data.groups || []).filter(g => groupIds.has(Number(g.id)));
+  [...qlinks.flatMap(c => c.books || []), ...groups.flatMap(g => g.books || [])].forEach(b => matnIds.add(Number(b.matn_id ?? b)));
   data.mutoon.filter(m => matnIds.has(Number(m.id)) && m.author_id != null).forEach(m => ids.add(Number(m.author_id)));
   if (qlinks.length) {
     data.qiraat.forEach(q => q.imam_id != null && ids.add(Number(q.imam_id)));
     data.riwayat.forEach(r => r.rawi_id != null && ids.add(Number(r.rawi_id)));
   }
-  return { links, qlinks, matnIds, personIds: [...ids].filter(id => id > 0) };
+  return { links, qlinks, groups, matnIds, personIds: [...ids].filter(id => id > 0) };
 }
 
 /**
@@ -56,7 +64,7 @@ function selection(data, { mutoon = true, quran = true } = {}) {
  * opts: { mutoon: true | [ids] | false, quran: bool, bios: bool }; sender: { name_ar, uid, gender }.
  */
 function buildThabat(data, opts, sender, now = new Date()) {
-  const { links, qlinks, matnIds, personIds } = selection(data, opts);
+  const { links, qlinks, groups: usedGroups, matnIds, personIds } = selection(data, opts);
   const persons = { [ME]: { uid: sender.uid || null, name_ar: sender.name_ar, gender: sender.gender === 'F' ? 'F' : 'M' } };
   personIds.forEach(id => {
     const p = data.persons.get(id);
@@ -86,15 +94,26 @@ function buildThabat(data, opts, sender, now = new Date()) {
       if (it.riwaya_id) usedR.add(Number(it.riwaya_id));
       if (it.qiraa_id) usedQ.add(Number(it.qiraa_id));
     }));
+    usedGroups.forEach(g => (g.items || []).forEach(it => {
+      if (it.riwaya_id) usedR.add(Number(it.riwaya_id)); else if (it.qiraa_id) usedQ.add(Number(it.qiraa_id));
+    }));
     usedR.forEach(id => { const r = rById.get(id); if (r?.qiraa_id) usedQ.add(Number(r.qiraa_id)); });
     data.qiraat.filter(q => usedQ.has(Number(q.id))).forEach(q => { qiraat[`q${q.id}`] = { name_ar: q.name_ar, imam: q.imam_id == null ? null : known(pref(q.imam_id)) }; });
     data.riwayat.filter(r => usedR.has(Number(r.id))).forEach(r => { riwayat[`r${r.id}`] = { name_ar: r.name_ar, qiraa: `q${r.qiraa_id}`, rawi: r.rawi_id == null ? null : known(pref(r.rawi_id)) }; });
     data.turuq.filter(t => usedT.has(Number(t.id))).forEach(t => { turuq[`t${t.id}`] = { name_ar: t.name_ar, riwaya: t.riwaya_id ? `r${t.riwaya_id}` : null, parent: t.parent_id ? `t${t.parent_id}` : null }; });
   }
+  const groups = {};
+  usedGroups.forEach(g => {
+    groups[`g${g.id}`] = {
+      name_ar: g.name_ar, text_ar: g.text_ar || null, description: g.description || null,
+      items: (g.items || []).map(it => (it.riwaya_id ? { qiraa: null, riwaya: `r${it.riwaya_id}` } : { qiraa: `q${it.qiraa_id}`, riwaya: null })),
+      books: (g.books || []).map(b => `m${b.matn_id ?? b}`),
+    };
+  });
 
   return {
     format: FORMAT, version: VERSION, exported_at: now.toISOString(), from: sender.name_ar,
-    persons, mutoon, qiraat, riwayat, turuq,
+    persons, mutoon, qiraat, riwayat, turuq, groups,
     links: links.map(c => ({
       from: pref(c.from_person_id), to: pref(c.to_person_id),
       matn: c.matn_id == null || Number(c.is_general_ijaza) ? null : `m${c.matn_id}`,
@@ -104,6 +123,9 @@ function buildThabat(data, opts, sender, now = new Date()) {
       from: pref(c.from_person_id), to: pref(c.to_person_id), tx_kind: c.tx_kind || null, reading_mode: c.reading_mode || null,
       description: c.description || null, ijaza_date: c.ijaza_date || null, khatmat_count: c.khatmat_count ?? null, meeting_mode: c.meeting_mode || null,
       items: (c.items || []).map(it => ({ qiraa: it.qiraa_id ? `q${it.qiraa_id}` : null, riwaya: it.riwaya_id ? `r${it.riwaya_id}` : null, tariq: it.tariq_id ? `t${it.tariq_id}` : null })),
+      is_general: !!Number(c.is_general),
+      books: (c.books || []).map(b => `m${b.matn_id ?? b}`),
+      groups: (c.groups || []).map(g => `g${groupId(g)}`),
     })),
   };
 }
@@ -159,6 +181,22 @@ function validateThabat(file) {
     turuq[ref] = { name_ar: named(t, 'الطرق'), riwaya: t.riwaya ?? null, parent: t.parent ?? null };
   });
 
+  const refsIn = (list, known, where) => (Array.isArray(list) ? list : []).slice(0, 50).map(r => {
+    if (!known[r]) throw new HttpError(400, `${where}: مرجع غير موجود في الملف`);
+    return r;
+  });
+  const groups = {};
+  Object.entries(obj('groups', MAX.refs)).forEach(([ref, g]) => {
+    const where = `مجموعة «${String(g?.name_ar ?? ref)}»`;
+    const items = (Array.isArray(g?.items) ? g.items : []).slice(0, 100).map(it => {
+      const q = it?.riwaya ? null : it?.qiraa ?? null, r = it?.riwaya ?? null;
+      if ((q && !qiraat[q]) || (r && !riwayat[r]) || (!q && !r)) throw new HttpError(400, `${where}: قراءة أو رواية غير موجودة في الملف`);
+      return { qiraa: q, riwaya: r };
+    });
+    if (!items.length) throw new HttpError(400, `${where}: بلا قراءات`);
+    groups[ref] = { name_ar: named(g, 'المجموعات'), text_ar: str(g.text_ar, 255), description: str(g.description, 5000), items, books: refsIn(g.books, mutoon, where) };
+  });
+
   const arr = (k, max) => { const a = file[k] || []; if (!Array.isArray(a) || a.length > max) throw new HttpError(400, `قسم «${k}» غير صالح`); return a; };
   const base = (c, i, k) => {
     const where = `${k === 'links' ? 'اتصال' : 'اتصال قرآن'} ${i + 1}`;
@@ -180,9 +218,13 @@ function validateThabat(file) {
       if ((q && !qiraat[q]) || (r && !riwayat[r]) || (t && !turuq[t])) throw new HttpError(400, `اتصال قرآن ${i + 1}: قراءة أو رواية أو طريق غير موجود في الملف`);
       return { qiraa: q, riwaya: r, tariq: t };
     }),
+    // v1 files have none of these: «عام» is then guessed on import (a link above mine naming nothing)
+    is_general: typeof c.is_general === 'boolean' || c.is_general === 0 || c.is_general === 1 ? !!c.is_general : null,
+    books: refsIn(c.books, mutoon, `اتصال قرآن ${i + 1}`),
+    groups: refsIn(c.groups, groups, `اتصال قرآن ${i + 1}`),
   }));
 
-  return { format: FORMAT, version: VERSION, exported_at: str(file.exported_at, 40), from: str(file.from, 200), persons, mutoon, qiraat, riwayat, turuq, links, quran };
+  return { format: FORMAT, version: VERSION, exported_at: str(file.exported_at, 40), from: str(file.from, 200), persons, mutoon, qiraat, riwayat, turuq, groups, links, quran };
 }
 
 /** The file's qiraat / riwayat / turuq → local ids by name (null = created on import). */
@@ -199,6 +241,8 @@ function mapQuran(file, local) {
     const rid = t.riwaya ? map[t.riwaya] : null;
     map[ref] = t.riwaya && rid == null ? null : find(local.turuq, t.name_ar, x => (x.riwaya_id == null ? null : Number(x.riwaya_id)) === (rid == null ? null : Number(rid)));
   });
+  // a group is the same when its name is
+  Object.entries(file.groups || {}).forEach(([ref, g]) => { map[ref] = find(local.groups || [], g.name_ar); });
   return map;
 }
 
@@ -220,7 +264,7 @@ function previewThabat(file, ctx) {
   }));
   const mutoon = Object.entries(file.mutoon).map(([ref, m]) => ({ ref, title: m.title, author: m.author ? file.persons[m.author]?.name_ar ?? null : null, ...resolveMatn(m, ctx.local.mutoon) }));
   const qmap = mapQuran(file, ctx.local);
-  const quranNames = ['qiraat', 'riwayat', 'turuq'].flatMap(k => Object.entries(file[k]).map(([ref, x]) => ({ ref, kind: k, name_ar: x.name_ar, local_id: qmap[ref] })));
+  const quranNames = ['qiraat', 'riwayat', 'turuq', 'groups'].flatMap(k => Object.entries(file[k] || {}).map(([ref, x]) => ({ ref, kind: k, name_ar: x.name_ar, local_id: qmap[ref] })));
   return {
     persons, mutoon, quranNames,
     counts: { persons: persons.length, mutoon: mutoon.length, links: file.links.length, quran: file.quran.length },
@@ -239,7 +283,7 @@ function planThabat(file, picks, ctx) {
   const leftM = Object.keys(file.mutoon).filter(r => mp[r] == null || mp[r] === '');
   if (leftM.length) throw new HttpError(400, `حدّد المتون: ${leftM.map(r => file.mutoon[r].title).join('، ')}`);
 
-  const plan = { persons: [], fills: [], remember: [], qiraat: [], riwayat: [], turuq: [], mutoon: [], matnLinks: [], quranLinks: [] };
+  const plan = { persons: [], fills: [], remember: [], qiraat: [], riwayat: [], turuq: [], groups: [], mutoon: [], matnLinks: [], quranLinks: [] };
 
   // persons: an id here, or «ref:pX» for one created by the import
   const pid = {};
@@ -270,23 +314,35 @@ function planThabat(file, picks, ctx) {
     needQ.add(ref);
     if (k === 'turuq') { const t = file.turuq[ref]; need('riwayat', t.riwaya); need('turuq', t.parent); }
     if (k === 'riwayat') need('qiraat', file.riwayat[ref].qiraa);
+    // a group already here keeps its own members; a new one needs them
+    if (k === 'groups' && qid[ref] == null) file.groups[ref].items.forEach(it => { need('qiraat', it.qiraa); need('riwayat', it.riwaya); });
   };
-  file.quran.forEach(c => c.items.forEach(it => { need('qiraat', it.qiraa); need('riwayat', it.riwaya); need('turuq', it.tariq); }));
+  file.quran.forEach(c => {
+    c.items.forEach(it => { need('qiraat', it.qiraa); need('riwayat', it.riwaya); need('turuq', it.tariq); });
+    (c.groups || []).forEach(g => need('groups', g));
+  });
   const create = (k, ref, row) => { if (qid[ref] == null) { qid[ref] = `ref:${ref}`; plan[k].push({ key: `ref:${ref}`, ...row }); } };
   Object.entries(file.qiraat).filter(([r]) => needQ.has(r)).forEach(([r, q]) => create('qiraat', r, { name_ar: q.name_ar, imam: q.imam ? person(q.imam) : null }));
   Object.entries(file.riwayat).filter(([r]) => needQ.has(r)).forEach(([r, x]) => create('riwayat', r, { name_ar: x.name_ar, qiraa: qid[x.qiraa], rawi: x.rawi ? person(x.rawi) : null }));
   Object.entries(file.turuq).filter(([r]) => needQ.has(r)).forEach(([r, t]) => create('turuq', r, { name_ar: t.name_ar, riwaya: t.riwaya ? qid[t.riwaya] : null, parent: null, parentRef: t.parent }));
   plan.turuq.forEach(t => { t.parent = t.parentRef ? qid[t.parentRef] : null; delete t.parentRef; });
+  const newGroups = Object.entries(file.groups || {}).filter(([r]) => needQ.has(r) && qid[r] == null);
 
   // mutoon: chosen, or created with their author
   const mid = {};
-  const usedM = new Set(file.links.map(l => l.matn).filter(Boolean));
+  const usedM = new Set([...file.links.map(l => l.matn).filter(Boolean),
+    ...file.quran.flatMap(c => c.books || []), ...newGroups.flatMap(([, g]) => g.books)]);
   Object.entries(file.mutoon).forEach(([ref, m]) => {
     if (mp[ref] !== 'new') { mid[ref] = Number(mp[ref]); return; }
     if (!usedM.has(ref)) return;
     mid[ref] = `ref:${ref}`;
     plan.mutoon.push({ key: `ref:${ref}`, title: m.title, author: m.author ? person(m.author) : null, subject: m.subject, description: m.description });
   });
+  const books = refs => [...new Set((refs || []).map(r => mid[r]).filter(v => v != null))];
+  newGroups.forEach(([r, g]) => create('groups', r, {
+    name_ar: g.name_ar, text_ar: g.text_ar, description: g.description, books: books(g.books),
+    items: g.items.map(it => ({ qiraa: it.qiraa ? qid[it.qiraa] : null, riwaya: it.riwaya ? qid[it.riwaya] : null })),
+  }));
 
   const seen = new Set();
   file.links.forEach(l => {
@@ -305,13 +361,17 @@ function planThabat(file, picks, ctx) {
     const from = person(c.from), to = person(c.to);
     if (from === to) return;
     const items = c.items.map(it => ({ qiraa: it.qiraa ? qid[it.qiraa] : null, riwaya: it.riwaya ? qid[it.riwaya] : null, tariq: it.tariq ? qid[it.tariq] : null }));
-    const key = `${from}:${to}:${itemsSignature(items)}`;
+    const groups = [...new Set((c.groups || []).map(g => qid[g]).filter(v => v != null))];
+    const key = `${from}:${to}:${quranSignature(items, groups)}`;
     if (seen.has(`q:${key}`)) return;
     seen.add(`q:${key}`);
     plan.quranLinks.push({
       from, to, items, transmission_type_id: pickType(ctx.types, QURAN_KIND, 'quran'), tx_kind: QURAN_KIND,   // always read (quranReading)
       reading_mode: c.reading_mode, description: c.description, ijaza_date: c.ijaza_date, khatmat_count: c.khatmat_count, meeting_mode: c.meeting_mode,
-      exists: isId(from) && isId(to) && items.every(it => [it.qiraa, it.riwaya, it.tariq].every(v => v == null || isId(v))) && ctx.existingQuran.has(key),
+      groups, books: books(c.books),
+      // never «عام» for me; a v1 file: a link above mine naming nothing (services/quranChain)
+      is_general: from !== 0 && (c.is_general ?? (!items.length && !groups.length)),
+      exists: isId(from) && isId(to) && [...items.flatMap(it => [it.qiraa, it.riwaya, it.tariq]), ...groups].every(v => v == null || isId(v)) && ctx.existingQuran.has(key),
     });
   });
   return plan;
@@ -322,12 +382,16 @@ function itemsSignature(items) {
   return items.map(it => [it.qiraa, it.riwaya, it.tariq].map(v => v ?? '').join('/')).sort().join(',');
 }
 
+/** …and the groups it was read with (same as itemsSignature when there are none). */
+const quranSignature = (items, groups = []) =>
+  `${itemsSignature(items)}${groups.length ? `|g:${[...groups].map(String).sort().join(',')}` : ''}`;
+
 /** What a plan will do, for the preview and the result message. */
 const planCounts = plan => ({
   persons: plan.persons.length, fills: plan.fills.length, mutoon: plan.mutoon.length,
-  quranNames: plan.qiraat.length + plan.riwayat.length + plan.turuq.length,
+  quranNames: plan.qiraat.length + plan.riwayat.length + plan.turuq.length + plan.groups.length,
   links: plan.matnLinks.filter(l => !l.exists).length + plan.quranLinks.filter(l => !l.exists).length,
   existing: plan.matnLinks.filter(l => l.exists).length + plan.quranLinks.filter(l => l.exists).length,
 });
 
-module.exports = { buildThabat, selection, validateThabat, previewThabat, planThabat, mapQuran, itemsSignature, planCounts, FORMAT, ME };
+module.exports = { buildThabat, selection, validateThabat, previewThabat, planThabat, mapQuran, itemsSignature, quranSignature, planCounts, FORMAT, ME };

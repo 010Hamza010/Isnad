@@ -52,6 +52,7 @@ exports.exportQuran = async (req, res) => {
   sendFile(res, [names.riwaya || names.qiraa, names.tariq].filter(Boolean).join('-'), file);
 };
 
+const ids = list => [...new Set((Array.isArray(list) ? list : []).map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 20);
 const same = (a, b) => a && b && normalizeArabic(a) === normalizeArabic(b);
 
 /** Where the file's isnad could go here: a matn with the same title, the same qiraa / riwaya / tariq. */
@@ -61,7 +62,10 @@ async function suggestTarget(target) {
   const qiraa = L.qiraat.find(q => same(q.name_ar, target.qiraa));
   const riwaya = L.riwayat.find(r => same(r.name_ar, target.riwaya) && (!qiraa || r.qiraa_id === qiraa.id));
   const tariq = riwaya && L.turuq.find(t => same(t.name_ar, target.tariq) && t.riwaya_id === riwaya.id);
-  return { item: { qiraa_id: qiraa?.id || riwaya?.qiraa_id || null, riwaya_id: riwaya?.id || null, tariq_id: tariq?.id || null } };
+  // books and groups found here by name (null: not here)
+  const books = (target.books || []).map(title => ({ title, matn_id: L.mutoon.find(m => same(m.title, title))?.id || null }));
+  const groups = (target.groups || []).map(g => ({ ...g, group_id: L.groups.find(x => same(x.name_ar, g.name_ar))?.id || null }));
+  return { item: { qiraa_id: qiraa?.id || riwaya?.qiraa_id || null, riwaya_id: riwaya?.id || null, tariq_id: tariq?.id || null }, books, groups };
 }
 
 // body: { file } → how every person of the file maps here, and where it could go
@@ -72,7 +76,8 @@ exports.preview = async (req, res) => {
   res.json({ file: { from: file.from, exported_at: file.exported_at, target: file.target }, ...preview, suggest: await suggestTarget(file.target) });
 };
 
-// body: { file, picks: { ref: id|'new' }, target: { kind: 'matn'|'general'|'new_matn'|'quran', matn_id?, item? }, link_me, dry_run }
+// body: { file, picks: { ref: id|'new' }, target: { kind: 'matn'|'general'|'new_matn'|'quran', matn_id?, item?, books?, groups? }, link_me, dry_run }
+// (Quran: books / groups = local ids, put on every link created)
 exports.import = async (req, res) => {
   const file = S.validateShare(req.body?.file);
   const { picks = {}, target = {}, link_me = false, dry_run = false } = req.body || {};
@@ -88,6 +93,8 @@ exports.import = async (req, res) => {
     matn_id: target.kind === 'matn' ? Number(target.matn_id) : null,
     items: target.kind === 'quran' && (it.qiraa_id || it.riwaya_id || it.tariq_id)
       ? [{ qiraa_id: it.qiraa_id || null, riwaya_id: it.riwaya_id || null, tariq_id: it.tariq_id || null }] : [],
+    books: target.kind === 'quran' ? ids(target.books) : [],
+    groups: target.kind === 'quran' ? ids(target.groups) : [],
     userId: req.user.id,
     remember,
   };

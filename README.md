@@ -22,7 +22,7 @@ The interface is Arabic and right-to-left. One instance belongs to one person: t
 
 **Data**
 - Share one isnad as a file (by names and person codes). The importer previews who is who before writing anything.
-- Export or import your whole **thabat** (mutoon, general and Quran links, master data, bios). The import merges and skips what already exists.
+- Export or import your whole **thabat** (mutoon, general and Quran links with their books, groups and «عام», master data, bios). The import merges and skips what already exists.
 - Full backup and restore from the settings page. The previous data is kept automatically before every restore.
 
 **Account**
@@ -151,7 +151,7 @@ Every endpoint is under `/api` and needs `Authorization: Bearer <token>`, except
 | Links | `/matn-connections`, `/quran-connections` (CRUD) |
 | Quran master data | `/quran/qiraat`, `/quran/riwayat`, `/quran/turuq` (CRUD) |
 | Transmission types | `GET /tx-types` · `GET /tx-types/kinds` · `PUT /tx-types/:id/kind` |
-| Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` |
+| Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `GET /graph/quran/group-paths?group_id=&mode=stop/all/riwaya&riwaya_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` |
 | Isnad text | `GET/PUT/DELETE /isnad-text/settings` · `POST /isnad-text/render` · `POST /isnad-text/parse` · `POST /isnad-text/import` |
 | Ijazat | `GET/PUT/DELETE /ijazat/settings` · `GET /ijazat/teacher-orders` · `PUT /ijazat/teacher-orders/:key` · `POST /ijazat/verify` · CRUD on `/ijazat` · `POST/DELETE /ijazat/:id/revoke` · `POST /ijazat/:id/freeze` · `GET /ijazat/:id/document` · `POST/GET /ijazat/:id/pdf` |
 | Share | `GET /share/matn/:id` · `GET /share/quran` · `POST /share/preview` · `POST /share/import` · `GET /share/thabat` · `POST /share/thabat/preview` · `POST /share/thabat/import` |

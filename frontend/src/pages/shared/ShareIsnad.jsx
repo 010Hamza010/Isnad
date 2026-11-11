@@ -37,6 +37,9 @@ export default function ShareIsnad({ onImported }) {
   const [kind, setKind] = useState('matn');
   const [matnId, setMatnId] = useState('');
   const [item, setItem] = useState(EMPTY_ITEM);
+  // Quran: the file's books / groups found here (by name), put on the links created; unticked = left out
+  const [extra, setExtra] = useState({ books: [], groups: [] });
+  const [skip, setSkip] = useState(new Set());
   const [linkMe, setLinkMe] = useState(true);
   const [plan, setPlan] = useState(null);
   const [planErr, setPlanErr] = useState('');
@@ -56,6 +59,7 @@ export default function ShareIsnad({ onImported }) {
         setKind('quran');
         const s = p.suggest.item || {};
         setItem({ qiraa_id: str(s.qiraa_id), riwaya_id: str(s.riwaya_id), tariq_id: str(s.tariq_id) });
+        setExtra({ books: p.suggest.books || [], groups: p.suggest.groups || [] }); setSkip(new Set());
       } else if (p.suggest.matn_id) { setKind('matn'); setMatnId(String(p.suggest.matn_id)); }
       else setKind(p.file.target.title ? 'new_matn' : 'general');
     } catch (e) { notifyError(e); } finally { setBusy(false); }
@@ -64,8 +68,15 @@ export default function ShareIsnad({ onImported }) {
   const left = prev ? prev.rows.filter(r => picks[r.ref] == null || picks[r.ref] === '') : [];
   const body = dry => ({
     file, picks, link_me: linkMe, dry_run: dry,
-    target: { kind, matn_id: kind === 'matn' ? Number(matnId) || null : null, item: kind === 'quran' ? item : null },
+    target: {
+      kind, matn_id: kind === 'matn' ? Number(matnId) || null : null, item: kind === 'quran' ? item : null,
+      ...(kind === 'quran' ? {
+        books: extra.books.filter(b => b.matn_id && !skip.has(`b${b.matn_id}`)).map(b => b.matn_id),
+        groups: extra.groups.filter(g => g.group_id && !skip.has(`g${g.group_id}`)).map(g => g.group_id),
+      } : {}),
+    },
   });
+  const toggleSkip = key => setSkip(prevSkip => { const n = new Set(prevSkip); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
   // what will be written, whenever a choice changes
   useEffect(() => {
@@ -76,7 +87,7 @@ export default function ShareIsnad({ onImported }) {
       .then(r => alive && setPlan(r.data.plan))
       .catch(e => alive && setPlanErr(errorMessage(e)));
     return () => { alive = false; };
-  }, [prev, picks, kind, matnId, item, linkMe]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prev, picks, kind, matnId, item, linkMe, skip]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     setBusy(true);
@@ -190,6 +201,25 @@ export default function ShareIsnad({ onImported }) {
                     {lists.turuq.filter(x => String(x.riwaya_id) === item.riwaya_id).map(x => <option key={x.id} value={x.id}>{x.name_ar}</option>)}
                   </select>
                 </Field>
+              </div>
+            )}
+            {kind === 'quran' && (extra.books.length > 0 || extra.groups.length > 0) && (
+              <div className="field">
+                <span className="field-label">قُرئ مع</span>
+                <div className="row row-wrap" style={{ gap: 10 }}>
+                  {extra.groups.map(g => (g.group_id ? (
+                    <label key={`g${g.name_ar}`} className="check small">
+                      <input type="checkbox" checked={!skip.has(`g${g.group_id}`)} onChange={() => toggleSkip(`g${g.group_id}`)} />
+                      <span>◆ {g.name_ar}</span>
+                    </label>
+                  ) : <span key={`g${g.name_ar}`} className="badge" title="أضفها من «المجموعات» ثم أعد فتح الملف">◆ {g.name_ar} — غير موجودة هنا</span>))}
+                  {extra.books.map(b => (b.matn_id ? (
+                    <label key={`b${b.title}`} className="check small">
+                      <input type="checkbox" checked={!skip.has(`b${b.matn_id}`)} onChange={() => toggleSkip(`b${b.matn_id}`)} />
+                      <span>بمضمن {b.title}</span>
+                    </label>
+                  ) : <span key={`b${b.title}`} className="badge" title="أضفه في المتون ثم أعد فتح الملف">بمضمن {b.title} — غير موجود هنا</span>))}
+                </div>
               </div>
             )}
             <label className="row small" style={{ gap: 8 }}>

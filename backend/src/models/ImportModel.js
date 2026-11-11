@@ -10,7 +10,7 @@ exports.existingPairs = async ({ target, matn_id, userId }) => {
 
 /** Apply a plan from services/isnadImport in one transaction. Edges marked `exists` are skipped. */
 exports.apply = async (plan, opts) => {
-  const { target, items = [], userId } = opts;
+  const { target, items = [], books = [], groups = [], userId } = opts;
   let { matn_id } = opts;
   const conn = await db.getConnection();
   try {
@@ -41,7 +41,7 @@ exports.apply = async (plan, opts) => {
       if (e.exists) continue;
       const [from, to] = [idOf(e.from), idOf(e.to)];
       if (target === 'quran') {
-        const hasItems = items.some(it => it.qiraa_id || it.riwaya_id || it.tariq_id);
+        const hasItems = items.some(it => it.qiraa_id || it.riwaya_id || it.tariq_id) || groups.length > 0;
         const [r] = await conn.query(
           'INSERT INTO quran_connections (user_id, from_person_id, to_person_id, is_general, transmission_type_id, reading_mode) VALUES (?,?,?,?,?,?)',
           // a link above mine with nothing named is «عام» (services/quranChain)
@@ -51,6 +51,8 @@ exports.apply = async (plan, opts) => {
           await conn.query('INSERT INTO quran_connection_items (connection_id, qiraa_id, riwaya_id, tariq_id) VALUES (?,?,?,?)',
             [r.insertId, it.qiraa_id || null, it.riwaya_id || null, it.tariq_id || null]);
         }
+        for (const b of books) await conn.query('INSERT IGNORE INTO quran_connection_books (connection_id, matn_id) VALUES (?,?)', [r.insertId, b]);
+        for (const g of groups) await conn.query('INSERT IGNORE INTO quran_connection_groups (connection_id, group_id) VALUES (?,?)', [r.insertId, g]);
       } else {
         await conn.query(
           'INSERT INTO matn_connections (from_person_id, to_person_id, matn_id, transmission_type_id, is_general_ijaza, reading_mode) VALUES (?,?,?,?,?,?)',

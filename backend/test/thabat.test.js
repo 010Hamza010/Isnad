@@ -102,3 +102,70 @@ test('plan: an existing link is skipped; unresolved names stop it; «me» can no
   const again = TH.planThabat(f, { persons: { me: 20, p7: 3, p8: 21 }, mutoon: { m1: 40 } }, { ...ctx, existingMatn: new Set(['20:3:40', '3:21:g']) });
   assert.deepEqual(TH.planCounts(again).existing, 2);
 });
+
+// ── v2: books «بمضمن», groups and «عام» on Quran links
+const dataG = {
+  ...data,
+  mutoon: [...data.mutoon, { id: 11, title: 'الشاطبية', author_id: null }, { id: 12, title: 'الدرة', author_id: null }],
+  quranConns: [
+    { from_person_id: 0, to_person_id: 2, tx_kind: 'qiraa', items: [], groups: [{ group_id: 30 }], books: [{ matn_id: 11 }] },
+    { from_person_id: 2, to_person_id: 10, tx_kind: null, items: [], is_general: 1 },
+  ],
+  groups: [
+    { id: 30, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى', items: [{ qiraa_id: 6, riwaya_id: null }], books: [{ matn_id: 11 }, { matn_id: 12 }] },
+    { id: 31, name_ar: 'غير مستعملة', items: [{ qiraa_id: 6 }], books: [] },
+  ],
+};
+const fileG = () => JSON.parse(JSON.stringify(TH.buildThabat(dataG, { mutoon: true, quran: true }, sender)));
+
+test('export v2: a link\'s books and groups, the groups used with their members and books, «عام»', () => {
+  const f = fileG();
+  assert.equal(f.version, 2);
+  assert.deepEqual(Object.keys(f.groups), ['g30']);
+  assert.deepEqual(f.groups.g30, { name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى', description: null, items: [{ qiraa: 'q6', riwaya: null }], books: ['m11', 'm12'] });
+  assert.deepEqual([f.quran[0].groups, f.quran[0].books, f.quran[0].is_general], [['g30'], ['m11'], false]);
+  assert.equal(f.quran[1].is_general, true);
+  assert.ok(f.mutoon.m11 && f.mutoon.m12, 'the books are mutoon of the file');
+  assert.ok(f.qiraat.q6, 'the group\'s members are in the file');
+});
+
+test('validate v2: dangling group or book refs are refused; newer versions too', () => {
+  const a = fileG(); a.quran[0].groups = ['g99'];
+  assert.throws(() => TH.validateThabat(a), e => e.status === 400);
+  const b = fileG(); b.groups.g30.books = ['m99'];
+  assert.throws(() => TH.validateThabat(b), e => e.status === 400);
+  const c = fileG(); c.version = 3;
+  assert.throws(() => TH.validateThabat(c), e => /أحدث/.test(e.message));
+});
+
+test('import v2: a group found by name is reused, else created with its members and books; books and «عام» kept', () => {
+  const f = TH.validateThabat(fileG());
+  const picks = { persons: { me: 20, p2: 3, p7: 'new', p8: 'new', p9: 21, p10: 'new' }, mutoon: { m1: 40, m11: 'new', m12: 'new' } };
+  const ctx = local2 => ({ byUid: new Map(), types: [{ id: 1, kind: 'qiraa' }], qmap: TH.mapQuran(f, local2), personsById: B, existingMatn: new Set(), existingQuran: new Set() });
+
+  const created = TH.planThabat(f, picks, ctx(local));
+  assert.deepEqual(created.groups.map(g => [g.key, g.name_ar, g.items, g.books]), [['ref:g30', 'العشر الصغرى', [{ qiraa: 50, riwaya: null }], ['ref:m11', 'ref:m12']]]);
+  assert.deepEqual(created.quranLinks.map(l => [l.groups, l.books, l.is_general]), [[['ref:g30'], ['ref:m11'], false], [[], [], true]]);
+  assert.equal(TH.planCounts(created).mutoon, 2);
+
+  const reused = TH.planThabat(f, picks, ctx({ ...local, groups: [{ id: 70, name_ar: 'العشر الصغرى' }] }));
+  assert.deepEqual(reused.groups, []);
+  assert.deepEqual(reused.quranLinks[0].groups, [70]);
+  // the same link with its group already here is skipped
+  const again = TH.planThabat(f, picks, { ...ctx({ ...local, groups: [{ id: 70, name_ar: 'العشر الصغرى' }] }), existingQuran: new Set(['20:3:|g:70']) });
+  assert.equal(again.quranLinks[0].exists, true);
+});
+
+test('import v1: no is_general → a link above mine naming nothing is «عام»', () => {
+  const f = file(); f.version = 1;
+  f.quran.forEach(c => { delete c.is_general; delete c.books; delete c.groups; });
+  const v = TH.validateThabat(f);
+  const plan = TH.planThabat(v, { persons: { me: 20, p2: 3, p7: 'new', p8: 'new', p9: 21, p10: 'new' }, mutoon: { m1: 40 } },
+    { byUid: new Map(), types: [], qmap: TH.mapQuran(v, local), personsById: B, existingMatn: new Set(), existingQuran: new Set() });
+  assert.deepEqual(plan.quranLinks.map(l => l.is_general), [false, true]);
+});
+
+test('quranSignature: items alone as before, groups appended in any order', () => {
+  assert.equal(TH.quranSignature([{ qiraa: 1 }]), TH.itemsSignature([{ qiraa: 1 }]));
+  assert.equal(TH.quranSignature([], [5, 3]), TH.quranSignature([], [3, 5]));
+});
