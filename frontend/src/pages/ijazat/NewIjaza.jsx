@@ -284,7 +284,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
               <option value="">— اختر —</option>
               {qOpts.map(([label, opts]) => (
                 <optgroup key={label} label={label}>
-                  {opts.map(o => <option key={o.key} value={o.key}>{[o.riwayaLabel || (o.qiraa_id ? 'كل الروايات' : 'مطلق'), o.tariqLabel].filter(Boolean).join(' — ')}</option>)}
+                  {opts.map(o => <option key={o.key} value={o.key}>{[o.riwayaLabel || o.qiraaLabel, o.tariqLabel].filter(Boolean).join(' — ')}</option>)}
                 </optgroup>
               ))}
             </select>

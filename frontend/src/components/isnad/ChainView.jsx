@@ -17,9 +17,10 @@ function Step({ edge, depths, kind, scope, last, general }) {
           {depths?.length > 0 && <span className="step-no" title="الترتيب من شيخي">{depths.join('/')}</span>}
           {edge.to_name || `#${edge.to_person_id}`}
         </div>
-        {(edge.tx_name || scope || general) && (
+        {(edge.tx_name || scope || general || edge.munqati) && (
           <div className="step-meta">
             {edge.tx_name && <span className="badge">{edge.tx_name}</span>}
+            {edge.munqati && <span className="badge badge-danger" title="لم تُدخَل بعدُ أسانيد الإمام إلى النبي ﷺ">منقطع</span>}
             {general && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عامة</span>}
             {scope && <span className="badge badge-primary">{scope}</span>}
           </div>

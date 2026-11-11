@@ -39,22 +39,30 @@ test('ijazaTitle per module', () => {
   assert.equal(ijazaTitle('general'), 'إجازة عامة');
 });
 
-test('quranOptions groups my riwayat by qiraa and collects teachers', () => {
+test('quranOptions: what my links name, a whole qiraa split into its riwayat, one entry per tariq', () => {
   const lookups = {
-    qiraat: [{ id: 1, name_ar: 'قراءة نافع' }],
-    riwayat: [{ id: 2, name_ar: 'ورش عن نافع', qiraa_id: 1 }],
-    turuq: [],
+    qiraat: [{ id: 1, name_ar: 'قراءة نافع' }, { id: 5, name_ar: 'قراءة عاصم' }, { id: 9, name_ar: 'قراءة بلا روايات' }],
+    riwayat: [{ id: 2, name_ar: 'رواية ورش', qiraa_id: 1 }, { id: 6, name_ar: 'رواية شعبة', qiraa_id: 5 }, { id: 7, name_ar: 'رواية حفص', qiraa_id: 5 }],
+    turuq: [{ id: 3, name_ar: 'الأزرق', riwaya_id: 2 }, { id: 4, name_ar: 'الأصبهاني', riwaya_id: 2 }],
   };
   const conns = [
     { from_person_id: 0, to_name: 'الشيخ أ', items: [{ riwaya_id: 2 }] },
-    { from_person_id: 0, to_name: 'الشيخ ب', items: [{ riwaya_id: 2 }] },
-    { from_person_id: 0, to_name: 'الشيخ ج', items: [] },
+    { from_person_id: 0, to_name: 'الشيخ ب', items: [{ riwaya_id: 2 }] },               // same entry as أ
+    { from_person_id: 0, to_name: 'الشيخ ج', items: [{ riwaya_id: 2, tariq_id: 4 }] },  // its own entry
+    { from_person_id: 0, to_name: 'الشيخ د', items: [{ qiraa_id: 5 }] },                // → شعبة and حفص
+    { from_person_id: 0, to_name: 'الشيخ هـ', items: [{ qiraa_id: 9 }] },
+    { from_person_id: 0, to_name: 'الشيخ و', items: [] },                               // names nothing
     { from_person_id: 9, to_name: 'غيري', items: [{ riwaya_id: 2 }] },
   ];
   const groups = quranOptions(conns, lookups);
-  assert.deepEqual(groups.map(([label, opts]) => [label, opts.map(o => o.teachers)]),
-    [['قراءة نافع', [['الشيخ أ', 'الشيخ ب']]], ['مطلق', [['الشيخ ج']]]]);
-  assert.equal(quranPathParams(groups[0][1][0]), 'riwaya_id=2');
+  assert.deepEqual(groups.map(([label, opts]) => [label, opts.map(o => [o.riwayaLabel, o.tariqLabel, o.teachers.join('+')])]), [
+    ['قراءة نافع', [['رواية ورش', null, 'الشيخ أ+الشيخ ب'], ['رواية ورش', 'الأصبهاني', 'الشيخ ج']]],
+    ['قراءة عاصم', [['رواية شعبة', null, 'الشيخ د'], ['رواية حفص', null, 'الشيخ د']]],
+    ['قراءة بلا روايات', [[null, null, 'الشيخ هـ']]],
+  ]);
+  assert.equal(quranPathParams(groups[0][1][0]), 'riwaya_id=2&tariq_id=0');
+  assert.equal(quranPathParams(groups[0][1][1]), 'riwaya_id=2&tariq_id=4');
+  assert.equal(quranPathParams(groups[2][1][0]), 'qiraa_id=9');
 });
 
 test('groupsToChains prepends the first edge and keeps direct links', () => {
