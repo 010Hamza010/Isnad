@@ -25,15 +25,21 @@ function fewest(groups, targetId = null) {
 /** Highest (fewest wasait) first, then by name. */
 const byHeight = rows => [...rows].sort((a, b) => a.wasait - b.wasait || String(a.label).localeCompare(String(b.label), 'ar'));
 
-/** Distinct Quran options of my own links: a riwaya, or a qiraa when the link names no riwaya. */
-function quranOptions(rows) {
+/**
+ * Distinct riwayat of my own links, a whole qiraa counting as each of its riwayat (riwayat: rows
+ * { id, qiraa_id, name_ar }), or the qiraa itself when it has no riwayat. Links naming nothing count for nothing.
+ */
+function quranOptions(rows, riwayat = []) {
   const seen = new Map();
+  const add = (key, o) => { if (!seen.has(key)) seen.set(key, o); };
   for (const r of rows) {
-    const key = r.riwaya_id ? `r${r.riwaya_id}` : r.qiraa_id ? `q${r.qiraa_id}` : null;
-    if (!key || seen.has(key)) continue;
-    seen.set(key, r.riwaya_id
-      ? { riwaya_id: Number(r.riwaya_id), label: [r.riwaya_name, r.qiraa_name].filter(Boolean).join(' — ') }
-      : { qiraa_id: Number(r.qiraa_id), label: r.qiraa_name || '' });
+    if (r.riwaya_id) {
+      add(`r${r.riwaya_id}`, { riwaya_id: Number(r.riwaya_id), label: [r.riwaya_name, r.qiraa_name].filter(Boolean).join(' — ') });
+    } else if (r.qiraa_id) {
+      const own = riwayat.filter(x => Number(x.qiraa_id) === Number(r.qiraa_id));
+      if (!own.length) add(`q${r.qiraa_id}`, { qiraa_id: Number(r.qiraa_id), label: r.qiraa_name || '' });
+      own.forEach(x => add(`r${x.id}`, { riwaya_id: Number(x.id), label: [x.name_ar, r.qiraa_name].filter(Boolean).join(' — ') }));
+    }
   }
   return [...seen.values()];
 }

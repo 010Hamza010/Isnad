@@ -32,6 +32,13 @@ test('byHeight puts the highest isnad first', () => {
   assert.deepEqual(H.byHeight(rows).map(r => r.label), ['أ', 'ج', 'ب']);
 });
 
+test('quranOptions: a whole qiraa counts as each of its riwayat', () => {
+  const riwayat = [{ id: 7, qiraa_id: 5, name_ar: 'رواية شعبة' }, { id: 8, qiraa_id: 5, name_ar: 'رواية حفص' }];
+  assert.deepEqual(H.quranOptions([{ riwaya_id: null, qiraa_id: 5, qiraa_name: 'قراءة عاصم' }], riwayat), [
+    { riwaya_id: 7, label: 'رواية شعبة — قراءة عاصم' }, { riwaya_id: 8, label: 'رواية حفص — قراءة عاصم' },
+  ]);
+});
+
 test('quranOptions keeps one entry per riwaya, or per qiraa when no riwaya is named', () => {
   const rows = [
     { riwaya_id: 3, qiraa_id: 1, riwaya_name: 'ورش', qiraa_name: 'قراءة نافع' },
@@ -72,11 +79,11 @@ test('GET /graph/heights: general links reach every matn, disabled routes are le
   t.mock.method(Settings, 'get', async () => ({ [DR.matnScope(1)]: [shortKey] }));
   t.mock.method(GM, 'getMyQuranItems', async () => [{ riwaya_id: 3, qiraa_id: 1, riwaya_name: 'ورش', qiraa_name: 'قراءة نافع' }]);
   t.mock.method(GM, 'getRiwayaById', async () => ({ id: 3, qiraa_id: 1, imam_id: 101 }));
+  t.mock.method(require('../src/models/QuranModel'), 'allRiwayat', async () => [{ id: 3, qiraa_id: 1, name_ar: 'ورش' }]);
   t.mock.method(GM, 'getQuranEdgesForUser', async () => [
     { from_person_id: 0, to_person_id: 5, items: [{ riwaya_id: 3 }] },
     { from_person_id: 5, to_person_id: 101, items: [{ riwaya_id: 3 }] },
   ]);
-  t.mock.method(GM, 'getImamMap', async () => new Map([[1, 101]]));
   t.mock.method(GM, 'getRiwayaQiraaMap', async () => new Map([[3, 1]]));
 
   let body;

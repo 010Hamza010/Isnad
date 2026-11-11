@@ -9,14 +9,14 @@ const asRead = async body => ({ ...body, transmission_type_id: await TxType.qura
 
 exports.create = async (req, res) => {
   requireValidLink(req.body);
-  const { items = [], ...fields } = await asRead(req.body);
-  res.json(await QC.create(req.user.id, fields, items));
+  const { items = [], books = [], ...fields } = await asRead(req.body);
+  res.json(await QC.create(req.user.id, fields, items, books));
 };
 
 exports.update = async (req, res) => {
   requireValidLink(req.body);
-  const { items = [], ...fields } = await asRead(req.body);
-  await QC.update(req.params.id, req.user.id, fields, items);
+  const { items = [], books = [], ...fields } = await asRead(req.body);
+  await QC.update(req.params.id, req.user.id, fields, items, books);
   res.json({ ok: true });
 };
 
