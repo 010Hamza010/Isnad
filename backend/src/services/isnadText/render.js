@@ -92,8 +92,10 @@ function renderAlso(e, via, s, ctx) {
   const phrase = s.style.clear ? (s.phrases.also?.[txKey(edgeKind(e))] || s.phrases.also?.null) : null;
   ctx.written.add(linkKey(e));
   if (phrase) {
-    const text = applyGender(phrase, genders).replace(ALSO_SLOT, `${viaTitle}${nameOf(toP(via), s, ctx, 'nom')}`);
-    return ALSO_MARK + text.replace(NAME_SLOT, personLabel(toP(e), s, ctx, caseAfter(text.split(NAME_SLOT)[0])));
+    const plain = applyGender(phrase, genders).replace(ALSO_SLOT, `${viaTitle}${nameOf(toP(via), s, ctx, 'nom')}`);
+    const placed = placeRead(plain, readOf(e));
+    const text = placed ?? plain;
+    return ALSO_MARK + text.replace(NAME_SLOT, `${personLabel(toP(e), s, ctx, caseAfter(text.split(NAME_SLOT)[0]))}${placed == null ? readWith(e) : ''}`);
   }
   // keyword form: the classical restart «ح وعن فلان، عن …»
   const kw = keywordFor(edgeKind(e), s);
@@ -118,24 +120,40 @@ function renderLinks(edges, s, ctx, { opening = true } = {}) {
     const label = kase => `${title}${personLabel(toP(e), s, ctx, kase)}`;
 
     const phrase = phraseFor(e, mine, s);
-    const read = mine ? readWith(e) : '';
     if (phrase) {
-      // «قرأتُ على شيخنا فلان بالقراءات العشر الصغرى حفظاً»
+      // «قرأتُ بقراءة عاصم على شيخنا فلان حفظاً»
       const mode = mine && s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[e.reading_mode];
-      const text = applyGender(phrase, genders);
-      const who = `${label(caseAfter(text.split(NAME_SLOT)[0]))}${read}`;
+      const plain = applyGender(phrase, genders);
+      const placed = placeRead(plain, readOf(e));
+      const text = placed ?? plain;
+      const who = `${label(caseAfter(text.split(NAME_SLOT)[0]))}${placed == null ? readWith(e) : ''}`;
       return text.replace(NAME_SLOT, mode ? `${who} ${mode}` : who);
     }
 
-    const kw = keywordFor(edgeKind(e), s);
-    const who = `${label(caseAfter(kw))}${read}`;
+    const kw0 = keywordFor(edgeKind(e), s);
+    const kwPlaced = placeRead(`${kw0} ${NAME_SLOT}`, readOf(e));
+    const kw = kwPlaced ? kwPlaced.split(NAME_SLOT)[0].trim() : kw0;
+    const who = `${label(caseAfter(kw))}${kwPlaced ? '' : readWith(e)}`;
     const qala = s.style.qala && !first && !ANAN.has(kw) ? (genders['الراوي'] === 'F' ? 'قالت: ' : 'قال: ') : '';
     return `${qala}${kw} ${who}`;                             // «أخبرنا شيخنا فلان، عن فلان»
   }).map((t, i) => `${t}${edges[i].noteAfter || ''}`);
 }
 
-/** What I read on my shaykh (Quran ijaza: «بالقراءات العشر الصغرى»), written after his name; set by the caller. */
-const readWith = e => (e.read_with ? ` ${String(e.read_with).trim().slice(0, 300)}` : '');
+/*
+ * What was read on a link (Quran ijaza: «بقراءة عاصم», «بالقراءات العشر الصغرى», «بها»), set by the
+ * caller on any link: written before «على» — «قرأ بقراءة عاصم على فلان» — or, when the wording has
+ * no «على» before the name, after the name.
+ */
+const readOf = e => (e?.read_with ? String(e.read_with).trim().slice(0, 300) : '');
+const readWith = e => (readOf(e) ? ` ${readOf(e)}` : '');
+function placeRead(text, read) {
+  if (!read) return text;
+  const [before, ...rest] = text.split(NAME_SLOT);
+  if (!rest.length || !/على\s*$/.test(before)) return null;
+  return `${before.replace(/\s*على\s*$/, ` ${read} على `)}${NAME_SLOT}${rest.join(NAME_SLOT)}`;
+}
+// the same read on every link, else ''
+const sharedRead = edges => (edges.every(e => readOf(e) === readOf(edges[0])) ? readOf(edges[0]) : '');
 
 /** Where a Quran chain stops: the imam's sanad to the Prophet ﷺ is not entered yet. */
 const munqatiNote = e => `[لم يُدخَل بعدُ سند ${/^الإمام\s/.test(e.to_name || '') ? '' : 'الإمام '}${e.to_name} إلى النبي ﷺ]`;
@@ -241,7 +259,9 @@ function meetText(meetEdges, s, ctx) {
   const x = meetEdges[0];
   const txs = new Set(meetEdges.map(e => txKey(edgeKind(e))));
   const joined = s.style.clear && txs.size === 1 ? s.phrases.joined?.[[...txs][0]] : null;
-  const joinedText = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
+  const joinedPlain = joined && applyGender(joined, { 'الراوي': allF ? 'F' : 'M', 'الشيخ': toGender(x) });
+  // «كلاهما قرأ بها على فلان» when they read the same on him; nothing when they differ
+  const joinedText = joinedPlain && (placeRead(joinedPlain, sharedRead(meetEdges)) ?? joinedPlain);
   meetEdges.forEach(e => ctx.written.add(linkKey(e)));
   const who = personLabel(toP(x), s, ctx, joinedText ? caseAfter(joinedText.split(NAME_SLOT)[0]) : 'gen');
   const note = x.noteAfter || '';
@@ -253,11 +273,14 @@ function renderTogether(firsts, s, ctx) {
   firsts.forEach(e => ctx.written.add(linkKey(e)));
   const allF = firsts.every(e => toGender(e) === 'F');
   const phrase = phraseFor(firsts[0], true, s);
-  const lead = phrase ? applyGender(phrase, { 'الراوي': fromGender(firsts[0], s), 'الشيخ': allF ? 'F' : 'M' }) : keywordFor(edgeKind(firsts[0]), s);
+  const plain = phrase ? applyGender(phrase, { 'الراوي': fromGender(firsts[0], s), 'الشيخ': allF ? 'F' : 'M' }) : keywordFor(edgeKind(firsts[0]), s);
+  // the same read on all: once, before «على» («قرأتُ بقراءة عاصم على شيخنا A، وشيخنا B»); else after each name
+  const shared = phrase ? placeRead(plain, sharedRead(firsts)) : null;
+  const lead = shared ?? plain;
   const kase = caseAfter(phrase ? lead.split(NAME_SLOT)[0] : lead);
   const names = firsts.map(e => {
     const tw = toGender(e) === 'F' ? s.style.firstTitleF : s.style.firstTitle;
-    return `${tw ? `${tw} ` : ''}${personLabel(toP(e), s, ctx, kase)}${readWith(e)}`;
+    return `${tw ? `${tw} ` : ''}${personLabel(toP(e), s, ctx, kase)}${shared != null && sharedRead(firsts) ? '' : readWith(e)}`;
   }).join(`${s.style.separator}و`);
   if (!phrase) return `${lead} ${names}`;
   const mode = s.style.hideMyReadingMode ? null : { heart: s.style.heartWord, looking: s.style.lookingWord }[firsts[0].reading_mode];

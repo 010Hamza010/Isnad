@@ -140,6 +140,7 @@ function formatEdge(edge, pMap) {
     items:       edge.items       || [],
     ...(edge.books ? { books: edge.books } : {}),   // Quran: books read «بمضمنها» on my link
     ...(edge.groups?.length ? { groups: edge.groups } : {}),   // Quran: groups it was read with («العشر الصغرى»)
+    ...(Number(edge.is_general) ? { is_general: 1 } : {}),      // Quran: «عام — كل القراءات»
   });
 }
 

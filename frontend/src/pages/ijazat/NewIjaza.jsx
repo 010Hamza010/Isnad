@@ -9,7 +9,7 @@ import Combobox from '../../components/ui/Combobox';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import Certificate from '../../components/ijaza/Certificate';
-import { fillTemplate, readingPhrase, groupReading, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, teacherReading, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
+import { fillTemplate, readingPhrase, groupReading, GROUP_MODES, takhammulPhrase, formatDates, todayISO, titleFromTemplate, withTitleStyle, PLACEHOLDERS, readingTeachers, readOnShaykh, withReads, teachersParagraph, teacherOrderKey, sortByOrder, orderablePeople, moveId } from '../../utils/ijaza';
 import TitleStyleFields from '../../components/ijaza/TitleStyleFields';
 import { quranOptions, quranGroupOptions, quranPathParams, groupsToChains } from '../../utils/quranOptions';
 import { rowOptions, kindOfType } from '../../utils/options';
@@ -94,6 +94,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const groupOpt = gOpts.find(o => o.key === quranKey);
   const quranOpt = qOpts.flatMap(([, o]) => o).find(o => o.key === quranKey);
   const quranSel = groupOpt || quranOpt;   // something chosen in «القراءة / الرواية»
+  const readOption = groupOpt ? { group_id: groupOpt.group_id } : quranOpt;
   const matn = refs.mutoon.find(m => String(m.id) === String(matnId));
 
   // my teachers' order for this matn / riwaya (saved, reused by later ijazat): the teachers paragraph
@@ -110,10 +111,8 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const teachersRaw = useMemo(() => readingTeachers(module === 'mutoon' ? refs.matnConns : refs.conns, module, {
     matnId, option: groupOpt ? { group_id: groupOpt.group_id } : quranOpt, groups: refs.groups,
     riwayaQiraa: id => refs.riwayat.find(r => String(r.id) === String(id))?.qiraa_id,
-    // what I read on each shaykh: his group first, else only this ijaza's choice
-    readOf: module === 'quran' && quranSel
-      ? links => readOnShaykh(links, groupOpt ? { group_id: groupOpt.group_id } : quranOpt, { groups: refs.groups, fallback: teacherReading(quranSel) })
-      : null,
+    // what I read on each shaykh: a group holding this ijaza's choice first, else only what concerns it
+    readOf: module === 'quran' && quranSel ? links => readOnShaykh(links, readOption, refs) : null,
   }), [module, matnId, quranSel?.key, refs]);
   const teachers = useMemo(() => sortByOrder(teachersRaw, orderIds).filter(t => !isHidden(t.id)),
     [teachersRaw, orderIds.join(','), hiddenIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -157,11 +156,11 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const shuyukh = useMemo(() => orderablePeople(groups, teachersRaw, orderIds), [groups, teachersRaw, orderIds.join(',')]);
   const routeOrder = shuyukh.flatMap(p => p.routes);               // group indices in my order
   const chosenKey = useDebounced(`${[...chosen].sort().join(',')}|${routeOrder.join(',')}`, 200);
-  // Quran: my own link says what I read on that shaykh («قرأتُ على شيخنا فلان بالقراءات العشر الصغرى»)
-  const readBy = useMemo(() => new Map(teachersRaw.filter(t => t.read).map(t => [String(t.id), t.read])), [teachersRaw]);
-  const chains = useMemo(() => groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i]))
-    .map(c => c.map((e, i) => (i === 0 && Number(e.from_person_id) === 0 && readBy.has(String(e.to_person_id)) ? { ...e, read_with: readBy.get(String(e.to_person_id)) } : e))),
-  [groups, chosenKey, readBy]);
+  // Quran: every link says what was read on it, «قرأ بقراءة عاصم على فلان، وهو قرأ بها على …»
+  const chains = useMemo(() => {
+    const list = groupsToChains(routeOrder.filter(i => chosen.has(i)).map(i => groups[i]));
+    return module === 'quran' && readOption ? withReads(list, readOption, refs) : list;
+  }, [groups, chosenKey, module, readOption?.key, readOption?.group_id, refs]); // eslint-disable-line react-hooks/exhaustive-deps
   // the tree shows people only: not the stop of a group's isnad
   const treeChains = useMemo(() => chains.map(c => c.filter(e => !e.group_stop)), [chains]);
 

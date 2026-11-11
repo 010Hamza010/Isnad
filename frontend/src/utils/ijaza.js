@@ -91,41 +91,70 @@ export function readingTeachers(conns, module, { matnId, option, riwayaQiraa = (
   return readOf ? out.map(t => ({ ...t, read: readOf(linksTo.get(t.id)) || null })) : out;
 }
 
-/**
- * What I read on a shaykh, for this ijaza: a group read on him that covers the ijaza's choice comes
- * first («بالقراءات العشر الصغرى»), else only what the ijaza is about («برواية حفص عن عاصم») — never
- * the other qiraat read on him. links: my links to him; option: the ijaza's choice ({ group_id } or
- * { qiraa_id, riwaya_id }); fallback: the phrase for the choice (teacherReading).
+/*
+ * What was read on a Quran link, for this ijaza («قرأ بقراءة عاصم على فلان»): only what concerns the
+ * ijaza's choice, in the link's own words — a group of the link holding the choice first
+ * («بالقراءات العشر الصغرى»), else its items that do («بقراءة عاصم», «برواية حفص عن عاصم من طريق …»).
+ * «عام» links, made-up steps and links naming nothing relevant: '' (plain «قرأ على»).
+ * option: { group_id } | { qiraa_id, riwaya_id? }; lists: { qiraat, riwayat, turuq, groups } (groups with items).
  */
-export function readOnShaykh(links, option, { groups = [], fallback = '' } = {}) {
-  if (!option) return '';
-  const byId = new Map(groups.map(g => [Number(g.id), g]));
-  const covers = g => (option.group_id ? Number(g.id) === Number(option.group_id)
-    : (g.items || []).some(m => (m.riwaya_id ? Number(m.riwaya_id) === Number(option.riwaya_id)
-      : Number(m.qiraa_id) === Number(option.qiraa_id))));
-  for (const c of links || []) {
-    for (const ref of c.groups || []) {
-      const g = byId.get(groupIdOf(ref)) || ref;
-      if (g && covers(g)) return groupReading({ text: g.text_ar || g.name_ar });
-    }
+export function readOnLink(link, option, lists) {
+  if (!option || !link || Number(link.is_general) || link.auto || link.munqati || link.group_stop) return '';
+  const byId = rows => new Map((rows || []).map(r => [Number(r.id), r]));
+  const Q = byId(lists.qiraat), R = byId(lists.riwayat), T = byId(lists.turuq), G = byId(lists.groups);
+  const group = option.group_id ? G.get(Number(option.group_id)) : null;
+  const optQiraa = Number(option.qiraa_id ?? R.get(Number(option.riwaya_id))?.qiraa_id) || null;
+  // wanted: the members to name — the group's, or the one choice
+  const wanted = group ? group.items || [] : [{ qiraa_id: optQiraa, riwaya_id: Number(option.riwaya_id) || null }];
+  const qiraaOf = it => Number(it.qiraa_id) || Number(R.get(Number(it.riwaya_id))?.qiraa_id) || Number(R.get(Number(T.get(Number(it.tariq_id))?.riwaya_id))?.qiraa_id) || null;
+  const riwayaOf = it => Number(it.riwaya_id) || Number(T.get(Number(it.tariq_id))?.riwaya_id) || null;
+  const holds = (m, it) => (m.riwaya_id
+    ? (riwayaOf(it) ? riwayaOf(it) === Number(m.riwaya_id) : qiraaOf(it) === Number(R.get(Number(m.riwaya_id))?.qiraa_id ?? m.qiraa_id))
+    : qiraaOf(it) === Number(m.qiraa_id));
+
+  for (const ref of link.groups || []) {
+    const g = G.get(Number(ref.group_id ?? ref)) || ref;
+    const gi = g.items || [];
+    const ok = group ? Number(g.id ?? ref.group_id) === Number(group.id) || wanted.every(m => gi.some(x => holds(m, x) || holds(x, m)))
+      : gi.some(x => wanted.some(m => holds(m, x) || (!x.riwaya_id && qiraaOf(x) === m.qiraa_id)));
+    if (ok) return groupReading({ text: g.text_ar || g.name_ar });
   }
-  return fallback;
+  const items = (link.items || []).filter(it => wanted.some(m => holds(m, it) || (!riwayaOf(it) && qiraaOf(it) === (Number(m.qiraa_id) || Number(R.get(Number(m.riwaya_id))?.qiraa_id)))));
+  if (!items.length) return '';
+  // a group ijaza: a link naming every member reads the group
+  if (group && wanted.every(m => items.some(it => holds(m, it)))) return groupReading({ text: group.text_ar || group.name_ar });
+  const phrase = it => {
+    const q = Q.get(qiraaOf(it))?.name_ar, r = R.get(riwayaOf(it))?.name_ar, t = T.get(Number(it.tariq_id))?.name_ar;
+    if (!r) return q ? withWord(q, 'قراءة') : '';
+    const imam = bare(q, 'قراءة');
+    const rw = withWord(r, 'رواية');
+    return `${rw}${imam && !rw.includes(' عن ') ? ` عن ${imam}` : ''}${t ? ` من ${withWord(t, 'طريق')}` : ''}`;
+  };
+  const parts = [...new Set(items.map(phrase).filter(Boolean))];
+  return parts.length ? `ب${parts.join(' و')}` : '';
+}
+
+/** What I read on a shaykh over my links to him: one holding a group first, else the first that names something. */
+export function readOnShaykh(links, option, lists) {
+  const reads = (links || []).map(l => readOnLink(l, option, lists)).filter(Boolean);
+  const viaGroup = (links || []).find(l => (l.groups || []).length && readOnLink(l, option, lists) && !readOnLink({ ...l, groups: [] }, option, lists).length);
+  return (viaGroup ? readOnLink(viaGroup, option, lists) : null) || reads[0] || '';
+}
+
+/** Each link of the chains gets what was read on it (read_with); the same as the level below → «بها». */
+export function withReads(chains, option, lists) {
+  return chains.map(c => {
+    let prev = '';
+    return c.map((e, i) => {
+      const read = readOnLink(e, option, lists);
+      const out = read && i > 0 && read === prev ? 'بها' : read;
+      prev = read;
+      return out ? { ...e, read_with: out } : e;
+    });
+  });
 }
 
 const bare = (name, word) => String(name || '').replace(new RegExp(`^${word}\\s+`), '');
-
-/** The phrase for an ijaza's Quran choice, per shaykh: «برواية حفص عن عاصم من طريق …», «بقراءة نافع», «بالقراءات العشر الصغرى». */
-export function teacherReading(opt) {
-  if (!opt) return '';
-  if (opt.group_id) return groupReading({ text: opt.groupText });
-  const imam = bare(opt.qiraaLabel, 'قراءة');
-  if (opt.riwayaLabel) {
-    const r = withWord(opt.riwayaLabel, 'رواية');
-    const tariq = opt.tariqLabel ? ` من ${withWord(opt.tariqLabel, 'طريق')}` : '';
-    return `ب${r}${imam && !r.includes(' عن ') ? ` عن ${imam}` : ''}${tariq}`;
-  }
-  return opt.qiraaLabel ? `ب${withWord(opt.qiraaLabel, 'قراءة')}` : '';
-}
 
 /**
  * The teachers paragraph, or '' when fewer than two shuyukh (then it is left out).
