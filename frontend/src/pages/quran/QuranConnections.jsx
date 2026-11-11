@@ -12,7 +12,7 @@ import Icon from '../../components/ui/Icon';
 import ReadingModeField, { READING_LABELS } from '../../components/isnad/ReadingMode';
 import { matches, isMe } from '../../utils/text';
 import { personOptions } from '../../utils/options';
-import { scopeOptions, itemLabel, itemKey, addItem, completeItem, linkMatchesScope, findDuplicate, linkItems } from '../../utils/quranScope';
+import { scopeOptions, itemLabel, itemKey, addItem, completeItem, linkMatchesScope, findDuplicate, linkItems, matchingGroup } from '../../utils/quranScope';
 
 const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 // for now every Quran link is by reading on the shaykh: the server saves it so (services/quranReading)
@@ -48,6 +48,8 @@ export default function QuranConnections() {
   const [form, setForm]       = useState(null);
   const [saving, setSaving]   = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  // «هذا يطابق ◆ العشر الصغرى — استبدال؟»: what was read and the books match a group (never automatic)
+  const [noSuggest, setNoSuggest] = useState('');
   const pOpts = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
   const shaykhOpts = useMemo(() => personOptions(persons), [persons]);
   const scopeOpts = useMemo(() => scopeOptions(lists), [lists]);
@@ -156,6 +158,10 @@ export default function QuranConnections() {
   );
 
   const filtering = query || scope;
+
+  const match = form && (isMe(form.from_person_id) || !form.is_general) ? matchingGroup(form, lists) : null;
+  const suggestKey = match ? `${match.id}:${form.items.map(itemKey).join(',')}` : '';
+  const suggested = match && noSuggest !== suggestKey ? match : null;
 
   return (
     <>
@@ -266,6 +272,13 @@ export default function QuranConnections() {
                 </span>
               ))}
           </div>
+          {suggested && (
+            <div className="callout row row-wrap" style={{ marginBottom: 12 }}>
+              <span className="spacer">هذا يطابق المجموعة <strong>◆ {suggested.name_ar}</strong> — {suggested.text_ar ? `«قرأ ${suggested.text_ar} على …»` : 'تُذكر باسمها'}.</span>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={() => setForm(f => ({ ...f, items: [], groups: [Number(suggested.id)] }))}>استبدال بالمجموعة</button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNoSuggest(suggestKey)}>لا</button>
+            </div>
+          )}
           </>}
           {!isMe(form.from_person_id) && form.is_general && <div style={{ marginBottom: 16 }} />}
 
