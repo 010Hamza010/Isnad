@@ -19,7 +19,7 @@ const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 const QURAN_KIND = 'qiraa';
 const EMPTY = {
   from_person_id: 0, to_person_id: '', khatmat_count: 1,
-  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [],
+  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [], books: [],
 };
 
 // Same tabs as the matn links. Mine: one card per shaykh. Above: grouped by the student.
@@ -31,13 +31,13 @@ const TABS = [
 export default function QuranConnections() {
   const { toast, notifyError, confirm } = useUI();
   const { data, loading, reload } = useLoad(async () => {
-    const [c, p, q, r, t] = await Promise.all([
+    const [c, p, q, r, t, m] = await Promise.all([
       api.get('/quran-connections'), api.get('/persons'),
-      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'),
+      api.get('/quran/qiraat'), api.get('/quran/riwayat'), api.get('/quran/turuq'), api.get('/mutoon'),
     ]);
-    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data };
-  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [] });
-  const { conns, persons, qiraat, riwayat, turuq } = data;
+    return { conns: c.data, persons: p.data, qiraat: q.data, riwayat: r.data, turuq: t.data, mutoon: m.data };
+  }, [], { conns: [], persons: [], qiraat: [], riwayat: [], turuq: [], mutoon: [] });
+  const { conns, persons, qiraat, riwayat, turuq, mutoon } = data;
   const lists = useMemo(() => ({ qiraat, riwayat, turuq }), [qiraat, riwayat, turuq]);
 
   const [tab, setTab]         = useState('from_me');
@@ -50,6 +50,8 @@ export default function QuranConnections() {
   const pOpts = useMemo(() => personOptions(persons, { includeMe: true }), [persons]);
   const shaykhOpts = useMemo(() => personOptions(persons), [persons]);
   const scopeOpts = useMemo(() => scopeOptions(lists), [lists]);
+  const bookOpts = useMemo(() => mutoon.map(m => ({ value: m.id, label: m.title, sub: m.author_name || undefined })), [mutoon]);
+  const bookTitle = id => mutoon.find(m => Number(m.id) === Number(id))?.title || `#${id}`;
   const pName = pid => (isMe(pid) ? 'أنا' : persons.find(p => p.id === Number(pid))?.name_ar || `#${pid}`);
   const current = TABS.find(t => t.value === tab);
 
@@ -78,6 +80,7 @@ export default function QuranConnections() {
     ijaza_date: c.ijaza_date ?? '', meeting_mode: c.meeting_mode || 'حضوراً', reading_mode: c.reading_mode ?? '',
     notes: c.notes ?? '', description: c.description ?? '',
     items: (c.items || []).map(it => completeItem(it, lists)),
+    books: (c.books || []).map(b => Number(b.matn_id)),
   });
 
   const duplicate = form ? findDuplicate(conns, form) : null;
@@ -98,6 +101,7 @@ export default function QuranConnections() {
         notes:                form.notes || null,
         description:          form.description || null,
         items:                form.items,
+        books:                form.books,
       };
       if (form.id) await api.put(`/quran-connections/${form.id}`, payload);
       else await api.post('/quran-connections', payload);
@@ -124,7 +128,10 @@ export default function QuranConnections() {
         <div className="chips" style={{ marginTop: 6, gap: 5 }}>
           {c.items?.length
             ? c.items.map(it => <span key={itemKey(completeItem(it, lists))} className="badge badge-accent" title={itemLabel(it, lists)}>{itemLabel(it, lists, { short: true }) || 'مطلق'}</span>)
-            : <span className="badge badge-outline">مطلق — كل ما قُرئ</span>}
+            : isMe(c.from_person_id)
+              ? <span className="badge badge-danger" title="حدّد ما قرأتَ عليه حتى يظهر في أسانيدك">لم يُحدَّد ما قُرئ</span>
+              : <span className="badge badge-outline">كل ما قرأ</span>}
+          {c.books?.map(b => <span key={b.matn_id} className="badge badge-info"><Icon name="book" size={12} /> بمضمن {b.title}</span>)}
           {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
           {c.meeting_mode && c.meeting_mode !== 'حضوراً' && <span className="badge badge-info"><Icon name="globe" size={12} /> {c.meeting_mode}</span>}
           {c.khatmat_count > 1 && <span className="badge"><Icon name="repeat" size={12} /> {c.khatmat_count} ختمات</span>}
@@ -217,7 +224,9 @@ export default function QuranConnections() {
             onChange={key => { const o = scopeOpts.find(x => x.value === key); if (o) set('items', addItem(form.items, o.item, lists)); }} />
           <div className="chips scope-chips">
             {form.items.length === 0
-              ? <span className="small muted">بلا تحديد — الاتصال مطلق ويشمل كل القراءات.</span>
+              ? <span className="small muted">{isMe(form.from_person_id)
+                ? 'حدّد ما قرأتَ على شيخك — بلا تحديد لا يظهر في أسانيدك.'
+                : 'بلا تحديد — شيوخ شيوخك قرؤوا كل شيء على شيوخهم، فلا حاجة للتحديد هنا.'}</span>
               : form.items.map((it, i) => (
                 <span key={itemKey(it)} className="badge badge-accent scope-chip">
                   {itemLabel(it, lists)}
@@ -225,6 +234,19 @@ export default function QuranConnections() {
                     aria-label={`إزالة ${itemLabel(it, lists)}`} title="إزالة"><Icon name="x" size={12} /></button>
                 </span>
               ))}
+          </div>
+
+          <div className="section-label">الكتب المقروء بمضمنها <span className="muted small" style={{ fontWeight: 400 }}>— اختياري</span></div>
+          <Combobox value="" opts={bookOpts.filter(o => !form.books.includes(Number(o.value)))} allowClear={false}
+            placeholder="الشاطبية، الدرة، الطيبة…" onChange={id => id !== '' && set('books', [...form.books, Number(id)])} />
+          <div className="chips scope-chips">
+            {form.books.map(id => (
+              <span key={id} className="badge badge-info scope-chip">
+                بمضمن {bookTitle(id)}
+                <button type="button" className="chip-x" onClick={() => set('books', form.books.filter(x => x !== id))}
+                  aria-label={`إزالة ${bookTitle(id)}`} title="إزالة"><Icon name="x" size={12} /></button>
+              </span>
+            ))}
           </div>
 
           <div className="section-label">تفاصيل الإجازة <span className="muted small" style={{ fontWeight: 400 }}>— قراءة على الشيخ</span></div>

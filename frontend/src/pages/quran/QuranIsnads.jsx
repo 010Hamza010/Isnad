@@ -43,14 +43,16 @@ export default function QuranIsnads() {
     finally { if (!quiet) setLoading(false); }
   };
 
+  // what I read on my shaykh, and the books «بمضمنها» (links above mine carry neither)
   const scopeOf = edge => {
-    if (!edge.items?.length) return null;
-    return edge.items.map(it => {
+    const read = (edge.items || []).map(it => {
       const r = it.riwaya_id ? rMap.get(Number(it.riwaya_id)) : null;
       const q = qMap.get(Number(r?.qiraa_id || it.qiraa_id));
       const t = it.tariq_id ? tMap.get(Number(it.tariq_id)) : null;
       return [q?.name_ar, r?.name_ar, t?.name_ar].filter(Boolean).join(' · ');
-    }).filter(Boolean).join('، ') || null;
+    }).filter(Boolean).join('، ');
+    const books = edge.books?.length ? `بمضمن ${edge.books.map(b => b.title).join(' و')}` : '';
+    return [read, books].filter(Boolean).join(' — ') || null;
   };
 
   const paths = result?.paths || [];
@@ -65,7 +67,7 @@ export default function QuranIsnads() {
           {listLoading && !conns.length && [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 52, margin: 6 }} />)}
           {!listLoading && options.length === 0 && (
             <div className="small muted" style={{ padding: 16, textAlign: 'center' }}>
-              لم تسجّل بعدُ قراءةً على شيخ. <Link to="/quran/connections">أضف اتصالاً</Link>
+              لم تسجّل بعدُ قراءةً على شيخ، أو لم تحدّد ما قرأتَ عليه. <Link to="/quran/connections">الاتصالات</Link>
             </div>
           )}
           {options.map(([label, opts]) => (
@@ -73,7 +75,7 @@ export default function QuranIsnads() {
               <div className="side-group">{label}</div>
               {opts.map(o => (
                 <button key={o.key} className={`side-item${selected?.key === o.key ? ' active' : ''}`} onClick={() => load(o)}>
-                  <span className="t">{o.riwayaLabel || (o.qiraa_id ? 'كل الروايات' : 'إجازة مطلقة')}</span>
+                  <span className="t">{o.riwayaLabel || o.qiraaLabel}</span>
                   {o.tariqLabel && <span className="s">طريق {o.tariqLabel}</span>}
                   <span className="s">عن {o.teachers.join('، ')}</span>
                 </button>
@@ -110,7 +112,7 @@ export default function QuranIsnads() {
 
             {paths.length === 0 && !result.disabled?.length && (
               <div className="card"><EmptyState icon="alert" title="لا يوجد سند متصل"
-                subtitle="السلسلة لم تصل إلى إمام القراءة بعد — أكمل الحلقات الناقصة"
+                subtitle={riwaya?.rawi_name ? `السلسلة لم تصل إلى الراوي ${riwaya.rawi_name} بعد — أكمل الحلقات الناقصة` : 'السلسلة لم تصل إلى إمام القراءة بعد — أكمل الحلقات الناقصة'}
                 action={<Link to="/quran/connections" className="btn btn-secondary">إدارة الاتصالات</Link>} /></div>
             )}
 
