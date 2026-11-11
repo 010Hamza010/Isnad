@@ -62,13 +62,13 @@ export function addItem(items, item, lists) {
 }
 
 /**
- * Filter value «q<id>» or «r<id>»: does this link cover it? A link with no items covers
- * everything; an item for a whole qiraa covers its riwayat.
+ * Filter value «q<id>» or «r<id>»: does this link cover it? A link «عام — كل القراءات» covers
+ * everything, one naming nothing covers nothing; an item for a whole qiraa covers its riwayat.
  */
 export function linkMatchesScope(link, filter, lists) {
-  if (!filter) return true;
+  if (!filter || Number(link.is_general)) return true;
   const items = link.items || [];
-  if (!items.length) return true;
+  if (!items.length) return false;
   const want = Number(filter.slice(1));
   return items.some(raw => {
     const it = completeItem(raw, lists);

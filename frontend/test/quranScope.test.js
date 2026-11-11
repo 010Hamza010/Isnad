@@ -47,13 +47,15 @@ test('adding: once; a broader pick replaces what it covers; a narrower one under
 test('filter: by qiraa or riwaya; a link without items or for a whole qiraa matches', () => {
   const warsh = { items: [{ qiraa_id: null, riwaya_id: 3, tariq_id: null }] };
   const nafi = { items: [{ qiraa_id: 1, riwaya_id: null, tariq_id: null }] };
-  const all = { items: [] };
+  const all = { is_general: 1, items: [] };
+  const none = { is_general: 0, items: [] };
   assert.equal(linkMatchesScope(warsh, 'q1', lists), true);   // the qiraa is filled from the riwaya
   assert.equal(linkMatchesScope(warsh, 'q5', lists), false);
   assert.equal(linkMatchesScope(warsh, 'r4', lists), false);
   assert.equal(linkMatchesScope(nafi, 'r4', lists), true);
   assert.equal(linkMatchesScope(nafi, 'r9', lists), false);
   assert.equal(linkMatchesScope(all, 'r9', lists), true);
+  assert.equal(linkMatchesScope(none, 'r9', lists), false);
   assert.equal(linkMatchesScope(warsh, '', lists), true);
 });
 

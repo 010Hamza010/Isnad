@@ -19,7 +19,7 @@ const MODES = ['حضوراً', 'عن بُعد', 'مختلط'];
 const QURAN_KIND = 'qiraa';
 const EMPTY = {
   from_person_id: 0, to_person_id: '', khatmat_count: 1,
-  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [], books: [],
+  ijaza_date: '', meeting_mode: 'حضوراً', reading_mode: '', notes: '', description: '', items: [], books: [], is_general: false,
 };
 
 // Same tabs as the matn links. Mine: one card per shaykh. Above: grouped by the student.
@@ -81,6 +81,7 @@ export default function QuranConnections() {
     notes: c.notes ?? '', description: c.description ?? '',
     items: (c.items || []).map(it => completeItem(it, lists)),
     books: (c.books || []).map(b => Number(b.matn_id)),
+    is_general: !!Number(c.is_general),
   });
 
   const duplicate = form ? findDuplicate(conns, form) : null;
@@ -89,6 +90,9 @@ export default function QuranConnections() {
   const save = async (again = false) => {
     if (form.from_person_id === '' || form.to_person_id === '') return toast('اختر الطرفين', 'error');
     if (String(form.from_person_id) === String(form.to_person_id)) return toast('لا يمكن أن يتصل الشخص بنفسه', 'error');
+    const mine = isMe(form.from_person_id);
+    if (mine && !form.items.length) return toast('حدّد ما قرأتَ على شيخك', 'error');
+    if (!mine && !form.is_general && !form.items.length) return toast('حدّد ما قُرئ، أو اختر «عام — كل القراءات»', 'error');
     setSaving(true);
     try {
       const payload = {
@@ -100,7 +104,8 @@ export default function QuranConnections() {
         reading_mode:         form.reading_mode || null,
         notes:                form.notes || null,
         description:          form.description || null,
-        items:                form.items,
+        is_general:           !mine && form.is_general,
+        items:                !mine && form.is_general ? [] : form.items,
         books:                form.books,
       };
       if (form.id) await api.put(`/quran-connections/${form.id}`, payload);
@@ -126,11 +131,11 @@ export default function QuranConnections() {
           <span className="to">{c.to_name || pName(c.to_person_id)}</span>
         </div>
         <div className="chips" style={{ marginTop: 6, gap: 5 }}>
-          {c.items?.length
+          {Number(c.is_general) && !isMe(c.from_person_id)
+            ? <span className="badge badge-outline">عام — كل القراءات</span>
+            : c.items?.length
             ? c.items.map(it => <span key={itemKey(completeItem(it, lists))} className="badge badge-accent" title={itemLabel(it, lists)}>{itemLabel(it, lists, { short: true }) || 'مطلق'}</span>)
-            : isMe(c.from_person_id)
-              ? <span className="badge badge-danger" title="حدّد ما قرأتَ عليه حتى يظهر في أسانيدك">لم يُحدَّد ما قُرئ</span>
-              : <span className="badge badge-outline">كل ما قرأ</span>}
+            : <span className="badge badge-danger" title="حدّد ما قُرئ حتى يدخل في الأسانيد">لم يُحدَّد ما قُرئ</span>}
           {c.books?.map(b => <span key={b.matn_id} className="badge badge-info"><Icon name="book" size={12} /> بمضمن {b.title}</span>)}
           {c.reading_mode && <span className="badge badge-success">{READING_LABELS[c.reading_mode]}</span>}
           {c.meeting_mode && c.meeting_mode !== 'حضوراً' && <span className="badge badge-info"><Icon name="globe" size={12} /> {c.meeting_mode}</span>}
@@ -219,14 +224,21 @@ export default function QuranConnections() {
             </div>
           )}
 
-          <div className="section-label">ما قُرئ في هذا الاتصال</div>
+          <div className="section-label">ما قُرئ في هذا الاتصال <span className="req">*</span></div>
+          {!isMe(form.from_person_id) && (
+            <label className="check" style={{ marginBottom: 8 }}>
+              <input type="checkbox" checked={form.is_general} onChange={e => set('is_general', e.target.checked)} />
+              عام — كل القراءات <span className="muted small">(قرأ على شيخه كل شيء)</span>
+            </label>
+          )}
+          {(isMe(form.from_person_id) || !form.is_general) && <>
           <Combobox value="" opts={scopeOpts} allowClear={false} placeholder="ابحث عن قراءة أو رواية أو طريق…"
             onChange={key => { const o = scopeOpts.find(x => x.value === key); if (o) set('items', addItem(form.items, o.item, lists)); }} />
           <div className="chips scope-chips">
             {form.items.length === 0
               ? <span className="small muted">{isMe(form.from_person_id)
-                ? 'حدّد ما قرأتَ على شيخك — بلا تحديد لا يظهر في أسانيدك.'
-                : 'بلا تحديد — شيوخ شيوخك قرؤوا كل شيء على شيوخهم، فلا حاجة للتحديد هنا.'}</span>
+                ? 'حدّد ما قرأتَ على شيخك.'
+                : 'حدّد ما قرأ على شيخه، أو اختر «عام — كل القراءات».'}</span>
               : form.items.map((it, i) => (
                 <span key={itemKey(it)} className="badge badge-accent scope-chip">
                   {itemLabel(it, lists)}
@@ -235,6 +247,8 @@ export default function QuranConnections() {
                 </span>
               ))}
           </div>
+          </>}
+          {!isMe(form.from_person_id) && form.is_general && <div style={{ marginBottom: 16 }} />}
 
           <div className="section-label">الكتب المقروء بمضمنها <span className="muted small" style={{ fontWeight: 400 }}>— اختياري</span></div>
           <Combobox value="" opts={bookOpts.filter(o => !form.books.includes(Number(o.value)))} allowClear={false}
