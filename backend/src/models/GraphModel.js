@@ -30,7 +30,15 @@ exports.getMyQuranItems = async (userId) => {
      JOIN quran_connection_items i ON i.connection_id = qc.id
      LEFT JOIN riwayat rv ON rv.id = i.riwaya_id
      LEFT JOIN qiraat q ON q.id = COALESCE(rv.qiraa_id, i.qiraa_id)
-     WHERE qc.user_id = ? AND qc.from_person_id = 0`, [userId]);
+     WHERE qc.user_id = ? AND qc.from_person_id = 0
+     UNION
+     SELECT DISTINCT gi.qiraa_id, gi.riwaya_id, rv.name_ar AS riwaya_name, q.name_ar AS qiraa_name
+     FROM quran_connections qc
+     JOIN quran_connection_groups cg ON cg.connection_id = qc.id
+     JOIN quran_group_items gi ON gi.group_id = cg.group_id
+     LEFT JOIN riwayat rv ON rv.id = gi.riwaya_id
+     LEFT JOIN qiraat q ON q.id = COALESCE(rv.qiraa_id, gi.qiraa_id)
+     WHERE qc.user_id = ? AND qc.from_person_id = 0`, [userId, userId]);   // my groups count as their members
   return rows;
 };
 
@@ -48,8 +56,9 @@ exports.getQuranEdgesForUser = async (userId) => {
     const iMap = {};
     items.forEach(it => { (iMap[it.connection_id] ??= []).push(it); });
     edges.forEach(e => { e.items = iMap[e.id] || []; });
-    const books = await require('./QuranConnectionModel').booksOf(edges.map(e => e.id));
-    edges.forEach(e => { e.books = books[e.id] || []; });
+    const QCM = require('./QuranConnectionModel');
+    const [books, groups] = await Promise.all([QCM.booksOf(edges.map(e => e.id)), QCM.groupsOf(edges.map(e => e.id))]);
+    edges.forEach(e => { e.books = books[e.id] || []; e.groups = groups[e.id] || []; });
   }
   return TxType.annotateQuran(edges);
 };

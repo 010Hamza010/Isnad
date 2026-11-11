@@ -68,7 +68,9 @@ test('saving: my link names what I read; a link above mine names it or is «عا
   assert.equal(QC.checkScope({ from_person_id: 9, items: [{ qiraa_id: 5 }] }), 0);
 });
 
-const mockQuran = (t, edges) => {
+const Quran = require('../src/models/QuranModel');
+const mockQuran = (t, edges, groups = []) => {
+  t.mock.method(Quran, 'allGroups', async () => groups);
   t.mock.method(GM, 'getRiwayaById', async () => ({ id: 1, qiraa_id: 5, imam_id: 50, rawi_id: 51 }));
   t.mock.method(GM, 'getQuranEdgesForUser', async () => edges);
   t.mock.method(GM, 'getAllPersons', async () => new Map([[9, { name_ar: 'شيخي' }], [10, { name_ar: 'شيخه' }],
@@ -105,4 +107,23 @@ test('GET /graph/quran/paths: whole-qiraa link of mine, links above as entered, 
 test('GET /graph/quran/paths: a link above naming another qiraa breaks the route', async (t) => {
   mockQuran(t, [e(0, 9, [{ riwaya_id: 1 }]), { ...e(9, 51, [{ qiraa_id: 6 }]), is_general: 0 }]);
   assert.deepEqual(await paths({ riwaya_id: '1' }), []);
+});
+
+test('GET /graph/quran/paths: a link read with a group carries its members; the group stays on the step', async (t) => {
+  const tenSmall = { id: 3, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى', items: [{ qiraa_id: 5, riwaya_id: null }, { qiraa_id: 6, riwaya_id: null }] };
+  const g = { group_id: 3, name_ar: 'العشر الصغرى', text_ar: 'القراءات العشر الصغرى' };
+  mockQuran(t, [{ ...e(0, 9), groups: [g] }, { ...e(9, 51), groups: [g], is_general: 0 }], [tenSmall]);
+  const p = await paths({ riwaya_id: '1' });
+  assert.equal(p.length, 1);
+  assert.deepEqual(p[0].firstEdge.groups, [g]);
+  assert.deepEqual(p[0].firstEdge.items, []);
+  // a group without عاصم does not carry حفص
+  t.mock.restoreAll();
+  mockQuran(t, [{ ...e(0, 9), groups: [{ ...g, group_id: 4 }] }, { ...e(9, 51), is_general: 1 }], [{ id: 4, items: [{ qiraa_id: 6 }] }]);
+  assert.deepEqual(await paths({ riwaya_id: '1' }), []);
+});
+
+test('saving: a group names what was read', () => {
+  assert.equal(QC.checkScope({ from_person_id: 0, items: [], groups: [3] }), 0);
+  assert.equal(QC.checkScope({ from_person_id: 9, groups: [3] }), 0);
 });
