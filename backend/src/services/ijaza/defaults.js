@@ -37,11 +37,16 @@ module.exports = {
     mutoon: 'وقد قرأتُ هذا المتن على جماعة من شيوخي، منهم: {الشيوخ}.',
     quran: 'وقد قرأتُ القرآن الكريم على جماعة من شيوخي، منهم: {الشيوخ}.',
   },
-  // the isnad of a group («العشر الصغرى») after the meeting point (ابن الجزري…): stop | all | riwaya
+  // the isnad of a group («العشر الصغرى») or a whole qiraa: stop | all | riwaya
   quran_group: {
     mode: 'stop',
     riwaya_id: null,   // mode riwaya: null = حفص
-    stop_text: 'بأسانيده المتصلة إلى الأئمة القراء، إلى النبي ﷺ، عن جبريل عليه السلام، عن رب العزة',
+    // mode stop: where the chain stops, with what is written after him. match: part of his name;
+    // groups: names of the only groups it is for (comma separated; empty = all the others)
+    stops: [
+      { match: 'الجزري', text: 'وإسناده موجود في كتابه النشر في القراءات العشر', groups: '' },
+      { match: 'الداني', text: 'وإسناده موجود في كتابه التعريف', groups: 'العشر النافعية' },
+    ],
   },
   // title per type: text with {placeholders}; color / font / size empty = the design's
   titles: {

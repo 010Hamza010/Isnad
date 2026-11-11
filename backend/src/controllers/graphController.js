@@ -10,6 +10,7 @@ const Quran = require('../models/QuranModel');
 const QGI = require('../services/quranGroupIsnad');
 const IS = require('../services/ijaza/settings');
 const { HttpError } = require('../utils/httpError');
+const { normalizeArabic } = require('../services/isnadText/normalize');
 
 const DISABLED_KEY = 'disabled_routes';
 const disabledIn = async (userId, scope) => ((await Settings.get(userId, DISABLED_KEY)) || {})[scope] || [];
@@ -97,25 +98,30 @@ async function quranGroupData(userId, query) {
   const choices = QGI.groupRiwayat(group, riwayat);
   const riwayaId = QGI.chooseRiwaya(choices, Number(query.riwaya_id) || defaults.riwaya_id);
   let paths = [];
+  // a group: each imam; a qiraa: each of its riwayat (one isnad per rawi), or itself without riwayat
+  const members = groupId ? group.items : choices.length ? choices.map(r => ({ riwaya_id: r.id })) : group.items;
+  const memberPaths = async () => {
+    const out = [];
+    for (const m of members) {
+      const want = m.riwaya_id ? { riwaya_id: m.riwaya_id } : { qiraa_id: m.qiraa_id };
+      out.push(...(await quranData(userId, { ...want, ...only })).paths);
+    }
+    return out;
+  };
   if (mode === 'riwaya') {
     if (riwayaId) paths = (await quranData(userId, { riwaya_id: riwayaId, ...only })).paths;
   } else if (mode === 'all') {
-    // a group: each imam; a qiraa: each of its riwayat (one isnad per rawi), or itself without riwayat
-    const members = groupId ? group.items : choices.length ? choices.map(r => ({ riwaya_id: r.id })) : group.items;
-    for (const m of members) {
-      const want = m.riwaya_id ? { riwaya_id: m.riwaya_id } : { qiraa_id: m.qiraa_id };
-      paths.push(...(await quranData(userId, { ...want, ...only })).paths);
-    }
+    paths = await memberPaths();
   } else {
-    const [edges, pMap, riwayaQiraa] = await Promise.all([GM.getQuranEdgesForUser(userId), GM.getAllPersons(), GM.getRiwayaQiraaMap()]);
-    const byGroup = new Map(groups.map(g => [Number(g.id), g]));
-    const scoped = e => ({ ...e, items: QG.expandItems(e.items, (e.groups || []).map(g => g.group_id), byGroup) });
-    const mine = edges.filter(e => Number(e.from_person_id) === 0
-      && (groupId ? QGI.hasGroup(e, groupId) : QGI.carriesGroup(scoped(e), group, riwayat, riwayaQiraa)));
-    const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QGI.carriesGroup(scoped(e), group, riwayat, riwayaQiraa))
-      .map(e => ({ ...e, books: undefined }));
-    const raw = buildPaths([...mine, ...upper], 0, QGI.meetingPoints(mine, upper), null, null, null, pMap, null, null);
-    paths = QGI.withStop(raw.map(g => formatPath(g, pMap)), defaults.stop_text);
+    // every member's isnad, cut at the first stop point (ابن الجزري…): the shared part once
+    const stops = QGI.stopsFor(defaults.stops, groupId ? group.name_ar : null);
+    const pMap = await GM.getAllPersons();
+    const textOf = new Map();
+    pMap.forEach((p, id) => {
+      const hit = stops.find(x => normalizeArabic(p.name_ar || '').includes(normalizeArabic(x.match)));
+      if (hit) textOf.set(Number(id), hit.text);
+    });
+    paths = QGI.cutAtStops(await memberPaths(), id => textOf.get(Number(id)) ?? null);
   }
   return {
     group: { id: group.id, name_ar: group.name_ar, text_ar: group.text_ar, books: group.books, qiraa_id: qiraaId },
