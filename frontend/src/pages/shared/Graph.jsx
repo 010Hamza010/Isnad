@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Network, DataSet } from 'vis-network/standalone';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
@@ -22,7 +23,8 @@ export default function Graph() {
   const containerRef = useRef(null);
   const networkRef   = useRef(null);
   const [mod, setMod]     = useState('both');
-  const [focus, setFocus] = useState('');
+  const [params] = useSearchParams();
+  const [focus, setFocus] = useState(params.get('focus') || '');   // ?focus=<person id> (from the home sky)
   const [matnId, setMatnId] = useState('');          // limit the graph to the routes of one matn
   const [hideGeneral, setHideGeneral] = useState(false);
   const [showOff, setShowOff] = useState(false);
@@ -113,11 +115,13 @@ export default function Graph() {
     return () => { networkRef.current?.destroy(); networkRef.current = null; };
   }, [data, rg, hideGeneral, showOff]);
 
+  // also after the graph is (re)built, so a focus from the URL applies once the data arrives
   useEffect(() => {
-    if (!focus || !networkRef.current) return;
-    networkRef.current.selectNodes([Number(focus)]);
-    networkRef.current.focus(Number(focus), { scale: 1.2, animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
-  }, [focus]);
+    const net = networkRef.current;
+    if (!focus || !net || !net.body.data.nodes.get(Number(focus))) return;
+    net.selectNodes([Number(focus)]);
+    net.focus(Number(focus), { scale: 1.2, animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+  }, [focus, data, rg, hideGeneral, showOff]);
 
   // highlight one route: its persons and links
   useEffect(() => {
