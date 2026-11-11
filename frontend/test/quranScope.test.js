@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { completeItem, itemLabel, scopeOptions, addItem, linkMatchesScope, findDuplicate, linkItems, scopeText } from '../src/utils/quranScope.js';
+import { completeItem, itemLabel, scopeOptions, addItem, linkMatchesScope, findDuplicate, linkItems, scopeText, matchingGroup } from '../src/utils/quranScope.js';
 
 const lists = {
   qiraat: [{ id: 1, name_ar: 'قراءة نافع' }, { id: 5, name_ar: 'قراءة عاصم' }],
@@ -87,4 +87,28 @@ test('a link read with a group: its members count for the filter, its text names
   assert.equal(linkMatchesScope({ items: [], groups: [4] }, 'q5', withGroups), false);
   assert.equal(scopeText({ groups: [{ group_id: 3 }], items: [{ riwaya_id: 9 }] }, withGroups), 'القراءات العشر الصغرى وقراءة عاصم › رواية حفص');
   assert.equal(scopeText(link, withGroups), 'قالون وورش وقراءة عاصم');
+});
+
+test('matchingGroup: same qiraat and the group\'s books → the group (most books first); else nothing', () => {
+  const L = {
+    qiraat: [{ id: 1 }, { id: 2 }, { id: 3 }],
+    riwayat: [{ id: 11, qiraa_id: 1 }, { id: 12, qiraa_id: 1 }, { id: 21, qiraa_id: 2 }],
+    turuq: [{ id: 5, riwaya_id: 11 }],
+    groups: [
+      { id: 7, name_ar: 'سما', items: [{ qiraa_id: 1 }, { qiraa_id: 2 }], books: [] },
+      { id: 8, name_ar: 'الصغرى', items: [{ qiraa_id: 1 }, { qiraa_id: 2 }], books: [{ matn_id: 40 }] },
+      { id: 9, name_ar: 'الكبرى', items: [{ qiraa_id: 1 }, { qiraa_id: 2 }], books: [{ matn_id: 50 }] },
+    ],
+  };
+  const both = [{ qiraa_id: 1 }, { qiraa_id: 2 }];
+  assert.equal(matchingGroup({ items: both, books: [40] }, L).id, 8);
+  assert.equal(matchingGroup({ items: both, books: [50, 99] }, L).id, 9);
+  assert.equal(matchingGroup({ items: both, books: [] }, L).id, 7);
+  // every riwaya of a qiraa counts as the qiraa
+  assert.equal(matchingGroup({ items: [{ riwaya_id: 11 }, { riwaya_id: 12 }, { qiraa_id: 2 }], books: [] }, L).id, 7);
+  assert.equal(matchingGroup({ items: [{ riwaya_id: 11 }, { qiraa_id: 2 }], books: [] }, L), null);
+  assert.equal(matchingGroup({ items: [...both, { qiraa_id: 3 }], books: [] }, L), null);
+  assert.equal(matchingGroup({ items: both, groups: [7], books: [] }, L), null, 'already a group');
+  assert.equal(matchingGroup({ items: [{ tariq_id: 5 }, { qiraa_id: 2 }], books: [] }, L), null, 'a tariq would be lost');
+  assert.equal(matchingGroup({ items: [], books: [] }, L), null);
 });

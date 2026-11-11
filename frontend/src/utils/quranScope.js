@@ -49,6 +49,38 @@ export function scopeText(link, lists) {
   return [...groups, ...items].join(' و');
 }
 
+/** What a set of items reads, as riwayat («r<id>»; a qiraa without riwayat «q<id>»); null if a tariq is named. */
+function readSet(items, lists) {
+  const out = new Set();
+  for (const raw of items) {
+    const it = completeItem(raw, lists);
+    if (it.tariq_id) return null;   // a group has no turuq: replacing would lose it
+    if (it.riwaya_id) { out.add(`r${it.riwaya_id}`); continue; }
+    if (!it.qiraa_id) continue;
+    const own = lists.riwayat.filter(r => Number(r.qiraa_id) === it.qiraa_id);
+    if (own.length) own.forEach(r => out.add(`r${r.id}`)); else out.add(`q${it.qiraa_id}`);
+  }
+  return out;
+}
+
+/**
+ * The group a link's choice matches, to suggest replacing it: same qiraat / riwayat and the group's
+ * books all on the link (العشر الصغرى = the ten + الشاطبية + الدرة). Nothing when the link already has
+ * a group or names a tariq; with several, the one with the most books. → group | null
+ */
+export function matchingGroup({ items = [], groups = [], books = [] }, lists) {
+  if (groups.length || !items.length) return null;
+  const mine = readSet(items, lists);
+  if (!mine?.size) return null;
+  const have = new Set(books.map(Number));
+  const hits = (lists.groups || []).filter(g => {
+    const theirs = readSet(g.items || [], lists);
+    return theirs && theirs.size === mine.size && [...theirs].every(k => mine.has(k))
+      && (g.books || []).every(b => have.has(Number(b.matn_id ?? b)));
+  });
+  return hits.sort((a, b) => (b.books?.length || 0) - (a.books?.length || 0))[0] || null;
+}
+
 /**
  * Every group (value «g<id>», with `group`), then every qiraa, its riwayat and their turuq, as
  * Combobox options: { value, label, sub, item | group }. The sub line says what a broader pick covers.
