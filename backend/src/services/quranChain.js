@@ -7,6 +7,8 @@
  * Only MY links decide what I hold (what was read, and the tariq); every link above them counts as
  * complete: those shaykhs read everything on their shaykhs. No العشر الصغرى / الكبرى logic for now.
  */
+const { HttpError } = require('../utils/httpError');
+
 const PROPHET = -1;
 
 const TAIL = [
@@ -32,6 +34,26 @@ function startCovers(edge, want, riwayaQiraa) {
     if (want.tariq === undefined) return true;
     return want.tariq === 0 ? !it.tariq_id : Number(it.tariq_id) === Number(want.tariq);
   });
+}
+
+/**
+ * A link above mine: does it carry this choice? «عام» carries everything; otherwise one of its
+ * items must (a whole qiraa carries each of its riwayat; a tariq does not matter above me).
+ */
+function upperCovers(edge, want, riwayaQiraa) {
+  if (Number(edge.is_general)) return true;
+  if (!want.riwaya_id && !want.qiraa_id) return false;
+  return startCovers(edge, { ...want, tariq: undefined }, riwayaQiraa);
+}
+
+/** A link to save: names what was read, or is «عام» (not mine). → is_general (0/1), or throws 400. */
+function checkScope(body) {
+  const mine = Number(body?.from_person_id || 0) === 0;
+  const items = (body?.items || []).filter(it => it && (it.qiraa_id || it.riwaya_id || it.tariq_id));
+  const general = !mine && !!Number(body?.is_general);
+  if (mine && !items.length) throw new HttpError(400, 'حدّد ما قرأتَ على شيخك');
+  if (!general && !items.length) throw new HttpError(400, 'حدّد ما قُرئ، أو اختر «عام — كل القراءات»');
+  return general ? 1 : 0;
 }
 
 /** Simple paths from → to over the links above me (each an array of edges), at most `limit`. */
@@ -86,4 +108,4 @@ function completeGroups(groups, alternatives) {
   });
 }
 
-module.exports = { startCovers, segments, above, completeGroups, TAIL, PROPHET };
+module.exports = { startCovers, upperCovers, checkScope, segments, above, completeGroups, TAIL, PROPHET };
