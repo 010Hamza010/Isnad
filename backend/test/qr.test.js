@@ -86,3 +86,14 @@ test('a title on several lines signs as one line, exactly like the same title wi
   assert.equal(two, one);
   assert.equal(two.split('\n').length, one.split('\n').length);
 });
+
+test('signing refuses an empty key', () => {
+  const saved = { qr: process.env.QR_SECRET, jwt: process.env.JWT_SECRET };
+  delete process.env.QR_SECRET; delete process.env.JWT_SECRET;
+  try {
+    assert.throws(() => Q.buildPayload({ short_code: 'ISN-AAAA-BBBB', student_name: 'x', title: 'y', issued_at: '2026-01-01' }), /not set/);
+  } finally {
+    process.env.QR_SECRET = saved.qr;
+    if (saved.jwt !== undefined) process.env.JWT_SECRET = saved.jwt;
+  }
+});
