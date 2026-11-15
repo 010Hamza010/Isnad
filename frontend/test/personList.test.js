@@ -58,3 +58,24 @@ test('page numbers keep the ends and two around the current page', () => {
   assert.deepEqual(pageNumbers(6, 25), [1, '…', 4, 5, 6, 7, 8, '…', 25]);
   assert.deepEqual(pageNumbers(1, 3), [1, 2, 3]);
 });
+
+import { centuryOf, withDeathYear } from '../src/utils/personList.js';
+
+test('century of a hijri death year', () => {
+  assert.equal(centuryOf('852هـ'), 9);
+  assert.equal(centuryOf('100'), 1);
+  assert.equal(centuryOf('101 هـ'), 2);
+  assert.equal(centuryOf('٨٣٣هـ'), 9);
+  assert.equal(centuryOf('1449م'), null);
+  assert.equal(centuryOf(''), null);
+});
+
+test('typing a death year fills the century, never over one set by hand', () => {
+  let f = { death_year: '', century: '' };
+  f = withDeathYear(f, '8');   assert.equal(f.century, '1');
+  f = withDeathYear(f, '85');  assert.equal(f.century, '1');
+  f = withDeathYear(f, '852'); assert.equal(f.century, '9');
+  f = withDeathYear(f, '');    assert.equal(f.century, '');
+  assert.equal(withDeathYear({ death_year: '', century: '10' }, '852').century, '10');
+  assert.equal(withDeathYear({ death_year: '852', century: 10 }, '853').century, 10);
+});

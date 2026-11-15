@@ -10,7 +10,7 @@ import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import { personRoles } from '../../utils/personRoles';
-import { filterPersons, kindCounts, facets, paginate, pageNumbers, missing } from '../../utils/personList';
+import { filterPersons, kindCounts, facets, paginate, pageNumbers, missing, withDeathYear } from '../../utils/personList';
 
 const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '' };
 const SORTS = [{ value: 'name', label: 'الاسم' }, { value: 'death', label: 'سنة الوفاة' }, { value: 'links', label: 'الأكثر روابط' }];
@@ -159,7 +159,7 @@ export default function Persons() {
           <div className="form-grid">
             <Field label="الكنية"><TextInput form={form} set={set} name="kunya" placeholder="أبو عبد الله" /></Field>
             <Field label="النسبة"><TextInput form={form} set={set} name="nisba" placeholder="المالكي، الفاسي" /></Field>
-            <Field label="سنة الوفاة"><TextInput form={form} set={set} name="death_year" placeholder="852هـ" /></Field>
+            <Field label="سنة الوفاة" hint="يُملأ القرن منها تلقائياً"><TextInput form={form} set={(k, v) => setForm(f => withDeathYear(f, v))} name="death_year" placeholder="852هـ" /></Field>
             <Field label="القرن"><TextInput form={form} set={set} name="century" type="number" min="1" max="15" placeholder="9" /></Field>
             <Field label="البلد / المنطقة"><TextInput form={form} set={set} name="region" placeholder="المغرب" /></Field>
             <Field label="الاسم بالحروف اللاتينية"><TextInput form={form} set={set} name="name_latin" placeholder="Ibn Hajar" dir="ltr" /></Field>

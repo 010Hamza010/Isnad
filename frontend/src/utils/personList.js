@@ -92,3 +92,22 @@ export function pageNumbers(page, pages) {
   });
   return out;
 }
+
+// Hijri century of a death year: «852هـ» → 9, «100» → 1, «٨٥٢» → 9. A year marked «م» (Gregorian)
+// or with no number gives null: the century field is hijri.
+export function centuryOf(deathYear) {
+  const s = String(deathYear ?? '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  if (/\d\s*م/.test(s) || /\bAD\b|\bCE\b/i.test(s)) return null;
+  const m = s.match(/\d+/);
+  const y = m ? Number(m[0]) : 0;
+  return y > 0 && y < 2000 ? Math.ceil(y / 100) : null;
+}
+
+// Typing a death year fills the century, unless it was set by hand (differs from the old year's).
+export function withDeathYear(form, deathYear) {
+  const next = { ...form, death_year: deathYear };
+  const auto = centuryOf(deathYear);
+  const wasAuto = !form.century || String(form.century) === String(centuryOf(form.death_year) ?? '');
+  if (wasAuto) next.century = auto != null ? String(auto) : centuryOf(form.death_year) != null ? '' : form.century;
+  return next;
+}
