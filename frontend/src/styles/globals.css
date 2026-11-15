@@ -689,3 +689,12 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 .order-btns .icon-btn:disabled { opacity: .3; cursor: default; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 .link-btn:hover b { color: var(--primary); }
+
+/* «الأعلام»: filter bar, compact rows, pager */
+.persons-filters { margin-top: -8px; }
+.persons-filters .select { width: auto; height: 36px; }
+.persons-list .list-item { padding: 8px 14px; gap: 10px; }
+.persons-list .list-sub { margin-inline-start: 4px; }
+.pager { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.pager .icon-btn:disabled { opacity: .35; cursor: default; }
+@media (max-width: 640px) { .persons-filters .select { flex: 1 1 140px; } }

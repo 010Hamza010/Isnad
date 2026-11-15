@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
@@ -8,10 +9,11 @@ import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
-import { matches } from '../../utils/text';
-import { personRoles, hasRole } from '../../utils/personRoles';
+import { personRoles } from '../../utils/personRoles';
+import { filterPersons, kindCounts, facets, paginate, pageNumbers, missing } from '../../utils/personList';
 
 const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '' };
+const SORTS = [{ value: 'name', label: 'الاسم' }, { value: 'death', label: 'سنة الوفاة' }, { value: 'links', label: 'الأكثر روابط' }];
 
 export default function Persons() {
   const { toast, notifyError, confirm } = useUI();
@@ -21,20 +23,30 @@ export default function Persons() {
   }, [], { persons: [], qiraat: [], riwayat: [] });
   const { persons, qiraat, riwayat } = data;
 
-  const [search, setSearch] = useState('');
-  const [kind, setKind]     = useState('all');
+  // Search, filters and page live in the URL: back from a person or a reload lands on the same page.
+  const [params, setParams] = useSearchParams();
+  const f = {
+    q: params.get('q') || '', kind: params.get('kind') || 'all', century: params.get('c') || '',
+    region: params.get('r') || '', incomplete: params.get('x') === '1', sort: params.get('sort') || 'name',
+  };
+  const setFilter = (key, value) => setParams(prev => {
+    const next = new URLSearchParams(prev);
+    if (value && value !== 'all' && !(key === 'sort' && value === 'name')) next.set(key, value); else next.delete(key);
+    if (key !== 'page') next.delete('page');
+    return next;
+  }, { replace: true });
+
   const [form, setForm]     = useState(null);
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const roles = useMemo(() => personRoles(qiraat, riwayat), [qiraat, riwayat]);
-  const inKind = (p, k) => k === 'all' || (k === 'others' ? !roles.has(Number(p.id)) : hasRole(roles, p.id, k));
-  const count = k => persons.filter(p => inKind(p, k)).length;
-
-  const filtered = useMemo(() => persons
-    .filter(p => inKind(p, kind))
-    .filter(p => matches(search, p.name_ar, p.name_latin, p.kunya, p.nisba, p.region)),
-  [persons, search, kind, roles]);
+  const roles    = useMemo(() => personRoles(qiraat, riwayat), [qiraat, riwayat]);
+  const facet    = useMemo(() => facets(persons), [persons]);
+  const filtered = useMemo(() => filterPersons(persons, roles, f), [persons, roles, f.q, f.kind, f.century, f.region, f.incomplete, f.sort]);
+  const counts   = useMemo(() => kindCounts(persons, roles, f), [persons, roles, f.q, f.century, f.region, f.incomplete]);
+  const pg       = paginate(filtered, params.get('page'));
+  const narrowed = f.q || f.century || f.region || f.incomplete || f.kind !== 'all';
+  const clearAll = () => setParams({}, { replace: true });
 
   const save = async () => {
     if (!form.name_ar.trim()) return toast('الاسم بالعربية مطلوب', 'error');
@@ -58,46 +70,80 @@ export default function Persons() {
   return (
     <>
       <div className="toolbar">
-        <SearchInput className="search" value={search} onChange={setSearch} placeholder="ابحث بالاسم أو الكنية أو البلد…" />
-        <Segmented value={kind} onChange={setKind} options={[
-          { value: 'all', label: 'الكل', count: persons.length },
-          { value: 'imam', label: 'أئمة القراءات', count: count('imam') },
-          { value: 'rawi', label: 'الرواة', count: count('rawi') },
-          { value: 'others', label: 'غيرهم', count: count('others') },
-        ]} />
+        <SearchInput className="search" value={f.q} onChange={v => setFilter('q', v)} placeholder="ابحث بالاسم أو الكنية أو النسبة أو البلد…" />
         <button className="btn btn-primary" onClick={() => setForm(EMPTY)}><Icon name="plus" size={16} /> علَم جديد</button>
+      </div>
+      <div className="toolbar persons-filters">
+        <Segmented value={f.kind} onChange={v => setFilter('kind', v)} options={[
+          { value: 'all', label: 'الكل', count: counts.all },
+          { value: 'imam', label: 'أئمة القراءات', count: counts.imam },
+          { value: 'rawi', label: 'الرواة', count: counts.rawi },
+          { value: 'others', label: 'غيرهم', count: counts.others },
+        ]} />
+        <select className="select" value={f.century} onChange={e => setFilter('c', e.target.value)} aria-label="القرن">
+          <option value="">كل القرون</option>
+          {facet.centuries.map(c => <option key={c.value} value={c.value}>القرن {c.value} ({c.count})</option>)}
+        </select>
+        <select className="select" value={f.region} onChange={e => setFilter('r', e.target.value)} aria-label="البلد">
+          <option value="">كل البلدان</option>
+          {facet.regions.map(r => <option key={r.value} value={r.value}>{r.value} ({r.count})</option>)}
+        </select>
+        <label className="check">
+          <input type="checkbox" checked={f.incomplete} onChange={e => setFilter('x', e.target.checked ? '1' : '')} /> يحتاج إكمالاً
+        </label>
+        <select className="select" value={f.sort} onChange={e => setFilter('sort', e.target.value)} aria-label="الترتيب">
+          {SORTS.map(o => <option key={o.value} value={o.value}>ترتيب: {o.label}</option>)}
+        </select>
+        {narrowed && <button className="btn btn-ghost btn-sm" onClick={clearAll}>مسح التصفية</button>}
       </div>
 
       {loading && !persons.length ? <SkeletonList /> : filtered.length === 0 ? (
-        <EmptyState icon="users" title={search ? 'لا نتائج مطابقة' : 'لا يوجد أعلام بعد'}
-          subtitle={search ? 'جرّب كلمة أخرى' : 'أضف شيخك الأول لتبدأ'}
-          action={!search && <button className="btn btn-primary" onClick={() => setForm(EMPTY)}><Icon name="plus" size={16} /> إضافة</button>} />
+        <EmptyState icon="users" title={narrowed ? 'لا نتائج مطابقة' : 'لا يوجد أعلام بعد'}
+          subtitle={narrowed ? 'جرّب كلمة أخرى أو امسح التصفية' : 'أضف شيخك الأول لتبدأ'}
+          action={narrowed
+            ? <button className="btn" onClick={clearAll}>مسح التصفية</button>
+            : <button className="btn btn-primary" onClick={() => setForm(EMPTY)}><Icon name="plus" size={16} /> إضافة</button>} />
       ) : (
-        <div className="list">
-          {filtered.map(p => (
-            <div key={p.id} className="list-item">
-              <div className="avatar" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>{p.name_ar.replace(/^(ال|أبو |ابن )/, '').slice(0, 1)}</div>
-              <div className="list-main">
-                <div className="row row-wrap" style={{ gap: 6 }}>
-                  <span className="list-title display" style={{ fontSize: 17 }}>{p.name_ar}</span>
-                  {p.kunya && <span className="muted small">({p.kunya})</span>}
-                  {p.gender === 'F' && <span className="badge badge-purple">أنثى</span>}
-                  {(roles.get(Number(p.id)) || []).map(r => (
-                    <span key={r.label} className={`badge ${r.kind === 'imam' ? 'badge-accent' : 'badge-info'}`}>{r.label}</span>
-                  ))}
+        <>
+          <div className="list persons-list">
+            {pg.items.map(p => {
+              const lacks = missing(p);
+              return (
+                <div key={p.id} className="list-item" title={p.description || undefined}>
+                  <div className="list-main">
+                    <div className="row row-wrap" style={{ gap: 6 }}>
+                      <span className="list-title">{p.name_ar}</span>
+                      {p.kunya && <span className="muted small">({p.kunya})</span>}
+                      {p.gender === 'F' && <span className="badge badge-purple">أنثى</span>}
+                      {(roles.get(Number(p.id)) || []).map(r => (
+                        <span key={r.label} className={`badge ${r.kind === 'imam' ? 'badge-accent' : 'badge-info'}`}>{r.label}</span>
+                      ))}
+                      <span className="list-sub">
+                        {[p.death_year && `ت ${p.death_year}`, p.century && `ق${p.century}`, p.region, p.links_count ? `${p.links_count} رابط` : null].filter(Boolean).join(' · ')}
+                      </span>
+                      {f.incomplete && lacks.length > 0 && <span className="badge badge-outline">ينقصه: {lacks.join('، ')}</span>}
+                    </div>
+                  </div>
+                  <div className="actions">
+                    <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                    <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
+                  </div>
                 </div>
-                <div className="list-sub">
-                  {[p.death_year && `ت ${p.death_year}`, p.century && `القرن ${p.century}`, p.region, p.name_latin].filter(Boolean).join(' · ')}
-                </div>
-                {p.description && <div className="small muted clamp-2" style={{ marginTop: 2 }}>{p.description}</div>}
-              </div>
-              <div className="actions">
-                <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
-                <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+          <nav className="pager" aria-label="الصفحات">
+            {pg.pages > 1 && <>
+              <button className="icon-btn" disabled={pg.page === 1} onClick={() => setFilter('page', String(pg.page - 1))} aria-label="السابقة">‹</button>
+              {pageNumbers(pg.page, pg.pages).map((n, i) => n === '…'
+                ? <span key={`gap${i}`} className="muted">…</span>
+                : <button key={n} className={`chip${n === pg.page ? ' active' : ''}`} aria-current={n === pg.page ? 'page' : undefined}
+                    onClick={() => setFilter('page', n === 1 ? '' : String(n))}>{n}</button>)}
+              <button className="icon-btn" disabled={pg.page === pg.pages} onClick={() => setFilter('page', String(pg.page + 1))} aria-label="التالية">›</button>
+            </>}
+            <span className="muted small">{pg.from}–{pg.to} من {pg.total}</span>
+          </nav>
+        </>
       )}
 
       {form && (

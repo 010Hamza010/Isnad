@@ -11,6 +11,17 @@ exports.findAll = async (q) => {
   return rows;
 };
 
+// The list page sorts by and filters on how many links (hadith/matn or Quran, either side) a person has.
+exports.findAllWithLinks = async (q) => {
+  const [persons, [counts]] = await Promise.all([exports.findAll(q), db.query(`
+    SELECT pid, COUNT(*) AS n FROM (
+      SELECT from_person_id AS pid FROM matn_connections UNION ALL SELECT to_person_id FROM matn_connections
+      UNION ALL SELECT from_person_id FROM quran_connections UNION ALL SELECT to_person_id FROM quran_connections
+    ) l GROUP BY pid`)]);
+  const byId = new Map(counts.map(c => [Number(c.pid), Number(c.n)]));
+  return persons.map(p => ({ ...p, links_count: byId.get(Number(p.id)) || 0 }));
+};
+
 exports.findById = async (id) => {
   const [[row]] = await db.execute('SELECT * FROM persons WHERE id=?', [id]);
   return row;
