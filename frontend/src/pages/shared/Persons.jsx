@@ -3,23 +3,23 @@ import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
 import { FormModal } from '../../components/ui/Modal';
-import { Field, TextInput, TextArea, Select } from '../../components/ui/Field';
+import { Field, TextInput, TextArea } from '../../components/ui/Field';
 import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import { matches } from '../../utils/text';
-import { rowOptions } from '../../utils/options';
+import { personRoles, hasRole } from '../../utils/personRoles';
 
-const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '', primary_qiraa_id: '' };
+const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '' };
 
 export default function Persons() {
   const { toast, notifyError, confirm } = useUI();
   const { data, loading, reload } = useLoad(async () => {
-    const [p, q] = await Promise.all([api.get('/persons'), api.get('/quran/qiraat')]);
-    return { persons: p.data, qiraat: q.data };
-  }, [], { persons: [], qiraat: [] });
-  const { persons, qiraat } = data;
+    const [p, q, r] = await Promise.all([api.get('/persons'), api.get('/quran/qiraat'), api.get('/quran/riwayat')]);
+    return { persons: p.data, qiraat: q.data, riwayat: r.data };
+  }, [], { persons: [], qiraat: [], riwayat: [] });
+  const { persons, qiraat, riwayat } = data;
 
   const [search, setSearch] = useState('');
   const [kind, setKind]     = useState('all');
@@ -27,14 +27,14 @@ export default function Persons() {
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const qiraaName = id => qiraat.find(q => Number(q.id) === Number(id))?.name_ar;
+  const roles = useMemo(() => personRoles(qiraat, riwayat), [qiraat, riwayat]);
+  const inKind = (p, k) => k === 'all' || (k === 'others' ? !roles.has(Number(p.id)) : hasRole(roles, p.id, k));
+  const count = k => persons.filter(p => inKind(p, k)).length;
 
   const filtered = useMemo(() => persons
-    .filter(p => kind === 'all' || (kind === 'imams' ? p.primary_qiraa_id : !p.primary_qiraa_id))
+    .filter(p => inKind(p, kind))
     .filter(p => matches(search, p.name_ar, p.name_latin, p.kunya, p.nisba, p.region)),
-  [persons, search, kind]);
-
-  const imams = persons.filter(p => p.primary_qiraa_id).length;
+  [persons, search, kind, roles]);
 
   const save = async () => {
     if (!form.name_ar.trim()) return toast('الاسم بالعربية مطلوب', 'error');
@@ -61,8 +61,9 @@ export default function Persons() {
         <SearchInput className="search" value={search} onChange={setSearch} placeholder="ابحث بالاسم أو الكنية أو البلد…" />
         <Segmented value={kind} onChange={setKind} options={[
           { value: 'all', label: 'الكل', count: persons.length },
-          { value: 'imams', label: 'أئمة القراءات', count: imams },
-          { value: 'others', label: 'غيرهم', count: persons.length - imams },
+          { value: 'imam', label: 'أئمة القراءات', count: count('imam') },
+          { value: 'rawi', label: 'الرواة', count: count('rawi') },
+          { value: 'others', label: 'غيرهم', count: count('others') },
         ]} />
         <button className="btn btn-primary" onClick={() => setForm(EMPTY)}><Icon name="plus" size={16} /> علَم جديد</button>
       </div>
@@ -81,7 +82,9 @@ export default function Persons() {
                   <span className="list-title display" style={{ fontSize: 17 }}>{p.name_ar}</span>
                   {p.kunya && <span className="muted small">({p.kunya})</span>}
                   {p.gender === 'F' && <span className="badge badge-purple">أنثى</span>}
-                  {p.primary_qiraa_id && <span className="badge badge-accent">{qiraaName(p.primary_qiraa_id)}</span>}
+                  {(roles.get(Number(p.id)) || []).map(r => (
+                    <span key={r.label} className={`badge ${r.kind === 'imam' ? 'badge-accent' : 'badge-info'}`}>{r.label}</span>
+                  ))}
                 </div>
                 <div className="list-sub">
                   {[p.death_year && `ت ${p.death_year}`, p.century && `القرن ${p.century}`, p.region, p.name_latin].filter(Boolean).join(' · ')}
@@ -115,9 +118,9 @@ export default function Persons() {
             <Field label="البلد / المنطقة"><TextInput form={form} set={set} name="region" placeholder="المغرب" /></Field>
             <Field label="الاسم بالحروف اللاتينية"><TextInput form={form} set={set} name="name_latin" placeholder="Ibn Hajar" dir="ltr" /></Field>
           </div>
-          <Field label="إمام قراءة" hint="يُحدَّد لأئمة القراءات فقط، ويُستخدم لتصفية الأسانيد القرآنية">
-            <Select form={form} set={set} name="primary_qiraa_id" options={rowOptions(qiraat)} placeholder="— ليس إماماً —" />
-          </Field>
+          {roles.has(Number(form.id)) && (
+            <p className="field-hint">{roles.get(Number(form.id)).map(r => r.label).join('، ')} — يُغيَّر من «القراءات والروايات».</p>
+          )}
           <Field label="ترجمة وملاحظات"><TextArea form={form} set={set} name="description" placeholder="ترجمة مختصرة، شيوخه، إجازاته…" /></Field>
         </FormModal>
       )}

@@ -1,14 +1,9 @@
-function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap) {
+function edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, imamMap, riwayaQiraaMap) {
   const items = edge.items || [];
   const isStart = Number(edge.from_person_id) === 0;
 
   if (items.length === 0) {
     if (qiraa_id) {
-      if (pMap) {
-        const toPerson = pMap.get(Number(edge.to_person_id));
-        if (toPerson?.primary_qiraa_id &&
-            Number(toPerson.primary_qiraa_id) !== Number(qiraa_id)) return false;
-      }
       if (imamMap) {
         const personQiraa = imamMap.get(Number(edge.to_person_id));
         if (personQiraa !== undefined && Number(personQiraa) !== Number(qiraa_id)) return false;
@@ -71,7 +66,7 @@ function buildPaths(edges, startId, targetIds, riwaya_id, tariq_id, qiraa_id, pM
   // (see edgeRank). Filtering first matters — two edges to the same shaykh may cover different riwayat.
   const edgeMap = new Map();
   for (const edge of edges) {
-    if (!edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, pMap, imamMap, riwayaQiraaMap)) continue;
+    if (!edgeCompatible(edge, riwaya_id, tariq_id, qiraa_id, imamMap, riwayaQiraaMap)) continue;
     const key = `${edge.from_person_id}-${edge.to_person_id}`;
     const existing = edgeMap.get(key);
     if (!existing || edgeRank(edge) < edgeRank(existing)) edgeMap.set(key, edge);
