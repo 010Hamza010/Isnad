@@ -280,7 +280,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name_ar\": \"نافع بن عبد الرحمن\",\n  \"name_latin\": \"Nafi'\",\n  \"gender\": \"M\",\n  \"kunya\": \"أبو رويم\",\n  \"nisba\": \"المدني\",\n  \"century\": 2,\n  \"death_year\": 169,\n  \"region\": \"المدينة\",\n  \"description\": null,\n  \"primary_qiraa_id\": null\n}"
+              "raw": "{\n  \"name_ar\": \"نافع بن عبد الرحمن\",\n  \"name_latin\": \"Nafi'\",\n  \"gender\": \"M\",\n  \"kunya\": \"أبو رويم\",\n  \"nisba\": \"المدني\",\n  \"century\": 2,\n  \"death_year\": 169,\n  \"region\": \"المدينة\",\n  \"description\": null\n}"
             }
           }
         },
@@ -297,7 +297,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name_ar\": \"نافع بن عبد الرحمن\",\n  \"name_latin\": \"Nafi'\",\n  \"gender\": \"M\",\n  \"kunya\": \"أبو رويم\",\n  \"nisba\": \"المدني\",\n  \"century\": 2,\n  \"death_year\": 169,\n  \"region\": \"المدينة\",\n  \"description\": null,\n  \"primary_qiraa_id\": null\n}"
+              "raw": "{\n  \"name_ar\": \"نافع بن عبد الرحمن\",\n  \"name_latin\": \"Nafi'\",\n  \"gender\": \"M\",\n  \"kunya\": \"أبو رويم\",\n  \"nisba\": \"المدني\",\n  \"century\": 2,\n  \"death_year\": 169,\n  \"region\": \"المدينة\",\n  \"description\": null\n}"
             }
           }
         },
