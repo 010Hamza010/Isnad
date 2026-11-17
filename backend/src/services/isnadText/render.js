@@ -9,8 +9,10 @@
  *   4. تحويل      renderSet (+ sharedHead, sharedTail,             several routes → one text: shared
  *                 restartWith, meetText, renderTogether,           beginning once, «ح وعن فلان»,
  *                 renderSiblings, togetherBuckets)                 «كلاهما عن X» where routes meet
- *   5. entry      renderChains, renderGroup, groupChains,
- *                 collectPersons
+ *   «المتقدم»     splitRefers, referText                          my link to someone already written through
+ *                                                                 a teacher: «وأرويه أيضاً … بسنده المتقدم»
+ *   5. entry      renderChains, renderRoutes, renderGroup,
+ *                 groupChains, collectPersons
  *
  * An edge is one link, from the student (from_*) up to the shaykh (to_*); person 0 is me.
  * Its fields are listed in README.md § «Edge».
@@ -267,27 +269,30 @@ const wordCount = t => String(t).replace(/\[\[-?\d+\]\]/g, '').split(/\s+/).filt
  * فلان already in the text, «… ح ⏎ ويرويه أيضاً فلان، عن …» («وترويه» for a woman) — never «وأرويه».
  */
 // prevWords: length of the route the reader has just read (since the last restart)
-function restartWith(t, s, scope, ctx, prevWords = 0) {
+// done: that route went all the way (to the author): a whole isnad, so «.» and a new paragraph, no ح
+function restartWith(t, s, scope, ctx, prevWords = 0, done = false) {
   const also = t.startsWith(ALSO_MARK);
   const body = also ? t.slice(ALSO_MARK.length) : t;
   const long = s.style.longRestart && s.style.longRestartWords > 0 && prevWords >= s.style.longRestartWords;
-  if (long) {
-    const br = `${s.style.tahwil}\n\n`;
+  if (long || done) {
+    const br = done ? '.\n\n' : `${s.style.tahwil}\n\n`;
     if (also) return `${br}و${body}`;                       // «وقرأ شيخنا فلان أيضاً على …» says it already
     if (scope.restart) {
       const verb = scope.restart.gender === 'F' ? 'وترويه' : 'ويرويه';
       return `${br}${verb} أيضاً ${nameOf(scope.restart, s, ctx, 'nom')}${body ? s.style.separator + body : ''}`;
     }
-    return `${br}${s.style.longRestart}: ${body}`;
+    return `${br}${s.style.longRestart || DEFAULTS_RESTART}: ${body}`;
   }
   return scope.restart
     ? `${s.style.tahwil} وعن ${nameOf(scope.restart, s, ctx, 'gen')}${body ? s.style.separator + body : ''}`
     : `${s.style.tahwil} و${body}`;
 }
+const DEFAULTS_RESTART = 'وأرويه أيضاً';
 // scope.before: words written before these branches on the same route (a shared beginning)
-const joinBranchTexts = (texts, s, scope, ctx) => texts
-  .map((t, i) => (i === 0 ? t : restartWith(t, s, scope, ctx, wordCount(texts[i - 1]) + (i === 1 ? scope.before || 0 : 0))))
-  .join(' ').replace(/ \n\n/g, '\n\n');
+// done: every branch goes all the way (see restartWith)
+const joinBranchTexts = (texts, s, scope, ctx, done = false) => texts
+  .map((t, i) => (i === 0 ? t : restartWith(t, s, scope, ctx, wordCount(texts[i - 1]) + (i === 1 ? scope.before || 0 : 0), done)))
+  .join(' ').replace(/ (\.?)\n\n/g, '$1\n\n');
 
 // «كلاهما قرأ على X» when every narrator took from X the same way, else «كلاهما عن X».
 // meetEdges: one edge into X per narrator.
@@ -381,7 +386,8 @@ function togetherBuckets(branches, ctx) {
  *      «كلاهما عن X» and the tail when there is one
  * Limitation: only what ALL the routes of a call share is factored. Forks in the middle make the
  * cross product of routes, and their shared parts are written once per combination (README.md § 5).
- * scope: { opening, restart (person to name after ح), before (words already on this route), depth }
+ * scope: { opening, restart (person to name after ح), before (words already on this route), depth,
+ *          complete (false when the routes were cut at a meeting person: they do not reach the end) }
  */
 function renderSet(chains, s, ctx, scope) {
   const sep = s.style.separator;
@@ -392,14 +398,15 @@ function renderSet(chains, s, ctx, scope) {
   const live = list.filter(c => c.length);
   if (!live.length) return '';
   if (list.length === 1) return linear(list[0]);                  // 0. one route
-  const joinBranches = texts => joinBranchTexts(texts, s, scope, ctx);
-  if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
+  const whole = scope.complete !== false;           // these routes go all the way (not cut at a meeting)
+  const joinBranches = (texts, done = false) => joinBranchTexts(texts, s, scope, ctx, done);
+  if (depth > MAX_DEPTH) return joinBranches(live.map(linear), whole);
 
   // 1. shared beginning
   const n = sharedHead(list);
   if (n > 0) {
     const head = renderLinks(list[0].slice(0, n), s, ctx, { opening: scope.opening }).join(sep);
-    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: toP(list[0][n - 1]), before: (scope.before || 0) + wordCount(head), depth });
+    const rest = renderSet(list.map(c => c.slice(n)), s, ctx, { opening: false, restart: toP(list[0][n - 1]), before: (scope.before || 0) + wordCount(head), depth, complete: scope.complete });
     return [head, rest].filter(Boolean).join(sep);
   }
 
@@ -411,6 +418,8 @@ function renderSet(chains, s, ctx, scope) {
   const k = live.length === 1 || ended ? 0 : sharedTail(live);
   const narrators = new Map(k ? live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]) : []);
   const tailAfter = () => renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false });
+  // branches cut at the meeting person X still go all the way when nothing comes after X (k = 1)
+  const toEnd = whole && k === 1;
 
   if (narrators.size > 1) {
     const toMeet = live.map(c => c.slice(0, c.length - k + 1));
@@ -440,8 +449,8 @@ function renderSet(chains, s, ctx, scope) {
       byFirst.get(key).push(c.slice(0, c.length - k + 1));
     });
     if (byFirst.size > 1 && byFirst.size < narrators.size) {
-      const texts = [...byFirst.values()].map(g => renderSet(g, s, ctx, { ...scope, depth }));
-      return [joinBranches(texts), ...tailAfter()].join(sep);
+      const texts = [...byFirst.values()].map(g => renderSet(g, s, ctx, { ...scope, depth, complete: toEnd }));
+      return [joinBranches(texts, toEnd), ...tailAfter()].join(sep);
     }
   }
 
@@ -460,15 +469,16 @@ function renderSet(chains, s, ctx, scope) {
     const texts = [];
     [...groups.values()].forEach(g => {
       const b = g.length === 1 && inBucket.get(g[0]);
-      if (!b) { texts.push(renderSet(g, s, ctx, { ...scope, depth })); return; }
+      if (!b) { texts.push(renderSet(g, s, ctx, { ...scope, depth, complete: toEnd })); return; }
       if (b[0] !== g[0]) return; // written with the first of its bucket
       texts.push([renderTogether(b.map(c => c[0]), s, ctx), meetText(b.map(c => c[1]), s, ctx)].join(sep));
     });
-    return [joinBranches(texts), ...tailAfter()].join(sep);
+    return [joinBranches(texts, toEnd), ...tailAfter()].join(sep);
   }
   // 3. branches by their last person (before the shared ending, if any)
   const branches = live.length === 1 ? [linear(live[0])] : null;
   const heads = k ? live.map(c => c.slice(0, c.length - k)) : live;
+  const sub = { ...scope, depth, complete: whole && !k };   // with a shared ending the branches stop before it
   let texts = branches;
   if (!texts) {
     const groups = new Map();
@@ -479,12 +489,12 @@ function renderSet(chains, s, ctx, scope) {
       // factor here, so write the direct routes, then let the longer ones factor among themselves.
       const direct = heads.filter(h => h.length === 1);
       const longer = heads.filter(h => h.length > 1);
-      texts = [...direct.map(linear), ...(longer.length ? [renderSet(longer, s, ctx, { ...scope, depth })] : [])];
+      texts = [...direct.map(linear), ...(longer.length ? [renderSet(longer, s, ctx, sub)] : [])];
     } else {
-      texts = [...groups.values()].map(g => renderSet(g, s, ctx, { ...scope, depth }));
+      texts = [...groups.values()].map(g => renderSet(g, s, ctx, sub));
     }
   }
-  let text = joinBranches(texts);
+  let text = joinBranches(texts, sub.complete);
   if (ended && scope.restart) text = `${text} ${restartWith('', s, scope, ctx, wordCount(text) + (scope.before || 0))}`.replace(/ \n\n/g, '\n\n');
   if (!k) return text;
 
@@ -494,6 +504,73 @@ function renderSet(chains, s, ctx, scope) {
   const meet = meetText([...narrators.values()], s, ctx);
   const after = renderLinks(tail.slice(1), s, ctx, { opening: false });
   return [text, meet, ...after].join(sep);
+}
+
+// ── «بسنده المتقدم» ───────────────────────────────────────────────────────
+
+/*
+ * My own link to X, when X's sanad is already written through one of my teachers (X further up a
+ * route that does not start with my link to him): instead of writing X's chain again, one sentence
+ * after the isnad (phrases.refer): «وأرويه أيضاً سماعاً من شيخنا X بسنده المتقدم». When my route above
+ * X parts from the written one after at least MIN_REFER links: «… بسنده المتقدم إلى Y، وهو قرأ على …».
+ * → { keep: routes written as usual, refers: [{ chain, shared }] } (shared: links the same above X)
+ * A route whose X is only found in other such routes, or several routes of X parting differently,
+ * stay in `keep`.
+ */
+const MIN_REFER = 2;
+function splitRefers(list) {
+  const ids = c => c.map(pid);
+  const isCandidate = c => c.length > 1 && isMe(c[0].from_person_id)
+    && list.some(d => ids(d).indexOf(pid(c[0])) >= 1);
+  const sources = list.filter(c => !isCandidate(c));
+  const byX = new Map();
+  const keep = [...sources];
+  list.filter(isCandidate).forEach(c => {
+    const x = pid(c[0]);
+    const rest = ids(c).slice(1);
+    let best = 0;
+    let whole = false;
+    sources.forEach(d => {
+      const D = ids(d);
+      const j = D.indexOf(x);
+      if (j < 1) return;
+      let n = 0;
+      while (n < rest.length && D[j + 1 + n] === rest[n]) n++;
+      best = Math.max(best, n);
+      if (n === rest.length && j + 1 + n === D.length) whole = true;
+    });
+    if (!whole && best < MIN_REFER) { keep.push(c); return; }
+    if (!byX.has(x)) byX.set(x, { whole: null, partial: [] });
+    const g = byX.get(x);
+    if (whole) g.whole = g.whole || c; else g.partial.push({ chain: c, shared: best });
+  });
+  const refers = [];
+  byX.forEach(g => {
+    if (g.whole) refers.push({ chain: g.whole, shared: g.whole.length - 1 });
+    if (g.partial.length === 1) refers.push(g.partial[0]);
+    else g.partial.forEach(p => keep.push(p.chain));       // several ways of parting: written in full
+  });
+  // keep the routes in their original order
+  return { keep: list.filter(c => keep.includes(c)), refers };
+}
+
+// «وأرويه أيضاً سماعاً من شيخنا X بسنده المتقدم[ إلى Y، وهو قرأ على …]»
+function referText({ chain, shared }, s, ctx) {
+  const e = chain[0];
+  const map = s.phrases.refer || {};
+  const key = txKey(edgeKind(e));
+  const phrase = (key in map ? map[key] : null) || map.null || 'وأرويه أيضاً عن {الاسم} {الشيخ:بسنده|بسندها} المتقدم';
+  const plain = applyGender(phrase, { 'الراوي': fromGender(e, s), 'الشيخ': toGender(e) });
+  const titleWord = toGender(e) === 'F' ? s.style.firstTitleF : s.style.firstTitle;
+  const who = `${titleWord ? `${titleWord} ` : ''}${nameOf(toP(e), s, ctx, caseAfter(plain.split(NAME_SLOT)[0]))}`;
+  ctx.written.add(linkKey(e));
+  let text = plain.replace(NAME_SLOT, who);
+  if (shared < chain.length - 1) {
+    const y = chain[shared];                                    // the last person the same as before
+    const rest = renderLinks(chain.slice(shared + 1), s, ctx, { opening: false });
+    text += ` إلى ${nameOf(toP(y), s, ctx, 'gen')}${s.style.separator}${rest.join(s.style.separator)}`;
+  }
+  return text;
 }
 
 // ── 5. entry points ───────────────────────────────────────────────────────
@@ -507,12 +584,22 @@ function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
   const list = (chains || []).filter(c => c?.length).map(c => cutChain(c, s));
   if (!list.length) return '';
+  // my link to someone already written through a teacher: «… بسنده المتقدم» after the isnad
+  const { keep, refers } = splitRefers(list);
+  return [renderRoutes(keep, s, ctx), ...refers.map(r => referText(r, s, ctx))].join('.\n\n');
+}
+
+// the routes (already cut) → text with تحويل
+function renderRoutes(list, s, ctx) {
   const first = list[0][0];
   const clean = t => t.split(ALSO_MARK).join('');
-  if (isMe(first.from_person_id)) return clean(renderSet(list, s, ctx, { opening: true, restart: null }));
+  // routes that all end at one person (the matn's author, the imam…) are whole isnads: one that gets
+  // there ends with «.» and the next starts a paragraph, without ح (see restartWith)
+  const complete = new Set(list.map(c => pid(c[c.length - 1]))).size === 1;
+  if (isMe(first.from_person_id)) return clean(renderSet(list, s, ctx, { opening: true, restart: null, complete }));
   // chains starting at a named narrator: name them once, restart from them after ح
   const start = personLabel(fromP(first), s, ctx);
-  return clean(`${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first) })}`);
+  return clean(`${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first), complete })}`);
 }
 
 /** A path group as returned by /api/graph/*\/paths → text. */

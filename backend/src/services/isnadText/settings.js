@@ -60,7 +60,7 @@ function mergeSettings(stored, idKinds) {
     if (s.style.heartWord === 'حفظاً') s.style.heartWord = DEFAULTS.style.heartWord;
   }
   LIST_KEYS.forEach(k => { if (Array.isArray(stored[k])) s[k] = stored[k]; });
-  ['first', 'others', 'joined', 'also'].forEach(k => {
+  ['first', 'others', 'joined', 'also', 'refer'].forEach(k => {
     if (!stored.phrases?.[k] || typeof stored.phrases[k] !== 'object') return;
     Object.assign(s.phrases[k], upgradePhrases(k, stored.phrases[k], idKinds));
   });
@@ -154,7 +154,7 @@ function validateSettings(input, idKinds) {
     longRestart: str(st.longRestart, 40, 'style.longRestart'),
     longRestartWords: Math.min(500, Math.max(5, Math.round(Number(st.longRestartWords) || DEFAULTS.style.longRestartWords))),
   };
-  const phrases = Object.fromEntries(['first', 'others', 'joined', 'also'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`, k === 'also')]));
+  const phrases = Object.fromEntries(['first', 'others', 'joined', 'also', 'refer'].map(k => [k, phraseMap(merged.phrases[k] || {}, `phrases.${k}`, k === 'also')]));
 
   const out = { keywords, style, phrases };
   LIST_KEYS.forEach(k => { out[k] = strList(merged[k], k); });

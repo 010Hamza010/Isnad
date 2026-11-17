@@ -396,23 +396,37 @@ describe('تحويل when one route passes through a shaykh I also read on direc
   const st = { style: { clear: true, firstTitle: '' } };
   const rest = ['ابن الجزري', 'النبي ﷺ'];
 
-  test('me → ابن قدامة and me → ابن آجروم → ابن قدامة: no infinite recursion, no «كلهم» for one person', () => {
+  test('me → ابن قدامة and me → ابن آجروم → ابن قدامة: the teacher\'s route in full, then «بسنده المتقدم»', () => {
     const t = T.renderChains([chain(['ابن قدامة', ...rest]), chain(['ابن آجروم', 'ابن قدامة', ...rest])], st);
     assert.equal(t,
-      'قرأتُ على ابن قدامة ح وقرأتُ على ابن آجروم، وهو قرأ على ابن قدامة، وهو قرأ على ابن الجزري، وهو قرأ على النبي ﷺ');
+      'قرأتُ على ابن آجروم، وهو قرأ على ابن قدامة، وهو قرأ على ابن الجزري، وهو قرأ على النبي ﷺ.\n\nوأرويه أيضاً قراءةً على ابن قدامة بسنده المتقدم');
   });
 
-  test('three routes reaching the same shaykh at different depths', () => {
+  test('three routes reaching the same shaykh at different depths: his sanad written once', () => {
     const t = T.renderChains([
       chain(['ابن قدامة', ...rest]),
       chain(['ابن آجروم', 'ابن قدامة', ...rest]),
       chain(['زيد', 'عمرو', 'ابن قدامة', ...rest]),
     ], st);
     assert.equal((t.match(/ابن الجزري/g) || []).length, 1, t);
-    assert.equal((t.match(/ ح /g) || []).length, 2, t);
-    // ابن آجروم and عمرو both read on ابن قدامة: «كلاهما» is right; the direct route stands alone
-    assert.match(t, /^قرأتُ على ابن قدامة ح /, t);
-    assert.match(t, /كلاهما قرأ على ابن قدامة، وهو قرأ على ابن الجزري/, t);
+    assert.match(t, /^قرأتُ على ابن آجروم ح وقرأتُ على زيد، وهو قرأ على عمرو، كلاهما قرأ على ابن قدامة، وهو قرأ على ابن الجزري/, t);
+    assert.match(t, /\.\n\nوأرويه أيضاً قراءةً على ابن قدامة بسنده المتقدم$/, t);
+  });
+
+  test('«بسنده المتقدم إلى Y» where my route parts after two links the same; how I took it, her gender', () => {
+    const mine = chain(['ابن قدامة', 'أ', 'ب', 'د', 'النبي ﷺ']);
+    mine[0] = { ...mine[0], tx_kind: 'sama', to_gender: 'F' };
+    const t = T.renderChains([chain(['ابن آجروم', 'ابن قدامة', 'أ', 'ب', 'ج', 'النبي ﷺ']), mine], st);
+    assert.match(t, /\.\n\nوأرويه أيضاً سماعاً من شيختنا ابن قدامة بسندها المتقدم إلى ب، وهو قرأ على د، وهو قرأ على النبي ﷺ$/, t);
+    // only one link the same: written in full
+    const short = chain(['ابن قدامة', 'أ', 'د', 'النبي ﷺ']);
+    const u = T.renderChains([chain(['ابن آجروم', 'ابن قدامة', 'أ', 'ب', 'النبي ﷺ']), short], st);
+    assert.doesNotMatch(u, /المتقدم/, u);
+  });
+
+  test('a direct link to the last person (the author) is not «بسنده المتقدم»', () => {
+    const t = T.renderChains([chain(['أ', 'المؤلف']), chain(['المؤلف'])], st);
+    assert.doesNotMatch(t, /المتقدم/, t);
   });
 
   test('mixed: two different narrators meet at X while another route reaches one of them directly', () => {
@@ -504,7 +518,8 @@ describe('my teachers together, and long routes restarting on a new paragraph', 
     const f = chain(['B', 'C']); f[0] = { ...f[0], to_gender: 'F' };
     assert.equal(TT.renderChains([chain(['A', 'C']), f], clear), 'قرأتُ على شيخنا A، وشيختنا B، كلاهما عن C');
     const h = chain(['B', 'C']); h[0] = { ...h[0], reading_mode: 'heart' };
-    assert.match(TT.renderChains([chain(['A', 'C']), h], clear), / ح /);
+    // two whole routes (both reach C, the end): «.» and a new paragraph, no ح
+    assert.equal(TT.renderChains([chain(['A', 'C']), h], clear), 'قرأتُ على شيخنا A، عن C.\n\nوأرويه أيضاً: قرأتُ على شيخنا B غيباً من حفظي، عن C');
   });
 
   test('two of three teachers together, the third its own branch', () => {
@@ -580,8 +595,9 @@ describe('a shaykh\'s own teachers who meet again: «عن B، وعن C، كلا�
       /وهي قرأت على B، وسمعت من C، كلاهما قرأ على D$/);
   });
 
-  test('one of them reaches D through someone else: stays a ح route', () => {
-    assert.match(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'E', 'D'], Q)], clear), / ح /);
+  test('one of them reaches D through someone else: its own route, after the first reached the end', () => {
+    assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'E', 'D'], Q)], clear),
+      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وهو قرأ على D.\n\nويرويه أيضاً A، وهو قرأ على C، وهو قرأ على E، عن D');
   });
 
   test('read back by the parser: two chains', () => {

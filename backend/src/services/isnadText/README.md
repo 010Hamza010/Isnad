@@ -91,6 +91,7 @@ them in «الإعدادات ← صيغ الإسناد». Everything is keyed by
   - `others`: every link above, «{الراوي:وهو قرأ|وهي قرأت} على {الاسم}».
   - `joined`: after «كلاهما / كلهم», «{الراوي:قرأ|قرأت} على {الاسم}».
   - `also`: a branch restarting from someone already named, «{الراوي:قرأ|قرأت} {الراوي} أيضاً على {الاسم}».
+  - `refer`: my own link to someone whose sanad is already written through a teacher, «وأرويه أيضاً سماعاً من {الاسم} {الشيخ:بسنده|بسندها} المتقدم» (see § 4).
 - **`style`** (the ones that shape تحويل):
 
 | Key | Default | Effect |
@@ -139,9 +140,29 @@ them in «الإعدادات ← صيغ الإسناد». Everything is keyed by
 
 ## 4. تحويل: several routes → one text (`renderChains` → `renderSet`)
 
-`renderChains(chains, settings, ctx)` deduplicates nothing itself. It cuts the chains, then calls
-`renderSet(list, s, ctx, { opening: true, restart: null })`. If the chains start at another person
-(not me), it writes that person once and restarts from them after ح.
+`renderChains(chains, settings, ctx)` does three things:
+
+1. It cuts the chains (`cutChain`).
+2. It sets aside my links whose sanad is already written (`splitRefers`, see «بسنده المتقدم» below).
+3. It renders the other routes (`renderRoutes` → `renderSet(list, s, ctx, { opening: true, restart: null, complete })`).
+   If they start at another person (not me), it writes that person once and restarts from them after ح.
+
+`complete` is true when every route ends at the same person: the matn's author, the imam, or a group's stop.
+
+**«بسنده المتقدم»** (`splitRefers`, `referText`). Take my own link to X, where X also appears further
+up a route that starts with another teacher of mine. My route is then not written again. After the
+isnad («.» and a new paragraph) comes one sentence from `phrases.refer`, in the word for how I took
+it and in X's gender:
+
+> `أنا→ابن آجروم→ابن قدامة→ابن الجزري→النبي ﷺ`, `أنا→ابن قدامة→ابن الجزري→النبي ﷺ`<br>
+> «قرأتُ على ابن آجروم، وهو قرأ على ابن قدامة، وهو قرأ على ابن الجزري، وهو قرأ على النبي ﷺ.<br>
+> وأرويه أيضاً قراءةً على ابن قدامة بسنده المتقدم»
+
+| Case | Result |
+|---|---|
+| My route above X is the same as the written one, to the end | «… بسنده المتقدم» |
+| It parts after at least 2 links the same (`MIN_REFER`) | «… بسنده المتقدم إلى ب، وهو قرأ على د، …» |
+| Fewer links the same; X is the last person (the author); X only written in routes that are themselves like this; several ways of parting | Written in full, as before |
 
 `renderSet` is **recursive**. At each call it looks at the list of chains it was given, in this order:
 
@@ -195,10 +216,15 @@ Then, if there was a shared ending, comes «كلاهما عن X» (`meetText`) a
 
 | Case | Start |
 |---|---|
+| The branch before **reached the end** (the author: `complete`) | «.» ends it: a whole isnad. A new paragraph starts without ح: «وأرويه أيضاً: …», «ويرويه أيضاً فلان، …», or the «أيضاً» sentence |
 | A shared beginning was written | «ح وعن فلان، …» |
 | Otherwise | «ح و…» |
 | The branch before had `longRestartWords`+ words | «ح» ends the paragraph, and a new one starts: «وأرويه أيضاً: …», or «ويرويه أيضاً فلان، …» part-way up |
 | The branch starts with an «أيضاً» sentence (`ALSO_MARK`) | That sentence alone: «ح وقرأ شيخنا أ أيضاً على ج» |
+
+A branch only reaches the end when its call's routes were not cut at a meeting person. The
+exception is a meeting with the last person himself (k = 1). `scope.complete` carries this down the
+recursion: steps 2c / 2d pass `k === 1`, and step 3 passes `!k`.
 
 `MAX_DEPTH` (40) stops the recursion on looping data. Past it, the branches are written one after the other.
 

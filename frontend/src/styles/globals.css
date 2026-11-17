@@ -552,7 +552,7 @@ a.stat:hover { border-color: var(--primary); transform: translateY(-1px); }
 .star { color: var(--faint); }
 .star.on { color: var(--accent); }
 .kw-head.tx-grid, .kw-row.tx-grid { grid-template-columns: 1fr 1.4fr 1fr; }
-.kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: .9fr 1.3fr 1.3fr 1.1fr 1.3fr; }
+.kw-head.phrase-grid, .kw-row.phrase-grid { grid-template-columns: .9fr 1.3fr 1.3fr 1.1fr 1.3fr 1.5fr; }
 @media (max-width: 860px) {
   .kw-head { display: none; }
   .kw-row { grid-template-columns: 1fr 1fr; padding: 12px 18px; border-bottom: 1px solid var(--border); }

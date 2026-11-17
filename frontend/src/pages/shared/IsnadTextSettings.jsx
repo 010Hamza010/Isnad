@@ -246,11 +246,12 @@ export default function IsnadTextSettings() {
           <span className="muted">
             تحلّ محل الصيغة عند تفعيلها — ضع {'{الاسم}'} مكان اسم الشيخ، واتركها فارغة لاستعمال الصيغة.
             للمذكر والمؤنث: {'{الراوي:وهو قرأ|وهي قرأت}'} حسب الراوي، و{'{الشيخ:أجاز|أجازت}'} حسب الشيخ.
-            في العمود الأخير ضع {'{الراوي}'} مكان اسم الشيخ المذكور قبلُ: «ح وقرأ شيخنا فلان أيضاً على…».
+            في عمود «طريق آخر» ضع {'{الراوي}'} مكان اسم الشيخ المذكور قبلُ: «ح وقرأ شيخنا فلان أيضاً على…».
+            وعمود «بسنده المتقدم» لاتصالي بشيخ كُتب سنده قبلُ من طريق أحد شيوخي: يُكتب في آخر الإسناد بدل إعادة سنده.
           </span>
         </div>
         <div className="kw-head phrase-grid">
-          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span><span>طريق آخر لشيخ مذكور</span>
+          <span>طريقة التحمل</span><span>في اتصالي أنا</span><span>في اتصالات من فوقي</span><span>بعد «كلاهما»</span><span>طريق آخر لشيخ مذكور</span><span>بسنده المتقدم</span>
         </div>
         {KIND_ROWS.map(t => (
           <div key={t.key} className="kw-row phrase-grid">
@@ -264,6 +265,9 @@ export default function IsnadTextSettings() {
             <input className="input" value={draft.phrases.also?.[t.key] ?? ''} placeholder="قرأ {الراوي} أيضاً على {الاسم}" aria-label={`${t.label} — طريق آخر`}
               title="بعد «ح» إذا بدأ الطريق من شيخ ذُكر قبل: {الراوي} هو الشيخ المذكور"
               onChange={e => setPhrase('also', t.key, e.target.value)} />
+            <input className="input" value={draft.phrases.refer?.[t.key] ?? ''} placeholder="وأرويه أيضاً عن {الاسم} بسنده المتقدم" aria-label={`${t.label} — بسنده المتقدم`}
+              title="اتصالي بشيخ كُتب سنده قبلُ من طريق أحد شيوخي: «وأرويه أيضاً سماعاً من شيخنا فلان بسنده المتقدم»"
+              onChange={e => setPhrase('refer', t.key, e.target.value)} />
           </div>
         ))}
         <div style={{ height: 10 }} />
