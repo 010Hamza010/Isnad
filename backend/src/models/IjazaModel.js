@@ -70,6 +70,15 @@ exports.recordScan = async (id) => {
   await db.query('UPDATE ijazat SET scan_count = scan_count + 1, last_scanned_at = NOW() WHERE id = ?', [id]);
 };
 
+/**
+ * Delete a revoked ijaza (its files and PDFs go with it; a correction pointing to it keeps its own
+ * code, its «replaces» link is cleared). Only a revoked one: true when deleted.
+ */
+exports.removeRevoked = async (id, userId) => {
+  const [r] = await db.query('DELETE FROM ijazat WHERE id = ? AND user_id = ? AND revoked_at IS NOT NULL', [id, userId]);
+  return r.affectedRows > 0;
+};
+
 exports.setRevoked = async (id, userId, reason) => {
   await db.query(
     'UPDATE ijazat SET revoked_at = ?, revoke_reason = ? WHERE id = ? AND user_id = ?',
@@ -152,4 +161,4 @@ exports.pdfById = async (id, userId, variant = 'normal') => {
 };
 
 
-// Issued ijazat are never deleted (see the controller): revoke or correct instead.
+// Issued ijazat are revoked or corrected; only a revoked one can then be deleted (removeRevoked).

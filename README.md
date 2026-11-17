@@ -66,6 +66,8 @@ created on first run, and there is no public registration.
 - **The document:** designs and templates, export to PDF, freezing, and an archive.
 - **Verification:** a signed QR code and a short code (`ISN-XXXX-XXXX`). The verification page
   says whether an ijaza is valid, revoked or altered.
+- **Revoke, correct or delete:** a revoked ijaza can be re-enabled or deleted for good. A valid one
+  must be revoked first; after deletion its QR code shows «غير موجودة».
 
 ### Data and account
 - **Share one isnad** as a file. The importer shows who is who and what will be written before
@@ -281,7 +283,7 @@ Every endpoint is under `/api` and needs `Authorization: Bearer <token>`, except
 | Transmission types | `GET /tx-types` · `GET /tx-types/kinds` · `PUT /tx-types/:id/kind` |
 | Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `GET /graph/quran/group-paths?group_id=&mode=stop/all/riwaya&riwaya_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` · `GET /graph/heights` |
 | Isnad text | `GET/PUT/DELETE /isnad-text/settings` · `POST /isnad-text/render` · `POST /isnad-text/parse` · `POST /isnad-text/import` |
-| Ijazat | `GET/PUT/DELETE /ijazat/settings` · `GET /ijazat/teacher-orders` · `PUT /ijazat/teacher-orders/:key` · `POST /ijazat/verify` · `GET/POST /ijazat` · `GET /ijazat/:id` (an issued ijaza is never deleted: revoke it or issue a correction) · `POST/DELETE /ijazat/:id/revoke` · `POST /ijazat/:id/freeze` · `GET /ijazat/:id/document` · `POST/GET /ijazat/:id/pdf` |
+| Ijazat | `GET/PUT/DELETE /ijazat/settings` · `GET /ijazat/teacher-orders` · `PUT /ijazat/teacher-orders/:key` · `POST /ijazat/verify` · `GET/POST /ijazat` · `GET /ijazat/:id` · `DELETE /ijazat/:id` (only a revoked ijaza) · `POST/DELETE /ijazat/:id/revoke` · `POST /ijazat/:id/freeze` · `GET /ijazat/:id/document` · `POST/GET /ijazat/:id/pdf` |
 | Share | `GET /share/matn/:id` · `GET /share/quran` · `POST /share/preview` · `POST /share/import` · `GET /share/thabat` · `POST /share/thabat/preview` · `POST /share/thabat/import` |
 | Backup | `GET /data/summary` · `GET /data/backup` · `GET /data/backup/pre-restore` · `POST /data/restore` |
 

@@ -18,6 +18,7 @@ require.cache[modelPath] = { id: modelPath, filename: modelPath, loaded: true, e
   savePdf: async (id, meta, v = 'normal') => { const k = `${id}:${v}`; if (db.pdfs.has(k)) return false; db.pdfs.set(k, meta); return true; },
   pdfById: async (id, uid, v = 'normal') => (db.rows.get(Number(id))?.user_id === uid ? db.pdfs.get(`${id}:${v}`) : undefined),
   create: async (uid, f) => { db.created.push(f); return { id: 3, ...f }; },
+  removeRevoked: async (id, uid) => { const r = db.rows.get(Number(id)); if (!r || r.user_id !== uid || !r.revoked_at) return false; db.rows.delete(Number(id)); return true; },
 } };
 const c = require('../src/controllers/ijazatController');
 
@@ -42,8 +43,22 @@ describe('freezing the issued document', () => {
   });
 });
 
-test('issued ijazat cannot be deleted', async () => {
-  await assert.rejects(c.remove(req(1)), e => e.status === 409);
+describe('deleting an ijaza', () => {
+  test('a valid one cannot be deleted: revoke it first', async () => {
+    reset();
+    await assert.rejects(c.remove(req(1)), e => e.status === 409);
+    assert.ok(db.rows.has(1));
+  });
+  test('a revoked one is deleted; another user\'s or a missing one is not found', async () => {
+    reset();
+    db.rows.get(1).revoked_at = new Date();
+    const r = res();
+    await c.remove(req(1), r);
+    assert.deepEqual(r.body, { ok: true });
+    assert.ok(!db.rows.has(1));
+    await assert.rejects(c.remove(req(1)), e => e.status === 404);
+    await assert.rejects(c.remove({ ...req(2), user: { id: 8 } }), e => e.status === 404);
+  });
 });
 
 describe('delivered PDF', () => {

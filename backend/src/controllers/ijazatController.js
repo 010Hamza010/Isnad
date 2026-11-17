@@ -95,9 +95,14 @@ exports.unrevoke = async (req, res) => {
   res.json(withQr(await Ijaza.findById(req.params.id, req.user.id)));
 };
 
-// An issued ijaza is a document the student holds: it is never deleted, only revoked or corrected.
-exports.remove = async () => {
-  throw new HttpError(409, 'لا تُحذف إجازة صادرة — ألغِها أو أصدر تصحيحاً لها');
+// An issued ijaza is a document the student holds: it is revoked first, then it can be deleted
+// (its QR code and short code then show «غير موجودة» instead of «ملغاة»).
+exports.remove = async (req, res) => {
+  const row = await Ijaza.findById(req.params.id, req.user.id);
+  if (!row) throw new HttpError(404, 'الإجازة غير موجودة');
+  if (!row.revoked_at) throw new HttpError(409, 'ألغِ الإجازة أولاً، ثم احذفها');
+  if (!(await Ijaza.removeRevoked(req.params.id, req.user.id))) throw new HttpError(409, 'ألغِ الإجازة أولاً، ثم احذفها');
+  res.json({ ok: true });
 };
 
 const MAX_DOC = 8 * 1024 * 1024;

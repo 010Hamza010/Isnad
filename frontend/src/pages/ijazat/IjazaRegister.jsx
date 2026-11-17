@@ -41,6 +41,20 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
       replace(data); setRevoking(null); toast('أُلغيت الإجازة — صفحة التحقق تظهرها «ملغاة»');
     } catch (e) { notifyError(e); }
   };
+  // only a revoked ijaza can be deleted (the server checks it too)
+  const remove = async r => {
+    const ok = await confirm({
+      title: `حذف إجازة «${r.student_name}»`, danger: true, confirmLabel: 'حذف نهائياً',
+      message: `ستُحذف الإجازة ${r.short_code} نهائياً مع ملفاتها. من يمسح رمزها بعد ذلك يرى «غير موجودة» بدل «ملغاة». لا يمكن التراجع.`,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/ijazat/${r.id}`);
+      setData(list => list.filter(x => x.id !== r.id));
+      setView(v => (v?.row.id === r.id ? null : v));
+      toast('حُذفت الإجازة');
+    } catch (e) { notifyError(e); }
+  };
   const restore = async r => {
     try { const { data } = await api.delete(`/ijazat/${r.id}/revoke`); replace(data); toast('أُعيد تفعيل الإجازة'); }
     catch (e) { notifyError(e); }
@@ -87,7 +101,10 @@ export default function IjazaRegister({ settings, profile, openId, onOpened, onC
                   <button className="icon-btn" onClick={() => setView({ row: r })} aria-label="عرض" title="عرض"><Icon name="eye" size={16} /></button>
                   <button className="icon-btn" onClick={() => setView({ row: r, print: true })} aria-label="طباعة" title="طباعة / PDF"><Icon name="print" size={16} /></button>
                   {r.revoked_at
-                    ? <button className="icon-btn" onClick={() => restore(r)} aria-label="إعادة التفعيل" title="إعادة التفعيل"><Icon name="reset" size={16} /></button>
+                    ? <>
+                        <button className="icon-btn" onClick={() => restore(r)} aria-label="إعادة التفعيل" title="إعادة التفعيل"><Icon name="reset" size={16} /></button>
+                        <button className="icon-btn danger" onClick={() => remove(r)} aria-label="حذف الإجازة" title="حذف نهائي (للإجازات الملغاة فقط)"><Icon name="trash" size={16} /></button>
+                      </>
                     : <button className="icon-btn danger" onClick={() => setRevoking({ row: r, reason: '' })} aria-label="إلغاء الإجازة" title="إلغاء الإجازة"><Icon name="x" size={16} /></button>}
                   {!r.replaced_by_code && (
                     <button className="icon-btn" onClick={() => onCorrect?.(r)} aria-label="تصحيح" title="تصحيح: إصدار إجازة جديدة تحل محلها">
