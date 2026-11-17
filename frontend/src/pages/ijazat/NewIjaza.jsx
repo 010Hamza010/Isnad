@@ -81,7 +81,7 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
   const [chosen, setChosen]   = useState(new Set());
   const [pathsLoading, setPathsLoading] = useState(false);
   const [isnadText, setIsnadText] = useState('');
-  const [isnadFull, setIsnadFull] = useState({ text: '', names: [] }); // detailed version: kunya + nisba
+  const [isnadFull, setIsnadFull] = useState({ text: '', names: [] }); // detailed version: kunya + nisba; names: as written in both versions
   const [authorNames, setAuthorNames] = useState([]);
   // hand edits of this ijaza, per version (null = generated from the template)
   const [manual, setManual] = useState({ normal: null, detailed: null });
@@ -212,7 +212,8 @@ export default function NewIjaza({ settings, options, profile = {}, onSaved, onE
         const textOf = v => isnadSections(sections.map(x => ({ label: x.label, text: at(x.key) >= 0 ? res[at(x.key)][v].data.text : '' })));
         setIsnadText(textOf(0));
         setIsnadFull({ text: textOf(1),
-          names: [...new Set(res.flatMap(([, full]) => full.data.names || []))] });
+          // every name as written in either version (the normal one puts a kunya in its case: «عن أبي عبيدة»)
+          names: [...new Set(res.flatMap(([r, full]) => [...(r.data.names || []), ...(full.data.names || [])]))] });
         setAuthorNames([...new Set(res.flatMap(([r, full]) => [...(r.data.authorNames || []), ...(full.data.authorNames || [])]))]);
         setNotes(Object.fromEntries(res.flatMap(([r]) => r.data.persons).filter(p => p.description).map(p => [p.id, p])));
       })
