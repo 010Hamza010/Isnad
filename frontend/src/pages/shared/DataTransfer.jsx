@@ -84,6 +84,8 @@ export default function DataTransfer() {
         </div>
       </section>
 
+      <ShareIsnad onImported={reload} />
+      <Thabat onImported={reload} />
     </div>
   );
 }
