@@ -588,8 +588,8 @@ function referText({ chain, shared }, s, ctx) {
  *  - a route reaching someone another route has still to reach stops there with ح; the last route
  *    to arrive goes on («… عن ابن العابد ح وقرأ شيخنا عمار أيضاً على …، عن ابن العابد، عن ابن ثابت …»)
  *  - another shaykh of someone already written: «ح وعن فلان، عن …» (from my teacher: «وقرأ شيخنا فلان أيضاً على …»)
- *  - a route reaching the end (the author) closes an isnad: a new route from me or my teacher starts
- *    a paragraph without ح
+ *  - a route reaching the end (the author) closes an isnad: never ح after it; the next starts a
+ *    paragraph («وأرويه أيضاً: …», «وقرأ شيخنا فلان أيضاً …», «ويرويه أيضاً فلان، عن …»)
  *  - my teacher with at most one person of his own before someone written through another teacher:
  *    after the isnad, «وأرويه أيضاً سماعاً من شيخنا X[، عن Y] بسنده المتقدم» (networkRefers)
  * Returns null when it does not apply (or the data surprises it): the route-by-route writer is used.
@@ -806,7 +806,8 @@ function renderNetwork(list, s, ctx) {
   for (let i = 1; i < segs.length; i++) {
     const seg = segs[i], prev = segs[i - 1];
     if (seg.kind === 'deep') {
-      text += ` ${restartWith(seg.text, s, { restart: net.person.get(seg.u) }, ctx, 0)}`;      // «ح وعن فلان، …»
+      // «ح وعن فلان، …»; after a route reaching the end never ح: «. ويرويه أيضاً فلان، عن …»
+      text += ` ${restartWith(seg.text, s, { restart: net.person.get(seg.u) }, ctx, 0, prev.end === 'T')}`;
     } else {
       // from me or my teacher: after a whole isnad a new paragraph, else ح (a paragraph after a long route)
       text += ` ${restartWith(seg.text, s, { restart: null }, ctx, wordCount(prev.text), prev.end === 'T')}`;

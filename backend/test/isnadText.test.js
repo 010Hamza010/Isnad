@@ -595,9 +595,9 @@ describe('a shaykh\'s own teachers who meet again: «عن B، وعن C، كلا�
       /وهي قرأت على B، وسمعت من C، كلاهما قرأ على D$/);
   });
 
-  test('one of them reaches D through someone else: a small «ح وعن A» after the first reached the end', () => {
+  test('one of them reaches D through someone else: after the end never ح, «ويرويه أيضاً A»', () => {
     assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'E', 'D'], Q)], clear),
-      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وهو قرأ على D ح وعن A، وهو قرأ على C، وهو قرأ على E، عن D');
+      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وهو قرأ على D.\n\nويرويه أيضاً A، وهو قرأ على C، وهو قرأ على E، عن D');
   });
 
   test('read back by the parser: two chains', () => {
@@ -724,7 +724,7 @@ describe('network: each link written once', () => {
       'قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وعلى هـ، كلاهما قرأ على و، وهو قرأ على ز');
   });
 
-  test('a route stops with ح where another has still to arrive; the last one goes on; a small ح at the end', () => {
+  test('a route stops with ح where another has still to arrive; the last one goes on; after the end «ويرويه أيضاً»', () => {
     const top = [['م1', 'ن1', 'المؤلف'], ['م2', 'ن2', 'المؤلف']];
     const routes = top.flatMap(t => [
       ch('qiraa', 'أنا', 'زياد', 'وهب', 'القاضي', 'قاسم', 'هاشم', ...t),
@@ -735,8 +735,10 @@ describe('network: each link written once', () => {
     const text = TT.renderChains(routes, st);
     assert.equal(text, 'قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما قرأ على وهب، وهو قرأ على القاضي ح '
       + 'وقرأ شيخنا عمار أيضاً على ثابت، وهو قرأ على القاضي، وهو قرأ على قاسم ح '
-      + 'وقرأتُ على شيخنا هند، وهو قرأ على المكي، وهو قرأ على قاسم، وهو قرأ على هاشم، وهو قرأ على م1، وهو قرأ على ن1، وهو قرأ على المؤلف ح '
-      + 'وعن هاشم، وهو قرأ على م2، وهو قرأ على ن2، وهو قرأ على المؤلف');
+      + 'وقرأتُ على شيخنا هند، وهو قرأ على المكي، وهو قرأ على قاسم، وهو قرأ على هاشم، وهو قرأ على م1، وهو قرأ على ن1، وهو قرأ على المؤلف.\n\n'
+      + 'ويرويه أيضاً هاشم، وهو قرأ على م2، وهو قرأ على ن2، وهو قرأ على المؤلف');
+    // ح only where a route waits for another, never right after the author
+    assert.doesNotMatch(text, /المؤلف ح/);
   });
 
   test('my teacher with one person of his own before a written sanad, taken another way: «… عن Y بسنده المتقدم»', () => {

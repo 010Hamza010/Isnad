@@ -259,8 +259,8 @@ So `renderChains` first tries to write from the **network** of links: each link 
 | Someone with several shaykhs | The first goes on now; the others wait (a stack). |
 | Next task after a stop | One that reaches where the last route stopped; else the latest waiting one; else my next teacher (in order). |
 | Restart from my teacher | «وقرأ شيخنا عمار أيضاً على …» (phrases.also) |
-| Restart from someone deeper | A small «ح وعن هاشم، عن إدريس، …» |
-| Restart from me or my teacher after a route reached the end | «.» and a new paragraph, no ح: «وأرويه أيضاً: …», «وقرأ شيخنا زياد أيضاً على الشامي …» |
+| Restart from someone deeper | «ح وعن فلان، عن …» |
+| Any restart after a route reached the end | **Never ح.** «.» and a new paragraph: «وأرويه أيضاً: …», «وقرأ شيخنا زياد أيضاً على الشامي …», «ويرويه أيضاً هاشم، عن إدريس، …» |
 
 **«بسنده المتقدم»** (`networkRefers`). My teacher X goes to the end of the isnad as one sentence
 when two things hold:
