@@ -13,6 +13,9 @@ const normalizeArabic = s => String(s ?? '')
   .replace(/\s+/g, ' ')
   .trim();
 
+// Key for comparing person names: «ابن» and «بن» are the same word («سعد بن محمد ابن سالم» = «… بن سالم»).
+const nameKey = s => normalizeArabic(s).replace(/(^| )ابن(?= |$)/g, '$1بن');
+
 // Stricter key for matching keywords: like normalizeArabic but keeps ى ≠ ي,
 // so «على» (a keyword) never swallows the name «علي».
 const keyOf = s => String(s ?? '')
@@ -36,4 +39,4 @@ const tokenize = text => String(text ?? '')
 
 const isMe = id => Number(id) === 0;
 
-module.exports = { normalizeArabic, keyOf, tokenize, isMe };
+module.exports = { normalizeArabic, nameKey, keyOf, tokenize, isMe };

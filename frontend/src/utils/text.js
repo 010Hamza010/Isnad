@@ -16,9 +16,12 @@ export function normalizeArabic(s) {
     .trim();
 }
 
+// For names: «ابن» and «بن» are the same word, so «ابن سالم» finds «علي بن سالم» (backend: nameKey).
+export const nameForm = s => normalizeArabic(s).replace(/(^| )ابن(?= |$)/g, '$1بن');
+
 export const matches = (query, ...fields) => {
-  const q = normalizeArabic(query);
-  return !q || fields.some(f => normalizeArabic(f).includes(q));
+  const q = nameForm(query);
+  return !q || fields.some(f => nameForm(f).includes(q));
 };
 
 // Arabic plural-aware counter: 1 سند، 2 سندان، 3-10 أسانيد، 11+ سنداً

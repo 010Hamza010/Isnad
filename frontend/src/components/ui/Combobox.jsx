@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
-import { normalizeArabic } from '../../utils/text';
+import { nameForm } from '../../utils/text';
 
 /**
  * Searchable select. opts: [{ value, label, sub? }]
@@ -25,9 +25,9 @@ export default function Combobox({ value, opts, onChange, placeholder = 'ابح�
   }, []);
 
   const filtered = useMemo(() => {
-    const q = normalizeArabic(query);
+    const q = nameForm(query);
     if (!q || query === current?.label) return opts;
-    return opts.filter(o => normalizeArabic(`${o.label} ${o.sub || ''}`).includes(q));
+    return opts.filter(o => nameForm(`${o.label} ${o.sub || ''}`).includes(q));
   }, [opts, query, current?.label]);
 
   useEffect(() => { setHl(0); }, [query]);

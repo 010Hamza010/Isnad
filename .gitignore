@@ -9,3 +9,7 @@ frontend/dist/
 
 # Secrets
 .env
+
+# local database dumps (kept for inspection, never committed)
+*.sql.gz
+isnad_db*.sql

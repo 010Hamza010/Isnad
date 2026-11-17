@@ -142,6 +142,11 @@ describe('resolve', () => {
     assert.equal(r('أبيه').status, 'relative');
     assert.equal(r('النبي').person_id, -1);
   });
+  test('«ابن» and «بن» are the same word: an import finds the person already here', () => {
+    const i2 = require('../src/services/isnadText/resolve').buildIndex([{ id: 267, name_ar: 'أبي الفضل سعد بن محمد بن عمر بن سالم' }]);
+    assert.deepEqual(T.resolveName('أبي الفضل سعد بن محمد بن عمر ابن سالم', i2), { status: 'matched', person_id: 267, candidates: [{ id: 267, name_ar: 'أبي الفضل سعد بن محمد بن عمر بن سالم', score: 1 }] });
+    assert.equal(T.resolveName('ابن سالم', i2).candidates[0].id, 267); // short: offered, not decided
+  });
 });
 
 describe('settings', () => {

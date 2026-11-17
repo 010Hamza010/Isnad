@@ -1,4 +1,4 @@
-const { normalizeArabic } = require('./normalize');
+const { normalizeArabic, nameKey } = require('./normalize');
 
 // fixed nodes used by the Quran chain tail
 const SACRED = [
@@ -8,12 +8,12 @@ const SACRED = [
 ];
 const RELATIVES = ['ابيه', 'جده', 'عمه', 'اخيه', 'والده', 'ابنه', 'خاله', 'زوجه', 'امه'];
 
-const words = s => normalizeArabic(s).split(' ').filter(Boolean);
+const words = s => nameKey(s).split(' ').filter(Boolean);
 
 /** Index persons once for repeated lookups. */
 function buildIndex(persons) {
   return persons.map(p => {
-    const full = normalizeArabic(p.name_ar);
+    const full = nameKey(p.name_ar);
     const all = new Set(words([p.name_ar, p.kunya, p.nisba, p.name_latin].filter(Boolean).join(' ')));
     return { person: p, full, words: words(p.name_ar), all };
   });
@@ -30,11 +30,12 @@ function resolveName(name, index) {
   if (RELATIVES.includes(q)) return { status: 'relative', person_id: null, candidates: [] };
 
   const qw = words(name);
+  const qn = nameKey(name);
   const scored = index.map(({ person, full, words: pw, all }) => {
     let score = 0;
-    if (full === q) score = 1;
+    if (full === qn) score = 1;
     else if (qw.length && qw.every(w => all.has(w))) score = 0.5 + 0.4 * (qw.length / Math.max(pw.length, qw.length));
-    else if (q.length > 3 && full.includes(q)) score = 0.4;
+    else if (qn.length > 3 && full.includes(qn)) score = 0.4;
     return { id: person.id, name_ar: person.name_ar, score: Math.round(score * 100) / 100 };
   }).filter(c => c.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
 
