@@ -143,8 +143,16 @@ npm run dev                    # http://localhost:5173, proxies /api → :4000
 
 Open the app. On first run, the login page asks you to create the account.
 
-**Production:** run `npm run build` in `frontend/` and serve `frontend/dist/` behind a web server
-that proxies `/api` to the backend (see [Known gaps](#known-gaps) for Docker).
+**Production:** the backend serves the app itself from `backend/views/` (a committed build), so
+`npm start` in `backend/` is enough: open http://localhost:4000. To rebuild it after frontend changes:
+
+```bash
+cd frontend && npm run build && rm -rf ../backend/views && cp -r dist ../backend/views
+```
+
+Commit it as «Build <frontend commit>». Anything outside `/api` gets `index.html`, so the app's own
+routes work on reload. Hashed files in `/assets` are cached for a year; `index.html` never is.
+`FRONTEND_DIR` in `.env` points elsewhere if needed. Without a build, the server is API only.
 
 ### Scripts
 
@@ -174,6 +182,7 @@ that proxies `/api` to the backend (see [Known gaps](#known-gaps) for Docker).
 | `JWT_SECRET`  |              | **Required**, 32+ characters. The server refuses to start without it, or with the example value. |
 | `JWT_EXPIRES` | `7d`         | Session length without «remember me» (with it: 30 days). |
 | `QR_SECRET`   | `JWT_SECRET` | Optional. Signs the ijaza QR codes: keep it stable, or older QR codes stop verifying. |
+| `FRONTEND_DIR` | `backend/views` | Optional. The built app the server serves (none → API only). |
 
 Generate a secret:
 
@@ -241,8 +250,10 @@ Run them block by block in the mysql client, phpMyAdmin or DBeaver.
 │   ├── migrations/                000_base.sql (schema + reference data), then NNN_name.sql
 │   ├── scripts/                   migrate.js, backup.js
 │   ├── sql/inspect.sql            read-only queries to look into the data
+│   ├── views/                     the built frontend, served by the backend (committed builds)
 │   ├── src/
 │   │   ├── index.js               Express app, routes mounted under /api
+│   │   ├── frontend.js            serves backend/views (index.html for the app routes)
 │   │   ├── routes/ controllers/   HTTP layer
 │   │   ├── models/                SQL access (PersonModel.merge: merging duplicates)
 │   │   ├── services/
