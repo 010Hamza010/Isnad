@@ -45,9 +45,9 @@ const edge = (from, to, tx_kind) => ({
 });
 const chain = [edge(0, 1, 'sama'), edge(1, 3, null), edge(3, 2, null)];
 
-test('render: full names only with style.fullNames, in the right case', () => {
+test('render: full names only with style.fullNames; a kunya in the name in its case either way', () => {
   const settings = T.mergeSettings(null);
-  assert.equal(T.renderChains([chain], settings), 'حدثنا شيخنا محمد بن علي، عن الشاطبي، عن أبو عمرو الداني');
+  assert.equal(T.renderChains([chain], settings), 'حدثنا شيخنا محمد بن علي، عن الشاطبي، عن أبي عمرو الداني');
   const full = { ...settings, style: { ...settings.style, fullNames: true } };
   const ctx = T.newContext();
   const text = T.renderChains([chain], full, ctx);

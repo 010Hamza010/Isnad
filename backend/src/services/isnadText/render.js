@@ -9,6 +9,9 @@
  *   4. تحويل      renderSet (+ sharedHead, sharedTail,             several routes → one text: shared
  *                 restartWith, meetText, renderTogether,           beginning once, «ح وعن فلان»,
  *                 renderSiblings, togetherBuckets)                 «كلاهما عن X» where routes meet
+ *   network       renderNetwork (+ networkable, networkRefers,     matn isnads: each link written once,
+ *                 togetherAt, siblingsAt)                          «كلاهما» where links meet, ح only where a
+ *                                                                 route waits for another (README § 5)
  *   «المتقدم»     splitRefers, referText                          my link to someone already written through
  *                                                                 a teacher: «وأرويه أيضاً … بسنده المتقدم»
  *   5. entry      renderChains, renderRoutes, renderGroup,
@@ -20,7 +23,7 @@
 const { mergeSettings } = require('./settings');
 const { isMe } = require('./normalize');
 const { applyGender } = require('./gender');
-const { fullName, caseAfter } = require('./names');
+const { fullName, inflect, caseAfter } = require('./names');
 
 const { kindOf } = require('../txKinds');
 
@@ -67,9 +70,10 @@ const linkKey = e => `${e.from_person_id}>${e.to_person_id}`;
 const toP = e => ({ id: e.to_person_id, name: e.to_name, kunya: e.to_kunya, nisba: e.to_nisba, death: e.to_death_year, desc: e.to_description, gender: e.to_gender });
 const fromP = e => ({ id: e.from_person_id, name: e.from_name, kunya: e.from_kunya, nisba: e.from_nisba, death: e.from_death_year, desc: null, gender: e.from_gender });
 
-// the name as written: full (kunya in the right case + nisba) when style.fullNames
+// the name as written: full (kunya in the right case + nisba) when style.fullNames; else as stored,
+// a leading أبو / أبي / أبا in the case («عن شيخنا أبي عبيدة»)
 function nameOf(p, s, ctx, kase) {
-  const name = s.style.fullNames && Number(p.id) > 0 ? fullName(p, kase) : p.name;
+  const name = s.style.fullNames && Number(p.id) > 0 ? fullName(p, kase) : Number(p.id) > 0 ? inflect(p.name, kase) : p.name;
   ctx.names.add(name);
   return name;
 }
@@ -385,7 +389,8 @@ function togetherBuckets(branches, ctx) {
  *   3. otherwise (no shared ending, or tahwilMeet 'joined') → branches by their last person, then
  *      «كلاهما عن X» and the tail when there is one
  * Limitation: only what ALL the routes of a call share is factored. Forks in the middle make the
- * cross product of routes, and their shared parts are written once per combination (README.md § 5).
+ * cross product of routes, and their shared parts are written once per combination; matn isnads go
+ * through renderNetwork instead (README.md § 5).
  * scope: { opening, restart (person to name after ح), before (words already on this route), depth,
  *          complete (false when the routes were cut at a meeting person: they do not reach the end) }
  */
@@ -573,6 +578,244 @@ function referText({ chain, shared }, s, ctx) {
   return text;
 }
 
+// ── network: each link written once ───────────────────────────────────────
+
+/*
+ * Matn isnads (routes from me to one person, no Quran notes): written from the NETWORK of links,
+ * not route by route, so a link is never written twice.
+ *  - my teachers taken the same way who share a shaykh: «قرأتُ على شيخنا A، وشيخنا B، كلاهما سمع من X»
+ *  - a shaykh whose shaykhs (each reached only through him) meet at once: «عن B، وعن C، كلاهما عن D»
+ *  - a route reaching someone another route has still to reach stops there with ح; the last route
+ *    to arrive goes on («… عن ابن العابد ح وقرأ شيخنا عمار أيضاً على …، عن ابن العابد، عن ابن ثابت …»)
+ *  - another shaykh of someone already written: «ح وعن فلان، عن …» (from my teacher: «وقرأ شيخنا فلان أيضاً على …»)
+ *  - a route reaching the end (the author) closes an isnad: a new route from me or my teacher starts
+ *    a paragraph without ح
+ *  - my teacher with at most one person of his own before someone written through another teacher:
+ *    after the isnad, «وأرويه أيضاً سماعاً من شيخنا X[، عن Y] بسنده المتقدم» (networkRefers)
+ * Returns null when it does not apply (or the data surprises it): the route-by-route writer is used.
+ */
+const ME = '0';
+const ek = (f, t) => `${f}>${t}`;
+
+function buildNetwork(list) {
+  const E = new Map(), out = new Map(), inn = new Map(), person = new Map();
+  const add = (m, key, v) => { if (!m.has(key)) m.set(key, []); if (!m.get(key).includes(v)) m.get(key).push(v); };
+  list.forEach(c => c.forEach(e => {
+    const f = String(e.from_person_id), t = pid(e);
+    if (!E.has(ek(f, t))) E.set(ek(f, t), e);
+    add(out, f, t); add(inn, t, f);
+    if (!person.has(t)) person.set(t, toP(e));
+  }));
+  return { E, out: v => out.get(v) || [], inn: v => inn.get(v) || [], person };
+}
+
+const networkable = (list, s) => s.style.tahwilMeet !== 'joined'
+  && list.every(c => isMe(c[0].from_person_id))
+  && new Set(list.map(c => pid(c[c.length - 1]))).size === 1
+  && list.every(c => c.every(e => !e.read_with && !e.noteAfter));
+
+// nodes reachable from `starts` (included) over the edges kept by `ok`
+function reachFrom(net, starts, ok = () => true) {
+  const seen = new Set(starts);
+  const todo = [...starts];
+  while (todo.length) {
+    const v = todo.pop();
+    net.out(v).forEach(t => { if (ok(v, t) && !seen.has(t)) { seen.add(t); todo.push(t); } });
+  }
+  return seen;
+}
+
+// my teachers (in order) taken the same way who share a shaykh w → { as, w } for teacher X, or null
+function togetherAt(net, X, mine, usable) {
+  const way = e => sameWay(e);
+  const same = mine.filter(Y => way(net.E.get(ek(ME, Y))) === way(net.E.get(ek(ME, X))));
+  let best = null;
+  net.out(X).filter(w => usable(X, w)).forEach(w => {
+    const as = same.filter(Y => net.out(Y).includes(w) && usable(Y, w));
+    if (as.length > 1 && (!best || as.length > best.as.length)) best = { as, w };
+  });
+  return best;
+}
+
+/*
+ * My teachers whose route has at most one person of its own before someone reached through my other
+ * teachers, and whose whole rest is written by those: «بسنده المتقدم». Later teachers first, so the
+ * earlier ones keep their routes; a teacher written together with others never.
+ */
+function networkRefers(net, T) {
+  const mine = net.out(ME);
+  const grouped = new Set();
+  mine.forEach(X => { const g = togetherAt(net, X, mine, () => true); if (g) g.as.forEach(Y => grouped.add(Y)); });
+  const kept = new Set(mine);
+  const refers = [];
+  [...mine].reverse().forEach(X => {
+    if (grouped.has(X) || X === T) return;
+    const others = [...kept].filter(t => t !== X);
+    if (!others.length) return;
+    const R = reachFrom(net, others.flatMap(t => net.out(t)));
+    const ownOne = !R.has(X) && net.out(X).length === 1 && R.has(net.out(X)[0]) && net.out(X)[0] !== T;
+    if (!R.has(X) && !ownOne) return;
+    // every link above the join must be written by the other routes
+    const from = ownOne ? net.out(X) : [X];
+    const covered = reachFrom(net, others);
+    const sub = reachFrom(net, from);
+    const allIn = [...sub].every(v => net.out(v).every(t => covered.has(v) && covered.has(t)));
+    if (!allIn) return;
+    kept.delete(X);
+    refers.push({ first: net.E.get(ek(ME, X)), via: ownOne ? net.E.get(ek(X, net.out(X)[0])) : null });
+  });
+  return { kept: mine.filter(X => kept.has(X)), refers: refers.reverse() };
+}
+
+// «وأرويه أيضاً إجازةً عامةً عن شيخنا X، عن Y بسنده المتقدم»
+function networkReferText({ first, via }, s, ctx) {
+  const map = s.phrases.refer || {};
+  const key = txKey(edgeKind(first));
+  const phrase = (key in map ? map[key] : null) || map.null || 'وأرويه أيضاً عن {الاسم} {الشيخ:بسنده|بسندها} المتقدم';
+  const plain = applyGender(phrase, { 'الراوي': fromGender(first, s), 'الشيخ': toGender(via || first) });
+  const titleWord = toGender(first) === 'F' ? s.style.firstTitleF : s.style.firstTitle;
+  let who = `${titleWord ? `${titleWord} ` : ''}${nameOf(toP(first), s, ctx, caseAfter(plain.split(NAME_SLOT)[0]))}`;
+  ctx.written.add(linkKey(first));
+  if (via) who += `${s.style.separator}${renderLinks([via], s, ctx, { opening: false })[0]}`;
+  return plain.replace(NAME_SLOT, who);
+}
+
+function renderNetwork(list, s, ctx) {
+  const net = buildNetwork(list);
+  const T = pid(list[0][list[0].length - 1]);
+  // a loop in the data (A above B and B above A): not a network to walk
+  const state = new Map();
+  const loops = v => {
+    if (state.get(v) === 1) return true;
+    if (state.get(v) === 2) return false;
+    state.set(v, 1);
+    const bad = net.out(v).some(loops);
+    state.set(v, 2);
+    return bad;
+  };
+  if (loops(ME)) return null;
+  // the network must not invent a route: every path through it is one of the routes given (true for
+  // a matn; not for the Quran, where عاصم gave حفص his riwaya through السلمي and شعبة through زر, nor
+  // when some routes were switched off)
+  const paths = new Map();
+  const count = v => {
+    if (v === T) return 1;
+    if (!paths.has(v)) paths.set(v, net.out(v).reduce((n, t) => n + count(t), 0));
+    return paths.get(v);
+  };
+  if (count(ME) !== new Set(list.map(chainKey)).size) return null;
+
+  const { kept, refers } = networkRefers(net, T);
+  // the links written: those on the routes of the teachers kept
+  const active = new Set();
+  reachFrom(net, kept).forEach(v => net.out(v).forEach(t => active.add(ek(v, t))));
+  kept.forEach(X => active.add(ek(ME, X)));
+  const usable = (f, t) => active.has(ek(f, t)) && !written.has(ek(f, t));
+  const written = new Set();
+  const mark = e => written.add(ek(String(e.from_person_id), pid(e)));
+  const pending = v => net.inn(v).some(f => active.has(ek(f, v)) && !written.has(ek(f, v)));
+  const edge = (f, t) => net.E.get(ek(f, t));
+  const sep = s.style.separator;
+  const stack = [];   // deferred: another shaykh of someone written { u, v, kind: 'also' | 'deep' }
+  const defer = (u, v) => stack.push({ u, v, kind: active.has(ek(ME, u)) ? 'also' : 'deep' });
+
+  // a shaykh's shaykhs reached only through him that meet at once → { as, w }
+  const siblingsAt = (v, outs) => {
+    let best = null;
+    outs.filter(a => net.inn(a).filter(f => active.has(ek(f, a))).length === 1).forEach(a => net.out(a).forEach(w => {
+      if (!usable(a, w)) return;
+      const as = outs.filter(b => net.inn(b).filter(f => active.has(ek(f, b))).length === 1 && usable(b, w));
+      if (as.length > 1 && (!best || as.length > best.as.length)) best = { as, w };
+    }));
+    return best;
+  };
+
+  // after a group meets at w: the group's other shaykhs wait their turn
+  const writeGroup = (parts, v, g, opening) => {
+    const firsts = g.as.map(a => edge(v, a));
+    const meets = g.as.map(a => edge(a, g.w));
+    parts.push(opening ? renderTogether(firsts, s, ctx) : renderSiblings(firsts, s, ctx), meetText(meets, s, ctx));
+    [...firsts, ...meets].forEach(mark);
+    g.as.forEach(a => net.out(a).filter(b => usable(a, b)).reverse().forEach(b => defer(a, b)));
+    return g.w;
+  };
+
+  // from x (just reached): stop at the end or where another route has still to arrive; else go on
+  const goOn = (x, parts) => {
+    for (let guard = 0; guard < 500; guard++) {
+      if (x === T) return { end: 'T' };
+      if (pending(x)) return { end: 'wait', node: x };
+      const outs = net.out(x).filter(t => usable(x, t));
+      if (!outs.length) return { end: 'T' };
+      const g = siblingsAt(x, outs);
+      if (g) {
+        outs.filter(a => !g.as.includes(a)).reverse().forEach(a => defer(x, a));
+        x = writeGroup(parts, x, g, false);
+      } else {
+        const [a, ...rest] = outs;
+        rest.reverse().forEach(b => defer(x, b));
+        parts.push(...renderLinks([edge(x, a)], s, ctx, { opening: false }));
+        mark(edge(x, a));
+        x = a;
+      }
+    }
+    return null;
+  };
+
+  const runTask = task => {
+    const parts = [];
+    let x;
+    if (task.kind === 'root') {
+      const g = togetherAt(net, task.v, kept.filter(Y => usable(ME, Y)), usable);
+      if (g && g.as.includes(task.v)) x = writeGroup(parts, ME, g, true);
+      else { parts.push(...renderLinks([edge(ME, task.v)], s, ctx, { opening: true })); mark(edge(ME, task.v)); x = task.v; }
+    } else if (task.kind === 'also') {
+      parts.push(renderAlso(edge(task.u, task.v), edge(ME, task.u), s, ctx));
+      mark(edge(task.u, task.v)); x = task.v;
+    } else {
+      parts.push(...renderLinks([edge(task.u, task.v)], s, ctx, { opening: false }));
+      mark(edge(task.u, task.v)); x = task.v;
+    }
+    const r = goOn(x, parts);
+    return r && { ...task, ...r, text: parts.join(sep) };
+  };
+
+  // next route: one that reaches where the last one stopped; else the latest deferred, else my next teacher
+  const pick = last => {
+    for (let i = stack.length - 1; i >= 0; i--) if (!usable(stack[i].u, stack[i].v)) stack.splice(i, 1);
+    const roots = kept.filter(X => usable(ME, X)).map(X => ({ u: ME, v: X, kind: 'root' }));
+    const order = [...[...stack].reverse(), ...roots];
+    if (last?.end === 'wait') {
+      const hit = order.find(t => reachFrom(net, [t.v], usable).has(last.node));
+      if (hit) { const i = stack.indexOf(hit); if (i >= 0) stack.splice(i, 1); return hit; }
+    }
+    const t = order[0];
+    if (t && stack.includes(t)) stack.splice(stack.indexOf(t), 1);
+    return t;
+  };
+
+  const segs = [];
+  for (let task = pick(null), guard = 0; task && guard < 1000; task = pick(segs[segs.length - 1]), guard++) {
+    const seg = runTask(task);
+    if (!seg) return null;
+    segs.push(seg);
+  }
+  if ([...active].some(k => !written.has(k))) return null;   // something not written: let the old writer do it
+
+  let text = segs[0].text;
+  for (let i = 1; i < segs.length; i++) {
+    const seg = segs[i], prev = segs[i - 1];
+    if (seg.kind === 'deep') {
+      text += ` ${restartWith(seg.text, s, { restart: net.person.get(seg.u) }, ctx, 0)}`;      // «ح وعن فلان، …»
+    } else {
+      // from me or my teacher: after a whole isnad a new paragraph, else ح (a paragraph after a long route)
+      text += ` ${restartWith(seg.text, s, { restart: null }, ctx, wordCount(prev.text), prev.end === 'T')}`;
+    }
+  }
+  text = text.replace(/ (\.?)\n\n/g, '$1\n\n').split(ALSO_MARK).join('');
+  return [text, ...refers.map(r => networkReferText(r, s, ctx))].join('.\n\n');
+}
+
 // ── 5. entry points ───────────────────────────────────────────────────────
 
 /**
@@ -584,6 +827,16 @@ function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
   const list = (chains || []).filter(c => c?.length).map(c => cutChain(c, s));
   if (!list.length) return '';
+  // matn isnads: from the network of links (each link once); else route by route
+  if (networkable(list, s)) {
+    // on a scratch context, so a fallback starts clean
+    const tmp = newContext({ authorId: ctx.authorId });
+    const net = renderNetwork(list, s, tmp);
+    if (net != null) {
+      ['noted', 'names', 'authorNames', 'written'].forEach(k => tmp[k].forEach(x => ctx[k].add(x)));
+      return net;
+    }
+  }
   // my link to someone already written through a teacher: «… بسنده المتقدم» after the isnad
   const { keep, refers } = splitRefers(list);
   return [renderRoutes(keep, s, ctx), ...refers.map(r => referText(r, s, ctx))].join('.\n\n');

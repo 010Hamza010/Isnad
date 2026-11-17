@@ -595,9 +595,9 @@ describe('a shaykh\'s own teachers who meet again: «عن B، وعن C، كلا�
       /وهي قرأت على B، وسمعت من C، كلاهما قرأ على D$/);
   });
 
-  test('one of them reaches D through someone else: its own route, after the first reached the end', () => {
+  test('one of them reaches D through someone else: a small «ح وعن A» after the first reached the end', () => {
     assert.equal(TT.renderChains([chain(['Z', 'A', 'B', 'D'], Q), chain(['Z', 'A', 'C', 'E', 'D'], Q)], clear),
-      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وهو قرأ على D.\n\nويرويه أيضاً A، وهو قرأ على C، وهو قرأ على E، عن D');
+      'قرأتُ على شيخنا Z، وهو قرأ على A، وهو قرأ على B، وهو قرأ على D ح وعن A، وهو قرأ على C، وهو قرأ على E، عن D');
   });
 
   test('read back by the parser: two chains', () => {
@@ -704,5 +704,53 @@ describe('«بإسناده المتقدم» (refer step)', () => {
   test('up to a point, then on: «بإسناده المتقدم إلى ابن الجزري، وهو قرأ على …»', () => {
     const text = TT.renderChain([q(0, 1, 'زيد'), refer(1, 'بإسناده المتقدم إلى ابن الجزري'), q(9, 40, 'ابن اللبان'), q(40, 51, 'حفص')], { style: { clear: true } });
     assert.equal(text, 'قرأتُ على شيخنا زيد بإسناده المتقدم إلى ابن الجزري، وهو قرأ على ابن اللبان، وهو قرأ على حفص');
+  });
+});
+
+describe('network: each link written once', () => {
+  const ids = {};
+  let n = 1;
+  const id = nm => (nm === 'أنا' ? 0 : (ids[nm] ??= n++));
+  // my links «قراءة», the others untyped («عن»); way: how I took from my teacher
+  const ch = (way, ...ns) => ns.slice(1).map((t, i) => ({
+    from_person_id: id(ns[i]), from_name: ns[i], to_person_id: id(t), to_name: t, tx_kind: i === 0 ? way : 'qiraa',
+  }));
+  const st = { style: { clear: true, longRestartWords: 500 } };
+  const cross = [ch('qiraa', 'أنا', 'أ', 'ج', 'د', 'و', 'ز'), ch('qiraa', 'أنا', 'ب', 'ج', 'د', 'و', 'ز'),
+    ch('qiraa', 'أنا', 'أ', 'ج', 'هـ', 'و', 'ز'), ch('qiraa', 'أنا', 'ب', 'ج', 'هـ', 'و', 'ز')];
+
+  test('two forks in a row: «كلاهما» twice, no ح, nothing repeated', () => {
+    assert.equal(TT.renderChains(cross, st),
+      'قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وعلى هـ، كلاهما قرأ على و، وهو قرأ على ز');
+  });
+
+  test('a route stops with ح where another has still to arrive; the last one goes on; a small ح at the end', () => {
+    const top = [['م1', 'ن1', 'المؤلف'], ['م2', 'ن2', 'المؤلف']];
+    const routes = top.flatMap(t => [
+      ch('qiraa', 'أنا', 'زياد', 'وهب', 'القاضي', 'قاسم', 'هاشم', ...t),
+      ch('qiraa', 'أنا', 'عمار', 'وهب', 'القاضي', 'قاسم', 'هاشم', ...t),
+      ch('qiraa', 'أنا', 'عمار', 'ثابت', 'القاضي', 'قاسم', 'هاشم', ...t),
+      ch('qiraa', 'أنا', 'هند', 'المكي', 'قاسم', 'هاشم', ...t),
+    ]);
+    const text = TT.renderChains(routes, st);
+    assert.equal(text, 'قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما قرأ على وهب، وهو قرأ على القاضي ح '
+      + 'وقرأ شيخنا عمار أيضاً على ثابت، وهو قرأ على القاضي، وهو قرأ على قاسم ح '
+      + 'وقرأتُ على شيخنا هند، وهو قرأ على المكي، وهو قرأ على قاسم، وهو قرأ على هاشم، وهو قرأ على م1، وهو قرأ على ن1، وهو قرأ على المؤلف ح '
+      + 'وعن هاشم، وهو قرأ على م2، وهو قرأ على ن2، وهو قرأ على المؤلف');
+  });
+
+  test('my teacher with one person of his own before a written sanad, taken another way: «… عن Y بسنده المتقدم»', () => {
+    const text = TT.renderChains([ch('qiraa', 'أنا', 'زياد', 'وهب', 'المؤلف'), ch('ijaza_general', 'أنا', 'أبو عبيدة', 'وهب', 'المؤلف'),
+      ch('qiraa', 'أنا', 'زياد', 'الشامي', 'المؤلف'), ch('sama', 'أنا', 'الشامي', 'المؤلف')], st);
+    // زياد's two shaykhs both go straight to the author: «كلاهما»
+    assert.equal(text, 'قرأتُ على شيخنا زياد، وهو قرأ على وهب، وعلى الشامي، كلاهما قرأ على المؤلف.\n\n'
+      + 'وأرويه أيضاً إجازةً عامةً من شيخنا أبي عبيدة، وهو قرأ على وهب بسنده المتقدم.\n\n'
+      + 'وأرويه أيضاً سماعاً من شيخنا الشامي بسنده المتقدم');
+  });
+
+  test('a route switched off: the network would bring it back, so the routes are written one by one', () => {
+    const text = TT.renderChains(cross.slice(0, 3), st);
+    assert.doesNotMatch(text, /وعلى هـ، كلاهما/);
+    assert.equal((text.match(/قرأ على ز/g) || []).length >= 1, true);
   });
 });

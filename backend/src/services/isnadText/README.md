@@ -51,8 +51,8 @@ Tests: `backend/test/isnadText.test.js` (unit), `pipeline.test.js` (parse → re
 ```
 
 **The render receives every complete route separately, not the network of links.** Two forks
-one after the other make four routes. The renderer has to find the shared parts again (see
-[Known limitation](#5-known-limitation-forks-in-the-middle)).
+one after the other make four routes. For a matn the renderer rebuilds the network from them (§ 5);
+otherwise it finds the shared parts route by route (§ 4).
 
 ### Edge (one link), as the renderer reads it
 
@@ -143,7 +143,8 @@ them in «الإعدادات ← صيغ الإسناد». Everything is keyed by
 `renderChains(chains, settings, ctx)` does three things:
 
 1. It cuts the chains (`cutChain`).
-2. It sets aside my links whose sanad is already written (`splitRefers`, see «بسنده المتقدم» below).
+   For a matn isnad it then writes from the network of links (§ 5) and stops there.
+2. Otherwise it sets aside my links whose sanad is already written (`splitRefers`, see «بسنده المتقدم» below).
 3. It renders the other routes (`renderRoutes` → `renderSet(list, s, ctx, { opening: true, restart: null, complete })`).
    If they start at another person (not me), it writes that person once and restarts from them after ح.
 
@@ -230,21 +231,57 @@ recursion: steps 2c / 2d pass `k === 1`, and step 3 passes `!k`.
 
 ---
 
-## 5. Known limitation: forks in the middle
+## 5. Matn isnads: the network writer (`renderNetwork`)
 
-`renderSet` only factors what **all** the chains of a call share at the start or at the end. When
-routes fork, meet, then fork again, the routes are the **cross product** of the forks. Each fork
-doubles the count, and the same middle part is written once per combination.
+`renderSet` only factors what **all** the routes of a call share at the start or at the end. Routes
+that fork, meet, then fork again are the cross product of the forks, and their middle would be
+written once per combination. On «متن المثال» that was 81 links → 25 routes → 507 links written.
 
-> `أنا→أ→ج→د→و→ز`, `أنا→ب→ج→د→و→ز`, `أنا→أ→ج→هـ→و→ز`, `أنا→ب→ج→هـ→و→ز`<br>
-> today: «قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وهو قرأ على و ح وقرأ شيخنا أ أيضاً على ج ح وقرأ شيخنا ب أيضاً على ج، وهو قرأ على هـ، وهو قرأ على و، وهو قرأ على ز»<br>
-> wanted: «قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وعلى هـ، كلاهما قرأ على و، وهو قرأ على ز»
+So `renderChains` first tries to write from the **network** of links: each link once. Conditions
+(`networkable`, then checks inside `renderNetwork`); otherwise the route-by-route writer above is used:
 
-On real data («متن المثال»), 81 distinct links make 25 routes that add up to 507 links, and whole
-paragraphs come out twice. The fix is to render from the **network** of links (each link once, a fork
-as a split, a meeting as «كلاهما») rather than from the list of routes.
+| Condition | Why |
+|---|---|
+| Every route starts at me and ends at the same person | One isnad to walk from me to the end. |
+| No Quran data on the links (`read_with`, notes, «بإسناده المتقدم» steps) | The Quran keeps the route writer for now. |
+| `tahwilMeet` is `repeat` (the default) | `joined` not done yet. |
+| No loop in the links | |
+| **Every path through the network is one of the routes given** | Otherwise the network would invent a route. Not true for the Quran (عاصم gave حفص his riwaya through السلمي and شعبة through زر), nor when routes were switched off. |
+| Every link got written | Safety net: anything else, the old writer. |
 
----
+**How it walks** (each step is a «task»; the text of a task is a segment):
+
+| Situation | Text |
+|---|---|
+| My teachers taken the same way who share a shaykh (`togetherAt`) | «قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما سمع من محمد وهب» |
+| A shaykh's shaykhs, each reached only through him, meeting at once (`siblingsAt`) | «عن محمد نوفل، عن ربيع، وعن شريح، كلاهما عن الفاسي» |
+| Reaching someone another route has still to reach | Stop with ح. **The last route to arrive goes on**: «… عن ابن العابد ح وقرأ شيخنا عمار أيضاً على ثابت، … عن ابن العابد، عن ابن ثابت …» |
+| Someone with several shaykhs | The first goes on now; the others wait (a stack). |
+| Next task after a stop | One that reaches where the last route stopped; else the latest waiting one; else my next teacher (in order). |
+| Restart from my teacher | «وقرأ شيخنا عمار أيضاً على …» (phrases.also) |
+| Restart from someone deeper | A small «ح وعن هاشم، عن إدريس، …» |
+| Restart from me or my teacher after a route reached the end | «.» and a new paragraph, no ح: «وأرويه أيضاً: …», «وقرأ شيخنا زياد أيضاً على الشامي …» |
+
+**«بسنده المتقدم»** (`networkRefers`). My teacher X goes to the end of the isnad as one sentence
+when two things hold:
+
+1. **At most one person of his own:** X himself, or his single shaykh Y, is reached through my other teachers.
+2. **The whole rest is written by those teachers.**
+
+My teachers written together with others never qualify, and later teachers are tested first.
+
+> «وأرويه أيضاً سماعاً من شيخنا سهل بسنده المتقدم»<br>
+> «وأرويه أيضاً عن شيخنا عطاء، عن وهب بسنده المتقدم»
+
+A route with more of its own (هند المكية: ten people before ابن قاسم) is a branch of the تحويل instead.
+
+**Example** (`README` § 4 cross product):<br>
+> «قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وعلى هـ، كلاهما قرأ على و، وهو قرأ على ز»
+
+Tests: `test/isnadText.test.js` «network: each link written once».
+
+**Still route by route:** the Quran, the `joined` setting, and routes switched off. There, forks in the
+middle are still written once per combination.
 
 ## 6. Parsing (text → chains)
 
