@@ -235,7 +235,7 @@ recursion: steps 2c / 2d pass `k === 1`, and step 3 passes `!k`.
 
 `renderSet` only factors what **all** the routes of a call share at the start or at the end. Routes
 that fork, meet, then fork again are the cross product of the forks, and their middle would be
-written once per combination. On «متن المثال» that was 81 links → 25 routes → 507 links written.
+written once per combination: on one real thabat, 81 links made 25 routes, or 507 links to write.
 
 So `renderChains` first tries to write from the **network** of links: each link once. Conditions
 (`networkable`, then checks inside `renderNetwork`); otherwise the route-by-route writer above is used:
@@ -253,14 +253,14 @@ So `renderChains` first tries to write from the **network** of links: each link 
 
 | Situation | Text |
 |---|---|
-| My teachers taken the same way who share a shaykh (`togetherAt`) | «قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما سمع من محمد وهب» |
-| A shaykh's shaykhs, each reached only through him, meeting at once (`siblingsAt`) | «عن محمد نوفل، عن ربيع، وعن شريح، كلاهما عن الفاسي» |
-| Reaching someone another route has still to reach | Stop with ح. **The last route to arrive goes on**: «… عن ابن العابد ح وقرأ شيخنا عمار أيضاً على ثابت، … عن ابن العابد، عن ابن ثابت …» |
+| My teachers taken the same way who share a shaykh (`togetherAt`) | «قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما سمع من وهب» |
+| A shaykh's shaykhs, each reached only through him, meeting at once (`siblingsAt`) | «عن نوفل، عن ربيع، وعن شريح، كلاهما عن عامر» |
+| Reaching someone another route has still to reach | Stop with ح. **The last route to arrive goes on**: «… عن يحيى ح وقرأ شيخنا عمار أيضاً على ثابت، … عن يحيى، عن يوسف …» |
 | Someone with several shaykhs | The first goes on now; the others wait (a stack). |
 | Next task after a stop | One that reaches where the last route stopped; else the latest waiting one; else my next teacher (in order). |
 | Restart from my teacher | «وقرأ شيخنا عمار أيضاً على …» (phrases.also) |
 | Restart from someone deeper | «ح وعن فلان، عن …» |
-| Any restart after a route reached the end | **Never ح.** «.» and a new paragraph: «وأرويه أيضاً: …», «وقرأ شيخنا زياد أيضاً على الشامي …», «ويرويه أيضاً هاشم، عن إدريس، …» |
+| Any restart after a route reached the end | **Never ح.** «.» and a new paragraph: «وأرويه أيضاً: …», «وقرأ شيخنا زياد أيضاً على سهل …», «ويرويه أيضاً هاشم، عن إدريس، …» |
 
 **«بسنده المتقدم»** (`networkRefers`). My teacher X goes to the end of the isnad as one sentence
 when two things hold:
@@ -273,7 +273,7 @@ My teachers written together with others never qualify, and later teachers are t
 > «وأرويه أيضاً سماعاً من شيخنا سهل بسنده المتقدم»<br>
 > «وأرويه أيضاً عن شيخنا عطاء، عن وهب بسنده المتقدم»
 
-A route with more of its own (هند المكية: ten people before ابن قاسم) is a branch of the تحويل instead.
+A route with more of its own (هند: ten people before قاسم) is a branch of the تحويل instead.
 
 **Example** (`README` § 4 cross product):<br>
 > «قرأتُ على شيخنا أ، وشيخنا ب، كلاهما قرأ على ج، وهو قرأ على د، وعلى هـ، كلاهما قرأ على و، وهو قرأ على ز»

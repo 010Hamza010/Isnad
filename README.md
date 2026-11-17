@@ -52,8 +52,8 @@ created on first run, and there is no public registration.
   شيخنا فلان، وهو قرأ على …»), per transmission kind and per gender. Optionally death years and
   full names (kunya in its case + nisba).
 - **Each link written once (matn isnads):**
-  - my teachers taken the same way, together: «قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما سمع من محمد وهب»;
-  - a short split as «كلاهما»: «عن ربيع، وعن شريح، كلاهما عن الفاسي»;
+  - my teachers taken the same way, together: «قرأتُ على شيخنا زياد، وشيخنا عمار، كلاهما سمع من وهب»;
+  - a short split as «كلاهما»: «عن ربيع، وعن شريح، كلاهما عن عامر»;
   - «ح» only where a route stops to wait for another;
   - never «ح» after a route that reaches the author;
   - «وأرويه أيضاً سماعاً من شيخنا فلان بسنده المتقدم» for a teacher whose sanad is already written.
@@ -85,10 +85,7 @@ created on first run, and there is no public registration.
 
 ## How it works
 
-```
- your links ──► routes ──► isnad text ──► ijaza
- (DB)          (graph)     (isnadText)     (template + certificate)
-```
+![From links to an ijaza: links, routes, isnad text, ijaza](docs/images/pipeline.svg)
 
 1. **Links.** A link is «student → shaykh», for a matn or for Quran items. Person `0` is you.
 2. **Routes.** `services/graphService.js` walks the links from you up to the target: the matn's
@@ -101,6 +98,39 @@ created on first run, and there is no public registration.
 4. **Ijaza.** The page (`frontend/src/pages/ijazat/NewIjaza.jsx`) fills your template with the
    isnad, the teachers paragraph and the dates. The certificate
    (`frontend/src/components/ijaza/Certificate.jsx`) lays it out, colours the names and paginates.
+
+### How an isnad is written
+
+The matn writer reads your links as a **network** and writes each link once. A made-up example
+(«...» stands for several people in a row):
+
+![A network of links: where كلاهما, ح and ويرويه أيضاً come from](docs/images/isnad-network.svg)
+
+It gives this text:
+
+> قرأتُ على شيخنا زياد، وشيخنا عمار، **كلاهما سمع من** وهب، عن مالك، ...، عن سعد، عن يحيى **ح**
+>
+> وقرأ شيخنا عمار أيضاً على ثابت، ...، عن رافع، عن نوفل، عن ربيع، **وعن شريح، كلاهما عن** عامر، ...، عن أنس، عن يحيى، عن يوسف، ...، عن صالح، عن قاسم **ح**
+>
+> وأرويه أيضاً: عن شيختنا هند، عن لبيد، ...، عن منصور، عن قاسم، عن هاشم، عن عمر، ...، عن ياسر، عن المؤلف.
+>
+> **ويرويه أيضاً** هاشم، عن إدريس، ...، عن مسلم، عن المؤلف.
+
+- **Green: «كلاهما».** Two of your teachers taken the same way who share a shaykh, or a short split
+  that meets at once, are written together without «ح».
+- **Orange: a meeting point.** The first route to reach يحيى stops there with «ح», because عمار's
+  other route still has to arrive. The **last** route to arrive carries on. The same happens at
+  قاسم, waiting for هند.
+- **After the author, never «ح».** The other branch of هاشم starts a new paragraph: «ويرويه أيضاً …».
+
+A teacher of yours with at most one person of his own before a sanad already written is not
+written again. One sentence at the end points back to it:
+
+![When «بسنده المتقدم» is used, and when a route is a branch of the تحويل](docs/images/bisanadihi.svg)
+
+The full rules, with the code behind each one, are in
+[`backend/src/services/isnadText/README.md`](backend/src/services/isnadText/README.md). The diagrams
+are drawn by `docs/diagrams.py`.
 
 ---
 
@@ -248,6 +278,7 @@ Run them block by block in the mysql client, phpMyAdmin or DBeaver.
 .
 ├── docker-compose.yml
 ├── Isnad-API.postman_collection.json
+├── docs/                          README diagrams (docs/images/*.svg, drawn by docs/diagrams.py)
 ├── backend/
 │   ├── config/db.js
 │   ├── migrations/                000_base.sql (schema + reference data), then NNN_name.sql

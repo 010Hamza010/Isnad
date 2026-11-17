@@ -40,6 +40,6 @@ test('Arabic-Indic digits are kept and match Western ones', () => {
 
 test('in names «ابن» and «بن» are the same word, but not inside another word', () => {
   assert.ok(matches('ابن سالم', 'سعد بن محمد بن عمر بن سالم'));
-  assert.ok(matches('بن سالم', 'علي ابن سالم'));
+  assert.ok(matches('بن سالم', 'سعد ابن سالم'));
   assert.equal(nameForm('إبنه ابن'), 'ابنه بن');
 });

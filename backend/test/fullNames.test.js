@@ -16,7 +16,7 @@ test('nothing the name already holds is repeated (real data shapes)', () => {
     'أبي الفضل سعد بن محمد بن عمر بن سالم الرباطي');
   // a laqab stored as kunya goes after the name; multi-word nisba keeps only new words
   assert.equal(fullName({ name: 'أبي عاصم سعد', kunya: 'الحداد', nisba: 'التميمي' }), 'أبو عاصم سعد الحداد التميمي');
-  assert.equal(fullName({ name: 'محمد الأمين البغدادي', nisba: 'الهاشمي البغدادي الحسني' }), 'محمد الأمين البغدادي المري الحسني');
+  assert.equal(fullName({ name: 'محمد الأمين البغدادي', nisba: 'الهاشمي البغدادي الحسني' }), 'محمد الأمين البغدادي الهاشمي الحسني');
 });
 
 test('the leading kunya follows the case; inner «بن أبي» does not', () => {

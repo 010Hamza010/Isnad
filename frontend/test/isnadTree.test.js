@@ -37,7 +37,7 @@ test('shortBio keeps short text and cuts long text at a sentence boundary', () =
 
 test('wrapText wraps on words and never cuts a long word', () => {
   const measure = t => t.length; // 1 unit per char
-  assert.deepEqual(wrapText('محمد بن أحمد المدني', 9, measure), ['محمد عبد', 'الحي', 'المدني']);
+  assert.deepEqual(wrapText('محمد بن أحمد المدني', 9, measure), ['محمد بن', 'أحمد', 'المدني']);
   assert.deepEqual(wrapText('سيبويهالطويلجدا', 5, measure), ['سيبويهالطويلجدا']);
   assert.deepEqual(wrapText('', 5, measure), ['']);
 });

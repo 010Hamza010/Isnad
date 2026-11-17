@@ -86,7 +86,7 @@ test('likely duplicates: same name with ابن/بن first, then a name inside th
   const all = [
     { id: 267, name_ar: 'أبي الفضل سعد بن محمد بن عمر بن سالم' },
     { id: 386, name_ar: 'أبي الفضل سعد بن محمد بن عمر ابن سالم' },
-    { id: 500, name_ar: 'علي بن محمد' },
+    { id: 500, name_ar: 'سعد بن محمد' },
     { id: 501, name_ar: 'ابن قاسم' },
     { id: -1, name_ar: 'النبي ﷺ' },
   ];

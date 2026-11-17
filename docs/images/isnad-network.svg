@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="955" viewBox="0 0 1000 955" font-family="'Noto Naskh Arabic', 'Amiri', 'Segoe UI', Tahoma, 'Noto Sans', sans-serif">
+<defs>
+  <marker id="up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/></marker>
+  <marker id="upg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#15803d"/></marker>
+</defs>
+<rect width="1000" height="955" rx="14" fill="#ffffff"/>
+<line x1="520" y1="858" x2="110" y2="819" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="858" x2="330" y2="819" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="858" x2="840" y2="819" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="110" y1="783" x2="190" y2="629" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="330" y1="783" x2="190" y2="629" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="330" y1="783" x2="520" y2="744" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="190" y1="593" x2="190" y2="519" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="190" y1="483" x2="360" y2="444" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="708" x2="520" y2="669" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="633" x2="440" y2="594" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="520" y1="633" x2="610" y2="594" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="440" y1="558" x2="520" y2="519" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="610" y1="558" x2="520" y2="519" stroke="#15803d" stroke-width="2" marker-end="url(#upg)"/>
+<line x1="520" y1="483" x2="360" y2="444" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="360" y1="408" x2="360" y2="369" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="360" y1="333" x2="520" y2="294" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="840" y1="783" x2="840" y2="519" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="840" y1="483" x2="520" y2="294" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="258" x2="520" y2="219" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="183" x2="370" y2="144" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="520" y1="183" x2="670" y2="144" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="370" y1="108" x2="520" y2="69" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<line x1="670" y1="108" x2="520" y2="69" stroke="#9ca3af" stroke-width="2" marker-end="url(#up)"/>
+<rect x="474.0" y="33" width="92" height="34" rx="9" fill="#fef3c7" stroke="#d97706"/><text x="520" y="55" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">المؤلف</text>
+<rect x="291.0" y="108" width="158" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="370" y="130" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">عمر ... ياسر</text>
+<rect x="580.0" y="108" width="180" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="670" y="130" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">إدريس ... مسلم</text>
+<rect x="485.0" y="183" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="520" y="205" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">هاشم</text>
+<rect x="485.0" y="258" width="70" height="34" rx="9" fill="#ffedd5" stroke="#c2410c"/><text x="520" y="280" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">قاسم</text>
+<rect x="275.5" y="333" width="169" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="360" y="355" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">يوسف ... صالح</text>
+<rect x="325.0" y="408" width="70" height="34" rx="9" fill="#ffedd5" stroke="#c2410c"/><text x="360" y="430" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">يحيى</text>
+<rect x="111.0" y="483" width="158" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="190" y="505" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">مالك ... سعد</text>
+<rect x="441.0" y="483" width="158" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="520" y="505" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">عامر ... أنس</text>
+<rect x="405.0" y="558" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="440" y="580" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">ربيع</text>
+<rect x="575.0" y="558" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="610" y="580" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">شريح</text>
+<rect x="155.0" y="593" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="190" y="615" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">وهب</text>
+<rect x="485.0" y="633" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="520" y="655" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">نوفل</text>
+<rect x="435.5" y="708" width="169" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="520" y="730" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">ثابت ... رافع</text>
+<rect x="750.0" y="483" width="180" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="840" y="505" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">لبيد ... منصور</text>
+<rect x="75.0" y="783" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="110" y="805" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">زياد</text>
+<rect x="295.0" y="783" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="330" y="805" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">عمار</text>
+<rect x="805.0" y="783" width="70" height="34" rx="9" fill="#f3f4f6" stroke="#d1d5db"/><text x="840" y="805" font-size="15" fill="#1f2937" font-weight="bold" text-anchor="middle" direction="rtl">هند</text>
+<rect x="475.0" y="858" width="90" height="34" rx="9" fill="#1d4ed8" stroke="#1d4ed8"/><text x="520" y="880" font-size="15" fill="#fff" font-weight="bold" text-anchor="middle" direction="rtl">أنا</text>
+<rect x="271.0" y="599" width="158" height="24" rx="12" fill="#15803d" fill-opacity=".1" stroke="#15803d"/><text x="350" y="616" font-size="13" fill="#15803d" font-weight="bold" text-anchor="middle" direction="rtl">كلاهما سمع من وهب</text>
+<rect x="583.0" y="601" width="214" height="24" rx="12" fill="#15803d" fill-opacity=".1" stroke="#15803d"/><text x="690" y="618" font-size="13" fill="#15803d" font-weight="bold" text-anchor="middle" direction="rtl">وعن شريح، كلاهما عن عامر</text>
+<rect x="39.0" y="412" width="222" height="24" rx="12" fill="#c2410c" fill-opacity=".1" stroke="#c2410c"/><text x="150" y="429" font-size="13" fill="#c2410c" font-weight="bold" text-anchor="middle" direction="rtl">ح الأولى: ينتظر طريق عمار</text>
+<rect x="679.0" y="262" width="222" height="24" rx="12" fill="#c2410c" fill-opacity=".1" stroke="#c2410c"/><text x="790" y="279" font-size="13" fill="#c2410c" font-weight="bold" text-anchor="middle" direction="rtl">ح الثانية: ينتظر طريق هند</text>
+<rect x="598.0" y="187" width="374" height="24" rx="12" fill="#1d4ed8" fill-opacity=".1" stroke="#1d4ed8"/><text x="785" y="204" font-size="13" fill="#1d4ed8" font-weight="bold" text-anchor="middle" direction="rtl">بعد المؤلف لا ح: ويرويه أيضاً هاشم، عن إدريس</text>
+<text x="980" y="925" font-size="13.5" fill="#6b7280" font-weight="normal" text-anchor="end" direction="rtl">الأخضر يُجمع بكلاهما دون ح، والبرتقالي ملتقى يقف عنده الطريق الأول بـ ح ويكمل الأخير.</text>
+<text x="980" y="945" font-size="13.5" fill="#6b7280" font-weight="normal" text-anchor="end" direction="rtl">كل اتصال يُكتب مرة واحدة.</text>
+</svg>

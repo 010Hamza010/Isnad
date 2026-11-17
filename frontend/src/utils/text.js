@@ -16,7 +16,7 @@ export function normalizeArabic(s) {
     .trim();
 }
 
-// For names: «ابن» and «بن» are the same word, so «ابن سالم» finds «علي بن سالم» (backend: nameKey).
+// For names: «ابن» and «بن» are the same word, so «ابن سالم» finds «سعد بن سالم» (backend: nameKey).
 export const nameForm = s => normalizeArabic(s).replace(/(^| )ابن(?= |$)/g, '$1بن');
 
 export const matches = (query, ...fields) => {
