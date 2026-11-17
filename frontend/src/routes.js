@@ -20,6 +20,7 @@ export const NAV = [
   ]},
   { section: 'عام', items: [
     { path: '/persons', icon: 'users',   label: 'الأعلام', stat: 'persons', title: 'الأعلام', sub: 'الشيوخ والرواة والمؤلفون — ملف واحد لكل شخص' },
+    { path: '/between', icon: 'chain',   label: 'إسناد علَم', title: 'إسناد علَم', sub: 'طرق أي علَم إلى علَم آخر أو إلى مؤلف متن أو إلى النبي ﷺ' },
     { path: '/graph',   icon: 'network', label: 'شبكة الإسناد', title: 'شبكة الإسناد', sub: 'الشبكة الكاملة للاتصالات' },
     { path: '/settings', icon: 'settings', label: 'الإعدادات', title: 'الإعدادات', sub: 'حسابك وملفك الشخصي وصيغ الأسانيد والنسخ الاحتياطي' },
   ]},

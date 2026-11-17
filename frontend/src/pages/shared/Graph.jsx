@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Network, DataSet } from 'vis-network/standalone';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
@@ -25,6 +25,7 @@ export default function Graph() {
   const [mod, setMod]     = useState('both');
   const [params] = useSearchParams();
   const [focus, setFocus] = useState(params.get('focus') || '');   // ?focus=<person id> (from the home sky)
+  const [picked, setPicked] = useState(null);                       // person clicked in the graph («أسانيده»)
   const [matnId, setMatnId] = useState('');          // limit the graph to the routes of one matn
   const [hideGeneral, setHideGeneral] = useState(false);
   const [showOff, setShowOff] = useState(false);
@@ -112,8 +113,11 @@ export default function Graph() {
       edges: { arrows: { to: { enabled: true, scaleFactor: .6 } }, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: .4 } },
       nodes: { borderWidth: 1.5, shapeProperties: { borderRadius: 8 } },
     });
+    networkRef.current.on('selectNode', p => setPicked(p.nodes.length === 1 ? p.nodes[0] : null));
+    networkRef.current.on('deselectNode', () => setPicked(null));
     return () => { networkRef.current?.destroy(); networkRef.current = null; };
   }, [data, rg, hideGeneral, showOff]);
+  const isnadOf = Number(picked) > 0 ? picked : Number(focus) > 0 ? focus : null;
 
   // also after the graph is (re)built, so a focus from the URL applies once the data arrives
   useEffect(() => {
@@ -162,6 +166,9 @@ export default function Graph() {
         <div style={{ minWidth: 200, flex: '0 1 260px' }}>
           <Combobox value={focus} opts={nodeOpts} onChange={setFocus} placeholder="انتقل إلى علَم…" />
         </div>
+        {isnadOf && (
+          <Link className="btn btn-ghost btn-sm" to={`/between?from=${isnadOf}`} title="طرقه إلى علَم أو متن أو رواية"><Icon name="chain" size={14} /> أسانيده</Link>
+        )}
         {byMatn ? (
           matnPaths.disabled.length > 0 && (
             <label className="row small muted" style={{ gap: 6 }}>

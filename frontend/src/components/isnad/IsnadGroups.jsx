@@ -16,7 +16,8 @@ const saveOrder = v => { try { localStorage.setItem(ORDER_KEY, v); } catch { /* 
  * entered), each can be switched off — saved per `scope`, and left out of the text and ijazat.
  * `onChanged` reloads the paths after a route is switched off or on.
  */
-export default function IsnadGroups({ paths, disabled = [], scope, endIds, scopeOf, via, onChanged }) {
+// readOnly: no switching routes off (another person's routes)
+export default function IsnadGroups({ paths, disabled = [], scope, endIds, scopeOf, via, onChanged, readOnly = false }) {
   const { toast, notifyError, confirm } = useUI();
   const [order, setOrder] = useState(readOrder);
   const [asText, setAsText] = useState({});
@@ -30,7 +31,7 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
     return { g: { ...g, chains: routes.map(r => r.chain), keys: routes.map(r => r.key) }, routes };
   }), [paths, order]);
   const highest = Math.min(...groups.flatMap(x => x.routes.map(r => r.n)));
-  const generalKeys = groups.filter(({ g }) => isGeneralRoute(g.firstEdge)).flatMap(({ routes }) => routes.map(r => r.key));
+  const generalKeys = readOnly ? [] : groups.filter(({ g }) => isGeneralRoute(g.firstEdge)).flatMap(({ routes }) => routes.map(r => r.key));
 
   const toggle = async (keys, off) => {
     setBusy(true);
@@ -87,8 +88,10 @@ export default function IsnadGroups({ paths, disabled = [], scope, endIds, scope
                 <span>{r.n} {r.n > 10 ? 'راوياً' : r.n > 2 ? 'رواة' : r.n === 2 ? 'راويان' : 'راوٍ'}</span>
                 {r.n === highest && <span className="badge badge-accent" title="أقل عدد من الرواة">الأعلى</span>}
                 {isGeneralRoute(g.firstEdge) && <span className="badge badge-outline" title="اتصال شيخك بك عام — لكل المتون">عامة</span>}
-                <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${j + 1}`}
-                  onClick={() => toggle([r.key], true)}><Icon name="x" size={13} /></button>
+                {!readOnly && (
+                  <button className="icon-btn" disabled={busy} title="تعطيل هذا الطريق" aria-label={`تعطيل الطريق ${j + 1}`}
+                    onClick={() => toggle([r.key], true)}><Icon name="x" size={13} /></button>
+                )}
               </span>
             ))}
           </div>

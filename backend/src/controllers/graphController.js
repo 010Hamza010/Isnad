@@ -37,8 +37,11 @@ exports.matnPaths = async (req, res) => {
 /**
  * Routes of a Quran choice for this user: { riwaya_id | qiraa_id, tariq_id? } where tariq_id «0» means
  * my links without a tariq and no tariq_id means any. See services/quranChain for the rule.
+ * query.from: start at another person (default me): his links count as entered, like any link above
+ * mine (no tariq / group filter, no switched-off routes).
  */
 async function quranData(userId, query) {
+  const start = Number(query.from) || 0;
   const riwaya_id = Number(query.riwaya_id) || null;
   const tariq = query.tariq_id === undefined || query.tariq_id === '' ? undefined : Number(query.tariq_id) || 0;
   const groupId = Number(query.group_id) || null;   // only my links read with this group
@@ -56,17 +59,19 @@ async function quranData(userId, query) {
   const byGroup = new Map(groups.map(g => [Number(g.id), g]));
   const scoped = e => ({ ...e, items: QG.expandItems(e.items, (e.groups || []).map(g => g.group_id), byGroup) });
   const whole = wholeQiraa && { id: null, items: [{ qiraa_id: wholeQiraa }] };
-  const mine  = edges.filter(e => Number(e.from_person_id) === 0 && (!groupId || QGI.hasGroup(e, groupId))
-    && (!whole || QGI.carriesGroup(scoped(e), whole, allRiwayat, riwayaQiraa)) && QC.startCovers(scoped(e), { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
   const want  = { qiraa_id: qiraaId, riwaya_id };
-  const upper = edges.filter(e => Number(e.from_person_id) !== 0 && QC.upperCovers(scoped(e), want, riwayaQiraa))
+  const mine  = start
+    ? edges.filter(e => Number(e.from_person_id) === start && QC.upperCovers(scoped(e), want, riwayaQiraa))
+    : edges.filter(e => Number(e.from_person_id) === 0 && (!groupId || QGI.hasGroup(e, groupId))
+      && (!whole || QGI.carriesGroup(scoped(e), whole, allRiwayat, riwayaQiraa)) && QC.startCovers(scoped(e), { qiraa_id: qiraaId, riwaya_id, tariq }, riwayaQiraa));
+  const upper = edges.filter(e => Number(e.from_person_id) !== start && Number(e.from_person_id) !== 0 && QC.upperCovers(scoped(e), want, riwayaQiraa))
     .map(e => ({ ...e, books: undefined }));
 
   const target = rawiId ?? imamId ?? QC.PROPHET;
-  const raw = buildPaths([...mine, ...upper], 0, [target], null, null, null, pMap, null, null);
+  const raw = buildPaths([...mine, ...upper], start, [target], null, null, null, pMap, null, null);
 
   const scope = DR.quranScope({ riwaya_id, tariq_id: tariq, qiraa_id: riwaya_id ? null : qiraaId });
-  const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), await disabledIn(userId, scope));
+  const { paths: enabled, disabled } = DR.applyDisabled(raw.map(group => formatPath(group, pMap)), start ? [] : await disabledIn(userId, scope));
 
   const fmt = e => formatEdge(e, pMap);
   const step = (from, to, extra) => ({ ...formatEdge({ from_person_id: from, to_person_id: to, items: [] }, pMap),
@@ -76,7 +81,55 @@ async function quranData(userId, query) {
 }
 exports.quranData = quranData;
 
-exports.quranPaths = async (req, res) => res.json(await quranData(req.user.id, req.query));
+exports.quranPaths = async (req, res) => res.json(await quranData(req.user.id, { ...req.query, from: undefined }));
+
+/**
+ * The isnad of any person (me = 0) to another person, a matn's author or a Quran choice:
+ *   ?from=<id>&to=<person id>&module=mutoon|quran   every matn link (specific or «عام») / my Quran links
+ *   ?from=<id>&matn_id=<id>                         that matn's links, to its author
+ *   ?from=<id>&riwaya_id=|qiraa_id=                 the Quran choice, to النبي ﷺ (see quranData)
+ * → { from, target: { kind, id, name }, end_id, paths }. Read only: routes switched off on the isnad
+ * pages are left out only for me.
+ */
+async function betweenData(userId, query) {
+  const num = v => (v === undefined || v === '' ? null : Number(v));
+  const from = num(query.from) ?? 0;
+  if (!Number.isInteger(from) || from < 0) throw new HttpError(400, 'اختر العلَم الذي يبدأ منه الإسناد');
+  const pMap = await GM.getAllPersons();
+  if (from && !pMap.has(from)) throw new HttpError(404, 'العلَم غير موجود');
+  const fromInfo = { id: from, name: from ? pMap.get(from).name_ar : 'أنا' };
+  const routes = (edges, end) => buildPaths(edges, from, [end], null, null, null, pMap, null, null).map(g => formatPath(g, pMap));
+
+  const matnId = num(query.matn_id);
+  if (matnId) {
+    if (!from) {
+      const d = await matnData(userId, matnId);
+      if (!d) throw new HttpError(404, 'المتن غير موجود');
+      return { from: fromInfo, target: { kind: 'matn', id: d.matn.id, name: d.matn.title, author_name: d.matn.author_name }, end_id: d.matn.author_id, paths: d.paths };
+    }
+    const { matn, edges } = await GM.getMatnWithEdges(matnId);
+    if (!matn) throw new HttpError(404, 'المتن غير موجود');
+    return { from: fromInfo, target: { kind: 'matn', id: matn.id, name: matn.title, author_name: matn.author_name }, end_id: matn.author_id,
+      paths: matn.author_id ? routes(edges, matn.author_id) : [] };
+  }
+
+  if (num(query.riwaya_id) || num(query.qiraa_id)) {
+    const d = await quranData(userId, { riwaya_id: query.riwaya_id, qiraa_id: query.qiraa_id, from });
+    const name = d.riwaya?.name_ar || (await GM.getQiraaById(num(query.qiraa_id)))?.name_ar || '';
+    return { from: fromInfo, target: { kind: 'quran', id: num(query.riwaya_id) || num(query.qiraa_id), name }, end_id: QC.PROPHET, paths: d.paths };
+  }
+
+  const to = num(query.to);
+  if (!to || !pMap.has(to)) throw new HttpError(400, 'اختر العلَم أو المتن أو الرواية');
+  if (to === from) throw new HttpError(400, 'اختر علَمين مختلفين');
+  const quran = query.module === 'quran';
+  const edges = quran ? await GM.getQuranEdgesForUser(userId) : await GM.getAllMatnEdges();
+  return { from: fromInfo, target: { kind: 'person', id: to, name: pMap.get(to).name_ar, module: quran ? 'quran' : 'mutoon' }, end_id: to,
+    paths: routes(edges, to) };
+}
+exports.betweenData = betweenData;
+
+exports.between = async (req, res) => res.json(await betweenData(req.user.id, req.query));
 
 /**
  * The isnad of a group I read with, or of a whole qiraa (both its riwayat), for an ijaza:

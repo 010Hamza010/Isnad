@@ -851,9 +851,11 @@ function renderRoutes(list, s, ctx) {
   // there ends with «.» and the next starts a paragraph, without ح (see restartWith)
   const complete = new Set(list.map(c => pid(c[c.length - 1]))).size === 1;
   if (isMe(first.from_person_id)) return clean(renderSet(list, s, ctx, { opening: true, restart: null, complete }));
-  // chains starting at a named narrator: name them once, restart from them after ح
+  // chains starting at a named narrator: name them once, restart from them after ح; right after his
+  // name the sentence needs no «وهو»: «زياد سمع من فلان»
   const start = personLabel(fromP(first), s, ctx);
-  return clean(`${start} ${renderSet(list, s, ctx, { opening: true, restart: fromP(first), complete })}`);
+  const body = renderSet(list, s, ctx, { opening: true, restart: fromP(first), complete }).replace(/^(?:وهو|وهي)\s+/, '');
+  return clean(`${start} ${body}`);
 }
 
 /** A path group as returned by /api/graph/*\/paths → text. */

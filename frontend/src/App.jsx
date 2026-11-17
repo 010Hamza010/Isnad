@@ -6,6 +6,7 @@ import Icon from './components/ui/Icon';
 import Login from './pages/shared/Login';
 import Home from './pages/shared/Home';
 import Persons from './pages/shared/Persons';
+import Between from './pages/shared/Between';
 import MatnIsnads from './pages/mutoon/MatnIsnads';
 import MatnConnections from './pages/mutoon/MatnConnections';
 import MatnList from './pages/mutoon/MatnList';
@@ -71,6 +72,7 @@ function Layout() {
               <Route path="/quran/connections"  element={<QuranConnections />} />
               <Route path="/quran/master"       element={<QuranMasterData />} />
               <Route path="/persons"            element={<Persons />} />
+              <Route path="/between"            element={<Between />} />
               <Route path="/graph"              element={<Graph />} />
               <Route path="/settings"           element={<Settings />} />
               <Route path="/profile"            element={<Navigate to="/settings?tab=profile" replace />} />

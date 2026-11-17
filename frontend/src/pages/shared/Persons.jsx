@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
@@ -127,6 +127,7 @@ export default function Persons() {
                     </div>
                   </div>
                   <div className="actions">
+                    {Number(p.id) > 0 && <Link className="icon-btn" to={`/between?from=${p.id}`} aria-label="أسانيده" title="أسانيده: طرقه إلى علَم أو متن أو رواية"><Icon name="chain" size={16} /></Link>}
                     <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
                     {Number(p.id) > 0 && <button className="icon-btn" onClick={() => setMerging(p)} aria-label="دمج في علَم آخر" title="دمج في علَم آخر (مكرر)"><Icon name="layers" size={16} /></button>}
                     <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>

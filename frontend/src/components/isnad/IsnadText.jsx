@@ -5,18 +5,21 @@ import { useUI } from '../ui/UIProvider';
 import Icon from '../ui/Icon';
 import IsnadProse from './IsnadProse';
 
-/** Rendered prose of one path group, with copy. Uses the user's saved keyword settings. */
-export default function IsnadText({ group }) {
+/**
+ * Rendered prose of one path group, or of several routes together (`chains`, with the matn's
+ * `authorId` for «المؤلف»), with copy. Uses the user's saved keyword settings.
+ */
+export default function IsnadText({ group, chains, authorId = null }) {
   const { toast, notifyError } = useUI();
   const [text, setText] = useState(null);
 
   useEffect(() => {
     let alive = true;
-    api.post('/isnad-text/render', { group })
+    api.post('/isnad-text/render', chains ? { chains, authorId } : { group })
       .then(r => alive && setText(r.data.text))
       .catch(e => alive && notifyError(e));
     return () => { alive = false; };
-  }, [group]);
+  }, [group, chains, authorId]);
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); toast('تم نسخ نص الإسناد'); }

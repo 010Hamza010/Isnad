@@ -41,6 +41,9 @@ created on first run, and there is no public registration.
   and grouped by shaykh.
   - A Quran chain that stops short is marked **منقطع**.
   - You can switch routes off per matn or per riwaya.
+- **«إسناد علَم»:** the routes of any person (you by default) to another person, to a matn's
+  author, or to النبي ﷺ for a riwaya or a whole qiraa, with the isnad text of all of them together.
+  Open it from the menu, from «أسانيده» on a person, or from a person clicked in the graph.
 - **Fast entry:** paste an isnad as text. The names are matched against your persons, you check
   them, and everything is saved in one step.
 
@@ -292,7 +295,7 @@ Every endpoint is under `/api` and needs `Authorization: Bearer <token>`, except
 | Links | `/matn-connections`, `/quran-connections`: `GET/POST /`, `PUT/DELETE /:id` |
 | Quran master data | `/quran/qiraat`, `/quran/riwayat`, `/quran/turuq`, `/quran/groups` (CRUD) · `POST /quran/groups/known` (adds the well-known groups) |
 | Transmission types | `GET /tx-types` · `GET /tx-types/kinds` · `PUT /tx-types/:id/kind` |
-| Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `GET /graph/quran/group-paths?group_id=&mode=stop/all/riwaya&riwaya_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` · `GET /graph/heights` |
+| Routes and graph | `GET /graph/matn/:id/paths` · `GET /graph/quran/paths?riwaya_id=&tariq_id=&qiraa_id=` · `GET /graph/quran/group-paths?group_id=&mode=stop/all/riwaya&riwaya_id=` · `PUT /graph/disabled-routes/:scope` · `GET /graph/full?module=` · `GET /graph/heights` · `GET /graph/between?from=&to=&module=` · `?from=&matn_id=` · `?from=&riwaya_id=\|qiraa_id=` |
 | Isnad text | `GET/PUT/DELETE /isnad-text/settings` · `POST /isnad-text/render` · `POST /isnad-text/parse` · `POST /isnad-text/import` |
 | Ijazat | `GET/PUT/DELETE /ijazat/settings` · `GET /ijazat/teacher-orders` · `PUT /ijazat/teacher-orders/:key` · `POST /ijazat/verify` · `GET/POST /ijazat` · `GET /ijazat/:id` · `DELETE /ijazat/:id` (only a revoked ijaza) · `POST/DELETE /ijazat/:id/revoke` · `POST /ijazat/:id/freeze` · `GET /ijazat/:id/document` · `POST/GET /ijazat/:id/pdf` |
 | Share | `GET /share/matn/:id` · `GET /share/quran` · `POST /share/preview` · `POST /share/import` · `GET /share/thabat` · `POST /share/thabat/preview` · `POST /share/thabat/import` |

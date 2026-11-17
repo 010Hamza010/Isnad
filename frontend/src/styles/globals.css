@@ -698,3 +698,7 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 .pager { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .pager .icon-btn:disabled { opacity: .35; cursor: default; }
 @media (max-width: 640px) { .persons-filters .select { flex: 1 1 140px; } }
+
+/* «إسناد علَم»: the choices in one row on wide screens */
+.between-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+.between-form .field { margin: 0; }

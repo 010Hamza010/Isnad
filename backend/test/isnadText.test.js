@@ -756,3 +756,9 @@ describe('network: each link written once', () => {
     assert.equal((text.match(/قرأ على ز/g) || []).length >= 1, true);
   });
 });
+
+test('an isnad starting from another person: his name, then the sentence without «وهو»', () => {
+  const e = (f, fn, t, tn, tx_kind) => ({ from_person_id: f, from_name: fn, to_person_id: t, to_name: tn, tx_kind });
+  const text = TT.renderChains([[e(1, 'زياد', 2, 'وهب', 'sama'), e(2, 'وهب', 3, 'الهذلي', null)]], { style: { clear: true } });
+  assert.equal(text, 'زياد سمع من وهب، عن الهذلي');
+});
