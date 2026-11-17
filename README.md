@@ -125,6 +125,7 @@ Generate a secret with `node -e "console.log(require('crypto').randomBytes(48).t
 │   │   ├── routes/ controllers/   HTTP layer
 │   │   ├── models/                SQL access
 │   │   ├── services/              path engine, isnad text, ijaza, share/thabat, backup
+│   │   │   └── isnadText/         chains ↔ isnad prose, تحويل (see its README.md)
 │   │   ├── middleware/            auth (JWT + token version), error handler
 │   │   └── utils/
 │   └── test/

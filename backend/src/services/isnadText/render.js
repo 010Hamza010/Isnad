@@ -1,9 +1,28 @@
+/**
+ * Chains of links → isnad prose. Pure: settings (keywords, sentences, style) come from the caller.
+ * Full walkthrough with examples: ./README.md.
+ *
+ *   1. words      keywordFor, deathLabel, phraseFor               the word or sentence for one link
+ *   2. persons    newContext, nameOf, personLabel                 a name as written (case, title, ت, note)
+ *   3. one chain  renderLinks, renderAlso, placeRead, cutChain,   one phrase per link; «أيضاً» restarts;
+ *                 renderChain                                     Quran stops and «بإسناده المتقدم»
+ *   4. تحويل      renderSet (+ sharedHead, sharedTail,             several routes → one text: shared
+ *                 restartWith, meetText, renderTogether,           beginning once, «ح وعن فلان»,
+ *                 renderSiblings, togetherBuckets)                 «كلاهما عن X» where routes meet
+ *   5. entry      renderChains, renderGroup, groupChains,
+ *                 collectPersons
+ *
+ * An edge is one link, from the student (from_*) up to the shaykh (to_*); person 0 is me.
+ * Its fields are listed in README.md § «Edge».
+ */
 const { mergeSettings } = require('./settings');
 const { isMe } = require('./normalize');
 const { applyGender } = require('./gender');
 const { fullName, caseAfter } = require('./names');
 
 const { kindOf } = require('../txKinds');
+
+// ── 1. words ──────────────────────────────────────────────────────────────
 
 // kind of an edge: its tx_kind (from transmission_types.kind or the type's name), null = untyped
 const edgeKind = e => kindOf(e);
@@ -30,6 +49,8 @@ function deathLabel(year) {
 }
 
 const ANAN = new Set(['عن']);
+
+// ── 2. persons ────────────────────────────────────────────────────────────
 
 /*
  * Render context shared by all chains of one text, so a person gets a note marker only
@@ -66,7 +87,7 @@ function personLabel(p, s, ctx, kase = 'nom') {
   return out;
 }
 
-const NAME_SLOT = '{الاسم}';
+const NAME_SLOT = '{الاسم}';   // the shaykh's place in a sentence
 
 // clear sentence for a link, or null to use the keyword form
 function phraseFor(e, mine, s) {
@@ -102,7 +123,13 @@ function renderAlso(e, via, s, ctx) {
   return `عن ${viaTitle}${nameOf(toP(via), s, ctx, 'gen')}${s.style.separator}${kw} ${personLabel(toP(e), s, ctx, caseAfter(kw))}`;
 }
 
-// one phrase per edge; `opening` marks the first link of the whole isnad
+// ── 3. one chain ──────────────────────────────────────────────────────────
+
+/*
+ * One phrase per edge; `opening` marks the first link of a route (my own link gets the first-person
+ * sentence and «شيخنا»). When the route's first links are already in the text (ctx.written), it
+ * starts from the last of them with renderAlso: «وقرأ شيخنا أ أيضاً على ج».
+ */
 function renderLinks(edges, s, ctx, { opening = true } = {}) {
   // a new branch whose first links are already written starts from the last of them, with «أيضاً»
   let skip = 0;
@@ -198,6 +225,8 @@ function renderChain(edges, settings) {
   const s = mergeSettings(settings);
   return renderChainWith(cutChain(edges || [], s), s, newContext());
 }
+
+// ── 4. تحويل ──────────────────────────────────────────────────────────────
 
 const pid = e => String(e.to_person_id);
 const chainKey = c => c.map(pid).join('>');
@@ -339,6 +368,21 @@ function togetherBuckets(branches, ctx) {
   return [...buckets.values()].filter(b => b.length > 1);
 }
 
+/*
+ * Several routes → one text (recursive). Steps, in order (README.md § 4 has an example of each):
+ *   0. identical routes dropped; one route left → written straight
+ *   1. a beginning shared by all → written once, the rest restarts from its last person («ح وعن أ»)
+ *   2. an ending shared by all (k links from the meeting person X); the narrators are who reach X:
+ *      2a. my teachers, taken the same way, straight to X → «قرأتُ على أ، وب، كلاهما قرأ على X»
+ *      2b. one shaykh's teachers straight to X           → «… على ب، وعلى ج، كلاهما قرأ على X»
+ *      2c. routes parting at once, meeting only later     → split where they part (حفص / شعبة)
+ *      2d. tahwilMeet 'repeat' (default)                  → branches by narrator, each naming X, «ح», then the tail
+ *   3. otherwise (no shared ending, or tahwilMeet 'joined') → branches by their last person, then
+ *      «كلاهما عن X» and the tail when there is one
+ * Limitation: only what ALL the routes of a call share is factored. Forks in the middle make the
+ * cross product of routes, and their shared parts are written once per combination (README.md § 5).
+ * scope: { opening, restart (person to name after ح), before (words already on this route), depth }
+ */
 function renderSet(chains, s, ctx, scope) {
   const sep = s.style.separator;
   const depth = (scope.depth || 0) + 1;
@@ -347,7 +391,7 @@ function renderSet(chains, s, ctx, scope) {
   const list = chains.filter(c => { const k = chainKey(c); if (seen.has(k)) return false; seen.add(k); return true; });
   const live = list.filter(c => c.length);
   if (!live.length) return '';
-  if (list.length === 1) return linear(list[0]);
+  if (list.length === 1) return linear(list[0]);                  // 0. one route
   const joinBranches = texts => joinBranchTexts(texts, s, scope, ctx);
   if (depth > MAX_DEPTH) return joinBranches(live.map(linear));
 
@@ -363,6 +407,7 @@ function renderSet(chains, s, ctx, scope) {
   const ended = list.length !== live.length;
 
   // 2. shared ending: group the heads by the narrator who reaches the meeting point
+  //    (k = shared links, X = live[i][len - k]; none when a route already ended here)
   const k = live.length === 1 || ended ? 0 : sharedTail(live);
   const narrators = new Map(k ? live.map(c => [pid(c[c.length - k - 1]), c[c.length - k]]) : []);
   const tailAfter = () => renderLinks(live[0].slice(live[0].length - k + 1), s, ctx, { opening: false });
@@ -371,20 +416,20 @@ function renderSet(chains, s, ctx, scope) {
     const toMeet = live.map(c => c.slice(0, c.length - k + 1));
     const from = String(toMeet[0][0].from_person_id);
     const siblings = toMeet.every(c => c.length === 2 && String(c[0].from_person_id) === from && !ctx.written.has(linkKey(c[0])));
-    // I took from each of my teachers the same way and they all meet: «قرأتُ على A، وB، كلاهما قرأ على X» — no ح
+    // 2a. I took from each of my teachers the same way and they all meet: «قرأتُ على A، وB، كلاهما قرأ على X» — no ح
     if (siblings && isMe(from)) {
       const [bucket] = togetherBuckets(toMeet, ctx);
       if (bucket && bucket.length === live.length) {
         return [renderTogether(bucket.map(c => c[0]), s, ctx), meetText(bucket.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
       }
     }
-    // a shaykh's own teachers who all meet: «… عن A، عن B، وعن C، كلاهما عن D» — no ح
+    // 2b. a shaykh's own teachers who all meet: «… عن A، عن B، وعن C، كلاهما عن D» — no ح
     if (siblings && !isMe(from)) {
       return [renderSiblings(toMeet.map(c => c[0]), s, ctx), meetText(toMeet.map(c => c[1]), s, ctx), ...tailAfter()].join(sep);
     }
   }
 
-  // Routes that part right away and meet again only later (حفص's and شعبة's, each through its own
+  // 2c. Routes that part right away and meet again only later (حفص's and شعبة's, each through its own
   // sahaba up to النبي ﷺ): split where they part when that makes fewer branches than splitting at the
   // meeting — «… السلمي، وهو قرأ على عثمان، وعلى علي…، كلهم قرأ على النبي ﷺ ح وعن زيد… زر…، كلهم قرأ على النبي ﷺ، …»
   if (narrators.size > 1) {
@@ -401,7 +446,7 @@ function renderSet(chains, s, ctx, scope) {
   }
 
   if (narrators.size > 1 && s.style.tahwilMeet !== 'joined') {
-    // every branch names the meeting person X: «A عن B عن X ح وD عن E عن X، عن G».
+    // 2d. every branch names the meeting person X: «A عن B عن X ح وD عن E عن X، عن G».
     // Branches are grouped by who reaches X, each group factored the same way (smaller sets: no loop).
     const groups = new Map();
     live.forEach(c => {
@@ -421,6 +466,7 @@ function renderSet(chains, s, ctx, scope) {
     });
     return [joinBranches(texts), ...tailAfter()].join(sep);
   }
+  // 3. branches by their last person (before the shared ending, if any)
   const branches = live.length === 1 ? [linear(live[0])] : null;
   const heads = k ? live.map(c => c.slice(0, c.length - k)) : live;
   let texts = branches;
@@ -450,7 +496,13 @@ function renderSet(chains, s, ctx, scope) {
   return [text, meet, ...after].join(sep);
 }
 
-/** Several alternative chains → one text using تحويل (see renderSet). */
+// ── 5. entry points ───────────────────────────────────────────────────────
+
+/**
+ * Several alternative chains → one text using تحويل (see renderSet). The chains are cut first
+ * (cutChain). Routes not starting at me name their first person once and restart from him after ح.
+ * ctx: pass one newContext() to read back the names written and the persons noted.
+ */
 function renderChains(chains, settings, ctx = newContext()) {
   const s = mergeSettings(settings);
   const list = (chains || []).filter(c => c?.length).map(c => cutChain(c, s));
