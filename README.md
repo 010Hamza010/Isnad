@@ -147,7 +147,7 @@ Every endpoint is under `/api` and needs `Authorization: Bearer <token>`, except
 |------|-----------|
 | Auth | `GET /auth/status` · `POST /auth/setup` · `POST /auth/login` · `GET /auth/me` · `PUT /auth/username` · `PUT /auth/password` · `POST /auth/logout-others` |
 | Profile | `GET/PUT /profile` |
-| Persons, mutoon | `GET/POST /persons`, `PUT/DELETE /persons/:id` · same for `/mutoon` |
+| Persons, mutoon | `GET/POST /persons`, `PUT/DELETE /persons/:id`, `POST /persons/:id/merge` `{ into, dry_run }` (duplicate → kept person) · same for `/mutoon` (no merge) |
 | Links | `/matn-connections`, `/quran-connections` (CRUD) |
 | Quran master data | `/quran/qiraat`, `/quran/riwayat`, `/quran/turuq` (CRUD) |
 | Transmission types | `GET /tx-types` · `GET /tx-types/kinds` · `PUT /tx-types/:id/kind` |

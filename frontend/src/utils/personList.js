@@ -1,5 +1,5 @@
 // Filtering, sorting and paging of the «الأعلام» page, done in the browser on the full list.
-import { matches, normalizeArabic } from './text.js';
+import { matches, normalizeArabic, nameForm } from './text.js';
 import { hasRole } from './personRoles.js';
 
 export const PAGE_SIZE = 50;
@@ -111,3 +111,35 @@ export function withDeathYear(form, deathYear) {
   if (wasAuto) next.century = auto != null ? String(auto) : centuryOf(form.death_year) != null ? '' : form.century;
   return next;
 }
+
+// Persons that may be the same as `person`, best first: the same name once «ابن» = «بن» and
+// tashkeel are ignored (1), or every word of the shorter name (2 words at least) in the longer one (0.7).
+export function likelyDuplicates(person, persons) {
+  const words = s => nameForm(s).split(' ').filter(Boolean);
+  const mine = words(person.name_ar);
+  return persons
+    .filter(p => Number(p.id) !== Number(person.id) && Number(p.id) > 0)
+    .map(p => {
+      const theirs = words(p.name_ar);
+      if (mine.join(' ') === theirs.join(' ')) return { person: p, score: 1 };
+      const [short, long] = mine.length <= theirs.length ? [mine, theirs] : [theirs, mine];
+      return { person: p, score: short.length >= 2 && short.every(w => long.includes(w)) ? 0.7 : 0 };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.person.name_ar).localeCompare(String(b.person.name_ar), 'ar'));
+}
+
+// What a merge (dry run) will do, as short Arabic lines.
+export function mergeSummary(r, dropName) {
+  if (!r) return [];
+  return [
+    r.matn_moved && `يُنقل ${r.matn_moved} اتصال متن`,
+    r.quran_moved && `يُنقل ${r.quran_moved} اتصال قرآن`,
+    (r.matn_removed + r.quran_removed) > 0 && `يُحذف ${r.matn_removed + r.quran_removed} اتصال مكرر أو يصل العلَم بنفسه`,
+    r.mutoon && `${r.mutoon} متن يصير مؤلفه العلَم المُبقى`,
+    (r.qiraat + r.riwayat) > 0 && `${r.qiraat + r.riwayat} قراءة أو رواية يصير إمامها أو راويها العلَم المُبقى`,
+    r.filled?.length && `تُكمَل من بياناته: ${r.filled.map(f => FIELD_LABELS[f] || f).join('، ')}`,
+    `ثم يُحذف «${dropName}»`,
+  ].filter(Boolean);
+}
+const FIELD_LABELS = { name_latin: 'الاسم اللاتيني', kunya: 'الكنية', nisba: 'النسبة', century: 'القرن', death_year: 'سنة الوفاة', region: 'البلد', description: 'الترجمة' };

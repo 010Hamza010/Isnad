@@ -79,3 +79,22 @@ test('typing a death year fills the century, never over one set by hand', () => 
   assert.equal(withDeathYear({ death_year: '', century: '10' }, '852').century, '10');
   assert.equal(withDeathYear({ death_year: '852', century: 10 }, '853').century, 10);
 });
+
+import { likelyDuplicates, mergeSummary } from '../src/utils/personList.js';
+
+test('likely duplicates: same name with ابن/بن first, then a name inside the other', () => {
+  const all = [
+    { id: 267, name_ar: 'أبي الفضل سعد بن محمد بن عمر بن سالم' },
+    { id: 386, name_ar: 'أبي الفضل سعد بن محمد بن عمر ابن سالم' },
+    { id: 500, name_ar: 'علي بن محمد' },
+    { id: 501, name_ar: 'ابن قاسم' },
+    { id: -1, name_ar: 'النبي ﷺ' },
+  ];
+  assert.deepEqual(likelyDuplicates(all[1], all).map(x => [x.person.id, x.score]), [[267, 1], [500, 0.7]]);
+  assert.deepEqual(likelyDuplicates(all[3], all), []);
+});
+
+test('merge summary in plain lines', () => {
+  const lines = mergeSummary({ matn_moved: 3, matn_removed: 1, quran_moved: 0, quran_removed: 0, mutoon: 0, qiraat: 0, riwayat: 0, filled: ['region'] }, 'ابن سالم');
+  assert.deepEqual(lines, ['يُنقل 3 اتصال متن', 'يُحذف 1 اتصال مكرر أو يصل العلَم بنفسه', 'تُكمَل من بياناته: البلد', 'ثم يُحذف «ابن سالم»']);
+});

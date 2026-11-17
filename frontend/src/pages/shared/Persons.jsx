@@ -3,14 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import useLoad from '../../hooks/useLoad';
 import { useUI } from '../../components/ui/UIProvider';
-import { FormModal } from '../../components/ui/Modal';
+import Modal, { FormModal } from '../../components/ui/Modal';
+import Combobox from '../../components/ui/Combobox';
 import { Field, TextInput, TextArea } from '../../components/ui/Field';
 import EmptyState, { SkeletonList } from '../../components/ui/EmptyState';
 import SearchInput from '../../components/ui/SearchInput';
 import Segmented from '../../components/ui/Segmented';
 import Icon from '../../components/ui/Icon';
 import { personRoles } from '../../utils/personRoles';
-import { filterPersons, kindCounts, facets, paginate, pageNumbers, missing, withDeathYear } from '../../utils/personList';
+import { filterPersons, kindCounts, facets, paginate, pageNumbers, missing, withDeathYear, likelyDuplicates, mergeSummary } from '../../utils/personList';
 
 const EMPTY = { name_ar: '', name_latin: '', gender: 'M', kunya: '', nisba: '', century: '', death_year: '', region: '', description: '' };
 const SORTS = [{ value: 'name', label: 'الاسم' }, { value: 'death', label: 'سنة الوفاة' }, { value: 'links', label: 'الأكثر روابط' }];
@@ -37,6 +38,7 @@ export default function Persons() {
   }, { replace: true });
 
   const [form, setForm]     = useState(null);
+  const [merging, setMerging] = useState(null);
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -126,6 +128,7 @@ export default function Persons() {
                   </div>
                   <div className="actions">
                     <button className="icon-btn" onClick={() => openEdit(p)} aria-label="تعديل" title="تعديل"><Icon name="edit" size={16} /></button>
+                    {Number(p.id) > 0 && <button className="icon-btn" onClick={() => setMerging(p)} aria-label="دمج في علَم آخر" title="دمج في علَم آخر (مكرر)"><Icon name="layers" size={16} /></button>}
                     <button className="icon-btn danger" onClick={() => del(p)} aria-label="حذف" title="حذف"><Icon name="trash" size={16} /></button>
                   </div>
                 </div>
@@ -145,6 +148,9 @@ export default function Persons() {
           </nav>
         </>
       )}
+
+      {merging && <MergeModal person={merging} persons={persons} onClose={() => setMerging(null)}
+        onMerged={() => { setMerging(null); reload(); }} />}
 
       {form && (
         <FormModal title={form.id ? 'تعديل العلَم' : 'علَم جديد'} onClose={() => setForm(null)} onSubmit={save} saving={saving}>
@@ -171,5 +177,59 @@ export default function Persons() {
         </FormModal>
       )}
     </>
+  );
+}
+
+/** Merge a duplicate into another person: pick the one to keep (likely duplicates first), see what moves, confirm. */
+function MergeModal({ person, persons, onClose, onMerged }) {
+  const { toast, notifyError } = useUI();
+  const [into, setInto]       = useState('');
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy]       = useState(false);
+
+  const dups = useMemo(() => likelyDuplicates(person, persons), [person, persons]);
+  const opts = useMemo(() => {
+    const dupIds = new Set(dups.map(d => Number(d.person.id)));
+    const label = p => ({ value: p.id, label: p.name_ar, sub: [p.death_year && `ت ${p.death_year}`, p.links_count ? `${p.links_count} رابط` : null].filter(Boolean).join(' · ') });
+    return [
+      ...dups.map(d => ({ ...label(d.person), sub: ['تكرار محتمل', label(d.person).sub].filter(Boolean).join(' · ') })),
+      ...persons.filter(p => Number(p.id) > 0 && Number(p.id) !== Number(person.id) && !dupIds.has(Number(p.id))).map(label),
+    ];
+  }, [dups, persons, person]);
+
+  const pick = async v => {
+    setInto(v ?? ''); setPreview(null);
+    if (!v) return;
+    try { const { data } = await api.post(`/persons/${person.id}/merge`, { into: v, dry_run: true }); setPreview(data); }
+    catch (e) { notifyError(e); }
+  };
+  const run = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/persons/${person.id}/merge`, { into });
+      toast(`دُمج «${person.name_ar}» في «${persons.find(p => String(p.id) === String(into))?.name_ar}»`);
+      onMerged();
+    } catch (e) { notifyError(e); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="دمج علَم مكرر" onClose={onClose} footer={<>
+      <button type="button" className="btn btn-secondary" onClick={onClose}>إلغاء</button>
+      <button type="button" className="btn btn-danger" disabled={!preview || busy} onClick={run}>
+        {busy ? <span className="spinner" /> : <Icon name="layers" size={16} />} دمج
+      </button>
+    </>}>
+      <div className="stack">
+        <div>يُدمج <strong>«{person.name_ar}»</strong> في العلَم الذي تختاره: تنتقل إليه كل اتصالاته، ثم يُحذف.</div>
+        <Field label="العلَم الذي يبقى" hint={dups.length ? 'التكرارات المحتملة أولاً' : undefined}>
+          <Combobox value={into} opts={opts} onChange={pick} placeholder="ابحث عن العلَم الذي يبقى…" />
+        </Field>
+        {preview && (
+          <ul className="small" style={{ margin: 0, paddingInlineStart: 18 }}>
+            {mergeSummary(preview, person.name_ar).map(l => <li key={l}>{l}</li>)}
+          </ul>
+        )}
+      </div>
+    </Modal>
   );
 }

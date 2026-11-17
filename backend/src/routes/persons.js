@@ -6,4 +6,5 @@ r.get('/',      auth, w(c.list));
 r.post('/',     auth, w(c.create));
 r.put('/:id',   auth, w(c.update));
 r.delete('/:id',auth, w(c.remove));
+r.post('/:id/merge', auth, w(c.merge));
 module.exports = r;
